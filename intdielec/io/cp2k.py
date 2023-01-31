@@ -1153,7 +1153,7 @@ def gaussian_convolve(xs, ys, sigma):
         bin_width = bins[1:] - bins[:-1]
         output.append(
             np.sum(bin_width * ((tmp_out * ys)[1:] + (tmp_out * ys)[:-1]) / 2))
-    return output
+    return np.array(output)
 
 
 def get_pdos(pdos_file, smearing_width=0.2):
@@ -1288,15 +1288,18 @@ class Cp2kCube():
         self.cube_data, self.atoms = read_cube_data(fname)
 
     def get_ave_cube(self, axis="z", gaussian_sigma=0.):
-        self.axis = axis_dict[axis]
-
-        cell_param = self.atoms.cell.cellpar()
-        # assert cell_param[-3:]
-        self.ave_grid = np.arange(
-            0, cell_param[self.axis],
-            cell_param[self.axis] / self.cube_data.shape[self.axis])
-        ave_axis = tuple(np.delete(np.arange(3), self.axis).tolist())
-        self.ave_cube_data = np.mean(self.cube_data, axis=ave_axis)
+        if hasattr(self, 'axis') and self.axis == axis_dict[axis] and hasattr(
+                self, 'ave_cube_data'):
+            pass
+        else:
+            cell_param = self.atoms.cell.cellpar()
+            self.axis = axis_dict[axis]
+            # assert cell_param[-3:]
+            self.ave_grid = np.arange(
+                0, cell_param[self.axis],
+                cell_param[self.axis] / self.cube_data.shape[self.axis])
+            ave_axis = tuple(np.delete(np.arange(3), self.axis).tolist())
+            self.ave_cube_data = np.mean(self.cube_data, axis=ave_axis)
 
         if gaussian_sigma > 0.:
             self.ave_cube_data_convolve = gaussian_convolve(
@@ -1339,7 +1342,7 @@ class Cp2kHartreeCube(Cp2kCube):
         else:
             _data = np.array(
                 self.ave_cube_data)[self.vac_region[0]:self.vac_region[1]]
-        dev_data = _data[1:] - _data[:-1]
+        dev_data = np.diff(_data, axis=0)
         p_jump = np.argmax(np.abs(dev_data))
         return dev_data[p_jump]
 
