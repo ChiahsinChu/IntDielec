@@ -240,7 +240,7 @@ class ElecEps:
                      orientation='vertical',
                      ticks=np.linspace(v_primes[0], v_primes[-1], 5))
 
-        fig.subplots_adjust(wspace=0.1, hspace=0.1)
+        fig.subplots_adjust(wspace=0.25, hspace=0.25)
 
         if fname:
             fig.savefig(fname, bbox_inches='tight')
