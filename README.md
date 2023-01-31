@@ -1,5 +1,4 @@
 # IntDielec
----
 
 ## To do list
 - [ ] merge the code in `WatAnalysis` for ori_eps calculation
