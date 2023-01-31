@@ -1,1 +1,48 @@
 # IntDielec
+---
+
+## To do list
+- [ ] merge the code in `WatAnalysis` for ori_eps calculation
+- [ ] NNP validation code used in this work
+- [ ] add bash file for task submission (temporary use)
+- [ ] add workflow
+
+## Introduction
+
+## Installation
+
+```bash
+git clone https://github.com/ChiahsinChu/IntDielec.git ./IntDielec
+cd IntDielec
+pip install .
+```
+
+## User guide
+
+### calculation of electronic dielectric constant 
+
+Here is a simple example:
+
+```python
+from intdielec.workflow.elec_eps import ElecEps
+
+task = ElecEps(atoms, work_dir="eps_cal")
+task.ref_preset()
+# submit and wait for calculation finish...
+task.ref_calculate(vac_region=[45, 10.])
+task.set_v_seq(np.arange(-3.5, 3.6, 0.5))
+task.preset()
+# submit and wait for calculation finish...
+task.calculate(pos_vac=8.0)
+fig, axs = task.plot(fname="eps_cal.png")
+```
+
+methods and keywords... (TBC)
+
+### calculation of orientational dielectric constant 
+
+## Developer guide
+
+This package is constructed in the following way. TBC
+
+## Reference
