@@ -1,6 +1,9 @@
+import csv
 import glob
 import os
 import copy
+import pickle
+import json
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -12,7 +15,6 @@ from ..plot import core
 from ..utils.math import *
 from ..utils.unit import *
 
-# TODO: add the codes to finish the calculation (workflow)
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 
@@ -25,6 +27,7 @@ class ElecEps:
         work_dir: str = None,
         v_zero: float = None,
         v_seq: list or np.ndarray = None,
+        data_fmt: str = "json",
     ) -> None:
         self.atoms = atoms
         assert atoms.cell is not None
@@ -32,10 +35,11 @@ class ElecEps:
         self.work_dir = work_dir
         self.v_zero = v_zero
         self.set_v_seq(v_seq)
+        self.data_fmt = data_fmt
+        self._load_data()
 
         self.v_cubes = []
         self.e_cubes = []
-        self.results = {}
 
     def ref_preset(self, calculate=False, **kwargs):
         """
@@ -264,6 +268,44 @@ class ElecEps:
                     self.v_tasks.append("%.1f" % v)
                 else:
                     self.v_tasks.append("_%.1f" % -v)
+
+    def _load_data(self):
+        fname = os.path.join(self.work_dir, "eps_data.%s" % self.data_fmt)
+        if os.path.exists(fname):
+            getattr(self, "_load_data_%s" % self.data_fmt)(fname)
+        else:
+            self.results = {}
+
+    def _load_data_csv(self, fname):
+        with open(fname, "r") as f:
+            data = csv.reader(f)
+            self.results = {rows[0]: rows[1] for rows in data}
+
+    def _load_data_json(self, fname):
+        with open(fname, "r") as f:
+            self.results = json.load(f)
+
+    def _load_data_pkl(self, fname):
+        with open(fname, "rb") as f:
+            self.results = pickle.load(f)
+
+    def _save_data(self):
+        fname = os.path.join(self.work_dir, "eps_data.%s" % self.data_fmt)
+        getattr(self, "_save_data_%s" % self.data_fmt)(fname)
+
+    def _save_data_csv(self, fname):
+        with open(fname, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=self.results.keys())
+            writer.writeheader()
+            writer.writerow(self.results)
+
+    def _save_data_json(self, fname):
+        with open(fname, "w") as f:
+            json.dump(self.results, f)
+
+    def _save_data_pkl(self, fname):
+        with open(fname, "wb") as f:
+            pickle.dump(self.results, f)
 
     @staticmethod
     def _calculate_efield_zero(cube, pos_vac):
