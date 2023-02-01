@@ -5,6 +5,7 @@
 - [ ] NNP validation code used in this work
 - [ ] add bash file for task submission (temporary use)
 - [ ] add workflow
+- [ ] format to save data (SQL?)
 
 ## Introduction
 
