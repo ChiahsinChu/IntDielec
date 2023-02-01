@@ -8,7 +8,8 @@ from ase import io
 from ase.io.cube import read_cube_data
 
 from ..utils.unit import *
-from .template import cp2k_default_input, lj_param
+from ..utils.utils import iterdict, update_dict, axis_dict
+from .template import cp2k_default_input
 """
 def iterdict(input_dict, out_list=["\n"], loop_idx=0):
     if len(out_list) == 0:
@@ -51,28 +52,41 @@ def iterdict(input_dict, out_list=["\n"], loop_idx=0):
             iterdict(tmp_dict, out_list, loop_idx)
     return out_list
 """
-
-axis_dict = {"x": 0, "y": 1, "z": 2}
-
-
 class Cp2kInput():
     """
-    Parameters
+    Class for CP2K input file generation (on the basis of templates)
+    
+    Attributes
     ----------
     atoms: ASE Atoms object
         TBC
+    input_type: str
+        TBC
+    pp_dir: str
+        directory for basis set, peusudopotential, etc.
+    wfn_restart: str
+        wfn file for restart, see ref: 
+    qm_charge: float
+        charge in QS
+    multiplicity: int
+        ref:
+    uks: boolen
+        ref:
+    cutoff: int
+        ref: 
+    rel_cutoff: int
+        ref: 
 
-    Example
-    -------
-    from ase import io
-    from zjxpack.io.cp2k import Cp2kInput
-
-    atoms = io.read("POSCAR")
-    input = Cp2kInput(atoms, 
-                      pp_dir="/data/basis", 
-                      hartree=True, 
-                      eden=True)
-    input.write()
+    Examples
+    --------
+    >>> from ase import io
+    >>> from zjxpack.io.cp2k import Cp2kInput
+    >>> atoms = io.read("POSCAR")
+    >>> input = Cp2kInput(atoms, 
+    >>>                   pp_dir="/data/basis", 
+    >>>                   hartree=True, 
+    >>>                   eden=True)
+    >>> input.write()
     """
 
     def __init__(self, atoms, input_type="energy", **kwargs) -> None:
@@ -83,17 +97,19 @@ class Cp2kInput():
 
     def set_params(self, kwargs):
         for kw, value in kwargs.items():
-            getattr(self, "set_%s" % kw)(value)
+            update_d = getattr(self, "set_%s" % kw)(value)
+            update_dict(self.input_dict, update_d)
 
     def write(self, output_dir=".", fp_params={}):
         """
         generate coord.xyz and input.inp for CP2K calculation at output_dir
 
-        Args:
-            atoms: ASE Atoms object for cell parameter and coord
-            input_dict: dict for CP2K input parameters
-            output_dir: directory to store coord.xyz and input.inp
-            fp_params: dict for updated parameters
+        Parameters
+        ----------
+        output_dir: str
+            directory to store coord.xyz and input.inp
+        fp_params: dict
+            dict for updated parameters
         """
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -133,6 +149,10 @@ class Cp2kInput():
                   encoding='utf-8') as f:
             f.write(str)
 
+    def set_project(self, project_name: str):
+        update_d = {"GLOBAL": {"PROJECT": project_name}}
+        return update_d
+
     def set_pp_dir(self, pp_dir):
         update_d = {
             "FORCE_EVAL": {
@@ -152,28 +172,30 @@ class Cp2kInput():
                 }
             }
         }
-        update_dict(self.input_dict, update_d)
+        return update_d
 
     def set_wfn_restrat(self, wfn_file):
         update_d = {"FORCE_EVAL": {"DFT": {"WFN_RESTART_FILE_NAME": wfn_file}}}
-        update_dict(self.input_dict, update_d)
+        return update_d
 
     def set_qm_charge(self, charge):
         update_d = {"FORCE_EVAL": {"DFT": {"CHARGE": charge}}}
-        update_dict(self.input_dict, update_d)
+        return update_d
 
     def set_multiplicity(self, multiplicity):
         update_d = {"FORCE_EVAL": {"DFT": {"MULTIPLICITY": multiplicity}}}
-        update_dict(self.input_dict, update_d)
+        return update_d
 
     def set_uks(self, flag):
         if flag:
             update_d = {"FORCE_EVAL": {"DFT": {"UKS": ".TRUE."}}}
-            update_dict(self.input_dict, update_d)
+            return update_d
+        else:
+            return {}
 
     def set_cutoff(self, cutoff):
         update_d = {"FORCE_EVAL": {"DFT": {"MGRID": {"CUTOFF": cutoff}}}}
-        update_dict(self.input_dict, update_d)
+        return update_d
 
     def set_rel_cutoff(self, rel_cutoff):
         update_d = {
@@ -185,7 +207,7 @@ class Cp2kInput():
                 }
             }
         }
-        update_dict(self.input_dict, update_d)
+        return update_d
 
     def set_kp(self, kp_mp):
         update_d = {
@@ -208,7 +230,7 @@ class Cp2kInput():
                 }
             }
         }
-        update_dict(self.input_dict, update_d)
+        return update_d
 
     def set_dip_cor(self, flag):
         if flag:
@@ -219,7 +241,9 @@ class Cp2kInput():
                     }
                 }
             }
-            update_dict(self.input_dict, update_d)
+            return update_d
+        else:
+            return {}
 
     def set_eden(self, flag):
         if flag:
@@ -235,7 +259,9 @@ class Cp2kInput():
                     }
                 }
             }
-            update_dict(self.input_dict, update_d)
+            return update_d
+        else:
+            return {}
 
     def set_mo(self, flag):
         if flag:
@@ -250,7 +276,9 @@ class Cp2kInput():
                     }
                 }
             }
-            update_dict(self.input_dict, update_d)
+            return update_d
+        else:
+            return {}
 
     def set_pdos(self, flag):
         if flag:
@@ -268,7 +296,9 @@ class Cp2kInput():
                     }
                 }
             }
-            update_dict(self.input_dict, update_d)
+            return update_d
+        else:
+            return {}
 
     def set_hartree(self, flag):
         if flag:
@@ -284,7 +314,9 @@ class Cp2kInput():
                     }
                 }
             }
-            update_dict(self.input_dict, update_d)
+            return update_d
+        else:
+            return {}
 
     def set_efield(self, flag):
         if flag:
@@ -300,559 +332,79 @@ class Cp2kInput():
                     }
                 }
             }
-            update_dict(self.input_dict, update_d)
+            return update_d
+        else:
+            return {}
 
     def set_extended_fft_lengths(self, flag):
         if flag:
             update_d = {"GLOBAL": {"EXTENDED_FFT_LENGTHS": ".TRUE."}}
-            update_dict(self.input_dict, update_d)
+            return update_d
+        else:
+            return {}
 
-    # TODO: modify the fp_param
-    def set_kind(self, elem, basis_set, pp):
+    def set_kind(self, kind_dict: dict):
+        """
+        Parameter
+        ---------
+        kind_dict: dict
+            dict to update kind section, for example:
+            {
+                "S": {
+                    "ELEMENT": "O",
+                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH", 
+                    "BASIS_SET": "GTH-PBE-q6"
+                },
+                "Li": {
+                    "ELEMENT": "H",
+                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH", 
+                    "BASIS_SET": "GTH-PBE-q1"
+                }
+            }
+        """
+
         update_d = {"FORCE_EVAL": {"SUBSYS": {}}}
         update_dict(self.input_dict, update_d)
 
-        if self.input_dict["FORCE_EVAL"]["SUBSYS"].get("KIND"):
-            label = -1
-            update_d = {"_": elem, "BASIS_SET": basis_set, "POTENTIAL": pp}
-            for idx, item in enumerate(
-                    self.input_dict["FORCE_EVAL"]["SUBSYS"]["KIND"]):
-                if elem == item["_"]:
-                    # if exist, record the idx
-                    label = idx
-            if label == -1:
-                # if not exist, add
-                self.input_dict["FORCE_EVAL"]["SUBSYS"]["KIND"].append(
-                    update_d)
-            else:
-                # if exist, update
-                self.input_dict["FORCE_EVAL"]["SUBSYS"]["KIND"][
-                    label] = update_d
-        else:
-            self.input_dict["FORCE_EVAL"]["SUBSYS"]["KIND"] = [update_d]
-
-    def set_constrain(self,
-                      init_idx,
-                      fin_idx,
-                      restrain=False,
-                      k_res=0.1,
-                      axis="xyz"):
-        update_d = {"MOTION": {"CONSTRAINT": {}}}
-        update_dict(self.input_dict, update_d)
-
-        update_d = {
-            "COMPONENTS_TO_FIX": axis,
-            "LIST": str(init_idx) + ".." + str(fin_idx),
-        }
-        if restrain == True:
-            update_d["RESTRAINT"] = {"K": k_res}
-
-        if self.input_dict["MOTION"]["CONSTRAINT"].get("FIXED_ATOMS"):
-            # if exist, add
-            self.input_dict["MOTION"]["CONSTRAINT"]["FIXED_ATOMS"].append(
-                update_d)
-        else:
-            # if not exist, create a list
-            self.input_dict["MOTION"]["CONSTRAINT"]["FIXED_ATOMS"] = [update_d]
-
-    def set_motion_print_stride(self, stride):
-        update_d = {
-            "MOTION": {
-                "PRINT": {
-                    "TRAJECTORY": {
-                        "EACH": {
-                            "GEO_OPT": stride,
-                            "MD": stride
-                        }
-                    },
-                    "VELOCITIES": {
-                        "EACH": {
-                            "GEO_OPT": stride,
-                            "MD": stride
-                        }
-                    },
-                    "FORCES": {
-                        "EACH": {
-                            "GEO_OPT": stride,
-                            "MD": stride
-                        }
-                    }
-                }
-            }
-        }
-        update_dict(self.input_dict, update_d)
+        old_kind_list = self.input_dict["FORCE_EVAL"]["SUBSYS"].get("KIND", [])
+        if len(old_kind_list) > 0:
+            for k, v in kind_dict.items():
+                tmp_dict = copy.deepcopy(v)
+                tmp_dict.update({"_": k})
+                flag = False
+                for ii, item in enumerate(old_kind_list):
+                    if k == item["_"]:
+                        # print(v)
+                        old_kind_list[ii] = tmp_dict
+                        flag = True
+                        break
+                if flag == False:
+                    old_kind_list.append(tmp_dict)
+        return {}
 
     def set_restart(self, flag):
         if flag:
-            update_d = {"EXT_RESTART": {"RESTART_FILE_NAME": "cp2k-1.restart"}}
-            update_dict(self.input_dict, update_d)
-
-    def set_nosiy_gamma(self, init_idx, fin_idx, temp, nosiy_gamma):
-        if self.input_dict["MOTION"]["MD"].get("THERMAL_REGION"):
             update_d = {
-                "TEMPERATURE": temp,
-                "NOISY_GAMMA_REGION": nosiy_gamma,
-                "LIST": str(init_idx) + ".." + str(fin_idx)
-            }
-            if self.input_dict["MOTION"]["MD"]["THERMAL_REGION"].get(
-                    "DEFINE_REGION"):
-                self.input_dict["MOTION"]["MD"]["THERMAL_REGION"][
-                    "DEFINE_REGION"].append(update_d)
-            else:
-                self.input_dict["MOTION"]["MD"]["THERMAL_REGION"][
-                    "DEFINE_REGION"] = [update_d]
-        else:
-            raise AttributeError('Mismatched MD type!')
-
-    def set_dp_pot(self, elem, graph, elem_type):
-        """
-        TBC
-        """
-        update_d = {"FORCE_EVAL": {"MM": {"FORCEFIELD": {"NONBONDED": {}}}}}
-        update_dict(self.input_dict, update_d)
-
-        label = -1
-        update_d = {
-            "ATOMS": elem + "  " + elem,
-            "POT_FILE_NAME": graph,
-            "ATOM_DEEPMD_TYPE": elem_type
-        }
-
-        if input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"]["NONBONDED"].get(
-                "DEEPMD"):
-            for idx, item in enumerate(input_dict["FORCE_EVAL"]["MM"]
-                                       ["FORCEFIELD"]["NONBONDED"]["DEEPMD"]):
-                s = item["ATOMS"].strip()
-                s = s.split()
-                if elem == s[0]:
-                    # if exist, record the idx
-                    label = idx
-            if label == -1:
-                # if not exist, add
-                input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"]["NONBONDED"][
-                    "DEEPMD"].append(update_d)
-            else:
-                # if exist, update
-                input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"]["NONBONDED"][
-                    "DEEPMD"][label] = update_d
-        else:
-            input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"]["NONBONDED"][
-                "DEEPMD"] = [update_d]
-
-        set_ff_charge(input_dict, elem, 0.)
-
-    def set_ff_charge(self, elem, charge):
-        label = -1
-        update_d = {"ATOM": elem, "CHARGE": charge}
-        if self.input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"].get("CHARGE"):
-            for idx, item in enumerate(self.input_dict["FORCE_EVAL"]["MM"]
-                                       ["FORCEFIELD"]["CHARGE"]):
-                if elem == item["ATOM"].strip():
-                    label = idx
-            if label == -1:
-                # if not exist, add
-                self.input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"][
-                    "CHARGE"].append(update_d)
-            else:
-                # if exist, update
-                self.input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"]["CHARGE"][
-                    label] = update_d
-        else:
-            self.input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"]["CHARGE"] = [
-                update_d
-            ]
-
-    def set_lj_pot(self, elem_list, lj_param_lib=lj_param):
-        if self.input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"].get(
-                "NONBONDED", None) is None:
-            update_d = {
-                "FORCE_EVAL": {
-                    "MM": {
-                        "FORCEFIELD": {
-                            "NONBONDED": {
-                                "LENNARD-JONES": []
-                            }
-                        }
-                    }
+                "EXT_RESTART": {
+                    "RESTART_FILE_NAME":
+                    "%s-1.restart" % self.input_dict["GLOBAL"]["PROJECT"]
                 }
             }
-            update_dict(self.input_dict, update_d)
+            return update_d
         else:
-            if self.input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"][
-                    "NONBONDED"].get("LENNARD-JONES", None) is None:
-                update_d = {
-                    "FORCE_EVAL": {
-                        "MM": {
-                            "FORCEFIELD": {
-                                "NONBONDED": {
-                                    "LENNARD-JONES": []
-                                }
-                            }
-                        }
-                    }
-                }
-                update_dict(self.input_dict, update_d)
-
-        # atom 1
-        for idx1 in range(len(elem_list)):
-            # atom 2
-            for idx2 in range(idx1, len(elem_list)):
-                epsilon = np.sqrt(lj_param_lib[elem_list[idx1]]['epsilon'] *
-                                  lj_param_lib[elem_list[idx2]]['epsilon'])
-                sigma = np.sqrt(lj_param_lib[elem_list[idx1]]['sigma'] *
-                                lj_param_lib[elem_list[idx2]]['sigma'])
-                update_d = {
-                    "ATOMS": elem_list[idx1] + " " + elem_list[idx2],
-                    "EPSILON [eV]": epsilon,
-                    "SIGMA [angstrom]": sigma
-                }
-                self.input_dict["FORCE_EVAL"]["MM"]["FORCEFIELD"]["NONBONDED"][
-                    "LENNARD-JONES"].append(update_d)
+            return {}
 
     def set_md_step(self, md_step):
         update_d = {"MOTION": {"MD": {"STEPS": md_step}}}
-        update_dict(self.input_dict, update_d)
+        return update_d
 
     def set_md_temp(self, md_temp):
         update_d = {"MOTION": {"MD": {"TEMPERATURE": md_temp}}}
-        update_dict(self.input_dict, update_d)
+        return update_d
 
     def set_md_timestep(self, md_timestep):
         update_d = {"MOTION": {"MD": {"TIMESTEP": md_timestep}}}
-        update_dict(self.input_dict, update_d)
-
-    # TODO: add CV
-
-    def aimd(pp_dir=None,
-             wfn_file=None,
-             charge=None,
-             multiplicity=None,
-             cutoff=None,
-             uks=False,
-             dip_cor=False,
-             eden=False,
-             mo=False,
-             pdos=False,
-             hartree=False,
-             restart=False,
-             stride=1,
-             aimd_type="sgcpmd"):
-        input_dict = copy.deepcopy(default_geo_opt)
-
-        if aimd_type == "sgcpmd":
-            input_dict = copy.deepcopy(default_aimd)
-            update_d = {
-                "MOTION": {
-                    "MD": {
-                        "TIMESTEP": 0.5,
-                        "STEPS": 30000000,
-                        "TEMPERATURE": 330,
-                        "TEMP_KIND": ".TRUE.",
-                        "ENSEMBLE": "LANGEVIN",
-                        "LANGEVIN": {
-                            "GAMMA": 0.001,
-                            "NOISY_GAMMA": 0
-                        },
-                        "THERMAL_REGION": {
-                            "DO_LANGEVIN_DEFAULT": ".TRUE.",
-                            "FORCE_RESCALING": ".TRUE.",
-                            "PRINT": {
-                                "TEMPERATURE": {},
-                                "LANGEVIN_REGIONS": {
-                                    "FILENAME": "__STD_OUT__"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            dpgen_cp2k.update_dict(input_dict, update_d)
-        elif aimd_type == "bomd":
-            input_dict = copy.deepcopy(default_aimd)
-            input_dict["FORCE_EVAL"] = copy.deepcopy(
-                default_energy["FORCE_EVAL"])
-            update_d = {
-                "MOTION": {
-                    "MD": {
-                        "TIMESTEP": 0.5,
-                        "STEPS": 30000000,
-                        "TEMPERATURE": 330,
-                        "ENSEMBLE": "NVT",
-                        "THERMOSTAT": {
-                            "REGION": "MOLECULE",
-                            "NOSE": {
-                                "LENGTH": 3,
-                                "YOSHIDA": 3,
-                                "TIMECON": 1000,
-                                "MTS": 2
-                            }
-                        }
-                    }
-                }
-            }
-            dpgen_cp2k.update_dict(input_dict, update_d)
-        else:
-            raise AttributeError("Unsupported AIMD type!")
-
-        if pp_dir is not None:
-            set_pp_dir(input_dict, pp_dir)
-        if wfn_file is not None:
-            set_wfn_restrat(input_dict, wfn_file)
-        if charge is not None:
-            set_qm_charge(input_dict, charge)
-        if multiplicity is not None:
-            set_multiplicity(input_dict, multiplicity)
-        if cutoff is not None:
-            set_cutoff(input_dict, cutoff)
-        if uks == True:
-            set_uks(input_dict)
-        if dip_cor == True:
-            set_dip_cor(input_dict)
-        if eden == True:
-            set_eden_cube(input_dict)
-        if mo == True:
-            set_mo_cube(input_dict)
-        if pdos == True:
-            set_pdos_cube(input_dict)
-        if hartree == True:
-            set_hartree_cube(input_dict)
-        if stride != 1:
-            set_motion_print_stride(input_dict, stride)
-        if restart == True:
-            set_restart(input_dict)
-        return input_dict
-
-    def fp_reftraj(init_idx,
-                   fin_idx,
-                   stride,
-                   pp_dir=None,
-                   wfn_file=None,
-                   charge=None,
-                   multiplicity=None,
-                   cutoff=None,
-                   uks=False,
-                   dip_cor=False,
-                   eden=False,
-                   mo=False,
-                   pdos=False,
-                   hartree=False,
-                   restart=False):
-        input_dict = copy.deepcopy(default_aimd)
-        input_dict["FORCE_EVAL"] = copy.deepcopy(default_energy["FORCE_EVAL"])
-        update_d = {
-            "MOTION": {
-                "MD": {
-                    "TIMESTEP": 0.5,
-                    "STEPS": 30000000,
-                    "TEMPERATURE": 330,
-                    "ENSEMBLE": "REFTRAJ",
-                    "REFTRAJ": {
-                        "TRAJ_FILE_NAME": "./reftraj.xyz",
-                        "EVAL_ENERGY_FORCES": ".TRUE.",
-                        "EVAL_FORCES": ".TRUE.",
-                        "FIRST_SNAPSHOT": init_idx,
-                        "LAST_SNAPSHOT": fin_idx,
-                        "STRIDE": stride
-                    }
-                }
-            }
-        }
-        dpgen_cp2k.update_dict(input_dict, update_d)
-
-        if pp_dir is not None:
-            set_pp_dir(input_dict, pp_dir)
-        if wfn_file is not None:
-            set_wfn_restrat(input_dict, wfn_file)
-        if charge is not None:
-            set_qm_charge(input_dict, charge)
-        if multiplicity is not None:
-            set_multiplicity(input_dict, multiplicity)
-        if cutoff is not None:
-            set_cutoff(input_dict, cutoff)
-        if uks == True:
-            set_uks(input_dict)
-        if dip_cor == True:
-            set_dip_cor(input_dict)
-        if eden == True:
-            set_eden_cube(input_dict)
-        if mo == True:
-            set_mo_cube(input_dict)
-        if pdos == True:
-            set_pdos_cube(input_dict)
-        if hartree == True:
-            set_hartree_cube(input_dict)
-        if stride != 1:
-            set_motion_print_stride(input_dict, stride)
-        if restart == True:
-            set_restart(input_dict)
-        return input_dict
-
-    def dpmd(type_map, atype, dp_model, restart=False, stride=100):
-        """
-        Args:
-            type_map: 
-                list of element symbol
-            atype: 
-                list of corresponding type of element in dp model
-            dp_model: 
-                list of string of dp model(s)
-            restart: 
-                if turn on restart section
-            stride:
-                stride of saving pos/frc
-        Returns:
-            input_dict:
-                dict of cp2k input parameters
-        """
-        input_dict = copy.deepcopy(default_dpmd)
-        if isinstance(dp_model, list):
-            if len(dp_model) != len(type_map) or len(dp_model) != len(atype):
-                raise AttributeError(
-                    'Size of type_map, atype and dp_model should match')
-            for data in zip(type_map, atype, dp_model):
-                set_dp_pot(input_dict, data[0], data[2], data[1])
-        elif isinstance(dp_model, str):
-            for data in zip(type_map, atype):
-                set_dp_pot(input_dict, data[0], dp_model, data[1])
-        else:
-            raise AttributeError('Unexpected type of dp_model')
-
-        if stride != 1:
-            set_motion_print_stride(input_dict, stride)
-        if restart == True:
-            set_restart(input_dict)
-        return input_dict
-
-    def dp_reftraj(type_map,
-                   dp_model,
-                   init_idx,
-                   fin_idx,
-                   stride,
-                   restart=False):
-        input_dict = copy.deepcopy(default_dpmd)
-        update_d = {
-            "MOTION": {
-                "MD": {
-                    "TIMESTEP": 0.5,
-                    "STEPS": 30000000,
-                    "TEMPERATURE": 330,
-                    "ENSEMBLE": "REFTRAJ",
-                    "REFTRAJ": {
-                        "TRAJ_FILE_NAME": "./reftraj.xyz",
-                        "EVAL_ENERGY_FORCES": ".TRUE.",
-                        "EVAL_FORCES": ".TRUE.",
-                        "FIRST_SNAPSHOT": init_idx,
-                        "LAST_SNAPSHOT": fin_idx,
-                        "STRIDE": stride
-                    }
-                }
-            }
-        }
-        dpgen_cp2k.update_dict(input_dict, update_d)
-        if dp_model is not None:
-            pass
-        if restart == True:
-            set_restart(input_dict)
-        return input_dict
-
-    def ffmd(restart=False, stride=100):
-        input_dict = copy.deepcopy(default_ffmd)
-        if stride != 1:
-            set_motion_print_stride(input_dict, stride)
-        if restart == True:
-            set_restart(input_dict)
-        return input_dict
-
-    def spce_wat_metal(metal_type,
-                       n_surf,
-                       n_ion,
-                       ion_type=None,
-                       ion_charge=None,
-                       restart=False,
-                       stride=100):
-        input_dict = copy.deepcopy(spce_wat)
-        # set L-J potential parameters
-        # set the surface metal atoms as Ne
-        lj_param_lib = copy.deepcopy(lj_param)
-        if n_ion != 0:
-            lj_param_lib.update({"Ne": lj_param_lib[metal_type]})
-            set_lj_pot(input_dict, ["O", "H", ion_type, metal_type, "Ne"],
-                       lj_param_lib=lj_param_lib)
-        else:
-            set_lj_pot(input_dict, ["O", "H", metal_type],
-                       lj_param_lib=lj_param_lib)
-
-        # set charge according to ion num and charge
-        # charges of O and H have been pre-set
-        set_ff_charge(input_dict, metal_type, 0)
-        if n_ion != 0:
-            set_ff_charge(input_dict, ion_type, ion_charge)
-            set_ff_charge(input_dict, "Ne", n_ion * ion_charge / n_surf)
-
-        if stride != 1:
-            set_motion_print_stride(input_dict, stride)
-        if restart == True:
-            set_restart(input_dict)
-        return input_dict
-
-
-def iterdict(input_dict, out_list, loop_idx):
-    """ 
-    recursively generate a list of strings for further 
-    print out CP2K input file
-
-    Args:
-        input_dict: dictionary for CP2K input parameters
-        out_list: list of strings for printing
-        loop_idx: record of loop levels in recursion
-    Return:
-        out_list
-    """
-    if len(out_list) == 0:
-        out_list.append("\n")
-    start_idx = len(out_list) - loop_idx - 2
-    for k, v in input_dict.items():
-        k = str(k)  # cast key into string
-        #if value is dictionary
-        if isinstance(v, dict):
-            out_list.insert(-1 - loop_idx, "&" + k)
-            out_list.insert(-1 - loop_idx, "&END " + k)
-            iterdict(v, out_list, loop_idx + 1)
-        # if value is list
-        elif isinstance(v, list):
-            for _v in v:
-                out_list.insert(-1 - loop_idx, "&" + k)
-                out_list.insert(-1 - loop_idx, "&END " + k)
-                iterdict(_v, out_list, loop_idx + 1)
-            #print(loop_idx)
-            #print(input_dict)
-            #print(out_list)
-        # if value is other type, e.g., int/float/str
-        else:
-            v = str(v)
-            if k == "_":
-                out_list[start_idx] = out_list[start_idx] + " " + v
-            else:
-                out_list.insert(-1 - loop_idx, k + " " + v)
-                #out_list.insert(-1-loop_idx, v)
-    return out_list
-
-
-def update_dict(old_d, update_d):
-    """
-    source: dpgen.generator.lib.cp2k
-
-    a method to recursive update dict
-    :old_d: old dictionary
-    :update_d: some update value written in dictionary form
-    """
-    import collections
-    for k, v in update_d.items():
-        if (k in old_d and isinstance(old_d[k], dict)
-                and isinstance(update_d[k], collections.Mapping)):
-            update_dict(old_d[k], update_d[k])
-        else:
-            old_d[k] = update_d[k]
+        return update_d
 
 
 class Cp2kOutput():
@@ -1049,6 +601,80 @@ class Cp2kOutput():
         start_pattern = re.compile(
             r'                           Hirshfeld Charges')
         pass
+
+
+class Cp2kCube():
+
+    def __init__(self, fname) -> None:
+        self.cube_data, self.atoms = read_cube_data(fname)
+
+    def get_ave_cube(self, axis="z", gaussian_sigma=0.):
+        if hasattr(self, 'axis') and self.axis == axis_dict[axis] and hasattr(
+                self, 'ave_cube_data'):
+            pass
+        else:
+            cell_param = self.atoms.cell.cellpar()
+            self.axis = axis_dict[axis]
+            # assert cell_param[-3:]
+            self.ave_grid = np.arange(
+                0, cell_param[self.axis],
+                cell_param[self.axis] / self.cube_data.shape[self.axis])
+            ave_axis = tuple(np.delete(np.arange(3), self.axis).tolist())
+            self.ave_cube_data = np.mean(self.cube_data, axis=ave_axis)
+
+        if gaussian_sigma > 0.:
+            self.ave_cube_data_convolve = gaussian_convolve(
+                self.ave_grid, self.ave_cube_data, gaussian_sigma)
+        else:
+            self.ave_cube_data_convolve = copy.deepcopy(self.ave_cube_data)
+
+        return (self.ave_grid, self.ave_cube_data, self.ave_cube_data_convolve)
+
+
+class Cp2kHartreeCube(Cp2kCube):
+
+    def __init__(
+        self,
+        fname,
+        vac_region: list[int] = None,
+    ) -> None:
+        super().__init__(fname)
+        if vac_region:
+            self.set_vac_region(vac_region)
+
+    def set_vac_region(self, vac_region):
+        assert len(vac_region) == 2
+        self.vac_region = vac_region
+
+    def get_ave_cube(self, axis="z", gaussian_sigma=0):
+        # (self.ave_grid, self.ave_cube_data, self.ave_cube_data_convolve)
+        output = super().get_ave_cube(axis, gaussian_sigma)
+        self.ave_cube_data_convolve *= AU_TO_EV
+        self.ave_cube_data *= AU_TO_EV
+        return (self.ave_grid, self.ave_cube_data, self.ave_cube_data_convolve)
+
+    @property
+    def potdrop(self):
+        start_id = np.argmin(np.abs(self.ave_grid - self.vac_region[0]))
+        end_id = np.argmin(np.abs(self.ave_grid - self.vac_region[1]))
+        if start_id > end_id:
+            _data = np.append(self.ave_cube_data[start_id:],
+                              self.ave_cube_data[:end_id])
+        else:
+            _data = np.array(
+                self.ave_cube_data)[self.vac_region[0]:self.vac_region[1]]
+        dev_data = np.diff(_data, axis=0)
+        p_jump = np.argmax(np.abs(dev_data))
+        return dev_data[p_jump]
+
+    @property
+    def dipole(self):
+        d = -self.potdrop * self.cross_area * (VAC_PERMITTIVITY / UNIT_CHARGE /
+                                               M_2_ANGSTROM)
+        return d
+
+    def set_cross_area(self, cross_area):
+        self.cross_area = cross_area
 
 
 def get_coords(pos_file="cp2k-pos-1.xyz"):
@@ -1280,77 +906,3 @@ class PDOS:
         """Return a gaussian smeared DOS"""
 
         return gaussian_convolve(self.e, self.tpdos, width)
-
-
-class Cp2kCube():
-
-    def __init__(self, fname) -> None:
-        self.cube_data, self.atoms = read_cube_data(fname)
-
-    def get_ave_cube(self, axis="z", gaussian_sigma=0.):
-        if hasattr(self, 'axis') and self.axis == axis_dict[axis] and hasattr(
-                self, 'ave_cube_data'):
-            pass
-        else:
-            cell_param = self.atoms.cell.cellpar()
-            self.axis = axis_dict[axis]
-            # assert cell_param[-3:]
-            self.ave_grid = np.arange(
-                0, cell_param[self.axis],
-                cell_param[self.axis] / self.cube_data.shape[self.axis])
-            ave_axis = tuple(np.delete(np.arange(3), self.axis).tolist())
-            self.ave_cube_data = np.mean(self.cube_data, axis=ave_axis)
-
-        if gaussian_sigma > 0.:
-            self.ave_cube_data_convolve = gaussian_convolve(
-                self.ave_grid, self.ave_cube_data, gaussian_sigma)
-        else:
-            self.ave_cube_data_convolve = copy.deepcopy(self.ave_cube_data)
-
-        return (self.ave_grid, self.ave_cube_data, self.ave_cube_data_convolve)
-
-
-class Cp2kHartreeCube(Cp2kCube):
-
-    def __init__(
-        self,
-        fname,
-        vac_region: list[int] = None,
-    ) -> None:
-        super().__init__(fname)
-        if vac_region:
-            self.set_vac_region(vac_region)
-
-    def set_vac_region(self, vac_region):
-        assert len(vac_region) == 2
-        self.vac_region = vac_region
-
-    def get_ave_cube(self, axis="z", gaussian_sigma=0):
-        # (self.ave_grid, self.ave_cube_data, self.ave_cube_data_convolve)
-        output = super().get_ave_cube(axis, gaussian_sigma)
-        self.ave_cube_data_convolve *= AU_TO_EV
-        self.ave_cube_data *= AU_TO_EV
-        return (self.ave_grid, self.ave_cube_data, self.ave_cube_data_convolve)
-
-    @property
-    def potdrop(self):
-        start_id = np.argmin(np.abs(self.ave_grid - self.vac_region[0]))
-        end_id = np.argmin(np.abs(self.ave_grid - self.vac_region[1]))
-        if start_id > end_id:
-            _data = np.append(self.ave_cube_data[start_id:],
-                              self.ave_cube_data[:end_id])
-        else:
-            _data = np.array(
-                self.ave_cube_data)[self.vac_region[0]:self.vac_region[1]]
-        dev_data = np.diff(_data, axis=0)
-        p_jump = np.argmax(np.abs(dev_data))
-        return dev_data[p_jump]
-
-    @property
-    def dipole(self):
-        d = -self.potdrop * self.cross_area * (VAC_PERMITTIVITY / UNIT_CHARGE /
-                                               M_2_ANGSTROM)
-        return d
-
-    def set_cross_area(self, cross_area):
-        self.cross_area = cross_area
