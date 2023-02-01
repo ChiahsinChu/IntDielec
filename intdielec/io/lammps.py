@@ -58,13 +58,13 @@ class LammpsData:
         s += "%d atom types\n" % len(np.unique(self.atoms.numbers))
         if self.bonds is not None:
             s += "%d bonds\n" % len(self.bonds)
-            s += "%d bond types\n" % len(np.unique(self.bonds[:, 0]))
+            s += "%d bond types\n" % len(np.unique(self.bonds[:, 1]))
         if self.angles is not None:
             s += "%d angles\n" % len(self.angles)
-            s += "%d angle types\n" % len(np.unique(self.angles[:, 0]))
+            s += "%d angle types\n" % len(np.unique(self.angles[:, 1]))
         if self.dihedrals is not None:
             s += "%d dihedrals\n" % len(self.dihedrals)
-            s += "%d dihedral types\n" % len(np.unique(self.dihedrals[:, 0]))
+            s += "%d dihedral types\n" % len(np.unique(self.dihedrals[:, 1]))
         s += "%.4f %.4f xlo xhi\n%.4f %.4f ylo yhi\n%.4f %.4f zlo zhi\n\n\n" % (
             0.0, cell[0], 0.0, cell[1], 0.0, cell[2])
         return s
