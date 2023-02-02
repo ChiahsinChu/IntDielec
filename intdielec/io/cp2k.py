@@ -52,6 +52,8 @@ def iterdict(input_dict, out_list=["\n"], loop_idx=0):
             iterdict(tmp_dict, out_list, loop_idx)
     return out_list
 """
+
+
 class Cp2kInput():
     """
     Class for CP2K input file generation (on the basis of templates)
@@ -157,8 +159,12 @@ class Cp2kInput():
         update_d = {
             "FORCE_EVAL": {
                 "DFT": {
-                    "BASIS_SET_FILE_NAME":
-                    os.path.join(pp_dir, "BASIS_MOLOPT"),
+                    "BASIS_SET_FILE_NAME": [
+                        os.path.join(pp_dir, "BASIS_MOLOPT"),
+                        os.path.join(pp_dir, "BASIS_ADMM"),
+                        os.path.join(pp_dir, "BASIS_ADMM_MOLOPT"),
+                        os.path.join(pp_dir, "BASIS_MOLOPT-HSE06")
+                    ],
                     "POTENTIAL_FILE_NAME":
                     os.path.join(pp_dir, "GTH_POTENTIALS"),
                     "XC": {

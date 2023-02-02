@@ -1,3 +1,4 @@
+
 # cp2k input templates
 cp2k_default_input = {
     "energy": {
@@ -5,8 +6,10 @@ cp2k_default_input = {
             "METHOD": "QS",
             "STRESS_TENSOR": "ANALYTICAL",
             "DFT": {
-                "BASIS_SET_FILE_NAME": "BASIS_MOLOPT",
-                "POTENTIAL_FILE_NAME": "GTH_POTENTIALS",
+                "BASIS_SET_FILE_NAME":
+                ["BASIS_MOLOPT", "BASIS_ADMM", "BASIS_ADMM_MOLOPT", "BASIS_MOLOPT-HSE06"],
+                "POTENTIAL_FILE_NAME":
+                "GTH_POTENTIALS",
                 "MGRID": {
                     "CUTOFF": 400
                 },
@@ -119,123 +122,11 @@ cp2k_default_input = {
         "GLOBAL": {
             "PROJECT": "cp2k"
         }
-    },
-    "geo_opt": {
-        "FORCE_EVAL": {
-            "METHOD": "QS",
-            "STRESS_TENSOR": "ANALYTICAL",
-            "DFT": {
-                "BASIS_SET_FILE_NAME": "BASIS_MOLOPT",
-                "POTENTIAL_FILE_NAME": "GTH_POTENTIALS",
-                "MGRID": {
-                    "CUTOFF": 400
-                },
-                "QS": {
-                    "EPS_DEFAULT": 1.0E-13
-                },
-                "SCF": {
-                    "SCF_GUESS": "RESTART",
-                    "EPS_SCF": 1.0E-6,
-                    "MAX_SCF": 500,
-                    "OT": {
-                        "_": ".FALSE."
-                    },
-                    "ADDED_MOS": 500,
-                    "CHOLESKY": "INVERSE",
-                    "SMEAR": {
-                        "_": "ON",
-                        "METHOD": "FERMI_DIRAC",
-                        "ELECTRONIC_TEMPERATURE": 300
-                    },
-                    "DIAGONALIZATION": {
-                        "ALGORITHM": "STANDARD"
-                    },
-                    "MIXING": {
-                        "METHOD": "BROYDEN_MIXING",
-                        "ALPHA": 0.3,
-                        "BETA": 1.5,
-                        "NBROYDEN": 8
-                    }
-                },
-                "XC": {
-                    "XC_FUNCTIONAL": {
-                        "_": "PBE"
-                    },
-                    "vdW_POTENTIAL": {
-                        "DISPERSION_FUNCTIONAL": "PAIR_POTENTIAL",
-                        "PAIR_POTENTIAL": {
-                            "TYPE": "DFTD3",
-                            "PARAMETER_FILE_NAME": "dftd3.dat",
-                            "REFERENCE_FUNCTIONAL": "PBE"
-                        }
-                    }
-                }
-            },
-            "SUBSYS": {
-                "CELL": {
-                    "A": "0. 0. 0.",
-                    "B": "0. 0. 0.",
-                    "C": "0. 0. 0."
-                },
-                "TOPOLOGY": {
-                    "COORD_FILE_FORMAT": "XYZ",
-                    "COORD_FILE_NAME": "coord.xyz"
-                },
-                "KIND": [{
-                    "_": "O",
-                    "POTENTIAL": "GTH-PBE-q6",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }, {
-                    "_": "H",
-                    "POTENTIAL": "GTH-PBE-q1",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }, {
-                    "_": "Pt",
-                    "POTENTIAL": "GTH-PBE-q10",
-                    "BASIS_SET": "DZVP-A5-Q10-323-MOL-T1-DERIVED_SET-1"
-                }, {
-                    "_": "Ag",
-                    "POTENTIAL": "GTH-PBE-q11",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }, {
-                    "_": "Na",
-                    "POTENTIAL": "GTH-PBE-q9",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }, {
-                    "_": "K",
-                    "POTENTIAL": "GTH-PBE-q9",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }, {
-                    "_": "Li",
-                    "POTENTIAL": "GTH-PBE-q3",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }, {
-                    "_": "C",
-                    "POTENTIAL": "GTH-PBE-q4",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }, {
-                    "_": "N",
-                    "POTENTIAL": "GTH-PBE-q5",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }, {
-                    "_": "Cl",
-                    "POTENTIAL": "GTH-PBE-q7",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }, {
-                    "_": "F",
-                    "POTENTIAL": "GTH-PBE-q7",
-                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-                }],
-            },
-            "PRINT": {
-                "FORCES": {
-                    "_": "ON"
-                },
-                "STRESS_TENSOR": {
-                    "_": "ON"
-                }
-            }
-        },
+    }
+}
+
+cp2k_default_input.update({"geo_opt": {
+        "FORCE_EVAL": cp2k_default_input["energy"]["FORCE_EVAL"],
         "GLOBAL": {
             "PROJECT": "cp2k",
             "RUN_TYPE": "GEO_OPT"
@@ -259,9 +150,7 @@ cp2k_default_input = {
                 }
             }
         }
-    },
-}
-
+    }})
 default_aimd = {
     "FORCE_EVAL": {
         "METHOD": "QS",
