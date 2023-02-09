@@ -12,3 +12,5 @@ ANG_TO_M = 1E-10
 
 # epsilon [e/(V Angstrom)]
 #_EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
+
+DEBYE_TO_EA = 1. / 4.8

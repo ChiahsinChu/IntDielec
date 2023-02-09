@@ -22,6 +22,6 @@ def get_int(x, y):
     x = np.array(x)
     y = np.array(y)
     ave_y = (y[1:] + y[:-1]) / 2
-    delta_x = x[1:] - x[:-1]
+    delta_x = np.diff(x)
     x = (x[1:] + x[:-1]) / 2
     return x, np.cumsum(ave_y * delta_x)

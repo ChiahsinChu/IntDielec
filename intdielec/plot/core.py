@@ -5,7 +5,6 @@ import numpy as np
 from scipy import stats
 from sklearn import metrics
 
-
 ############################ setting ############################
 
 fs = 15
@@ -13,26 +12,20 @@ lw = 1.5
 dpi = 200
 
 # set figure style
-setting = {'dpi': dpi,
-           'figsize': [6, 4]}
+setting = {'dpi': dpi, 'figsize': [6, 4]}
 mpl.rc('figure', **setting)
 
 # set line style
-setting = {'linewidth': 1.5,
-           'color': 'black'}
+setting = {'linewidth': 1.5, 'color': 'black'}
 mpl.rc('lines', **setting)
 
-# set font style 
-setting = {'family' : 'serif',
-           'weight' : 'normal',
-           'size'   : fs + 5}
+# set font style
+setting = {'family': 'serif', 'weight': 'normal', 'size': fs + 5}
 mpl.rc('font', **setting)
 mpl.rcParams['font.serif'] = ['Helvetica'] + mpl.rcParams['font.serif']
 
 # set savefig style
-setting = {'dpi': dpi,
-           'bbox': 'tight',
-           'format': 'png'}
+setting = {'dpi': dpi, 'bbox': 'tight', 'format': 'png'}
 mpl.rc('savefig', **setting)
 
 # set tick style
@@ -46,10 +39,10 @@ mpl.rc('legend', **setting)
 ############################ setting ############################
 
 
-def ax_setlabel(ax, xlabel, ylabel):
+def ax_setlabel(ax, xlabel, ylabel, **kwargs):
     # set axis label
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel, **kwargs)
+    ax.set_ylabel(ylabel, **kwargs)
 
 
 def plot_rmse(x, y, xlabel, ylabel):
