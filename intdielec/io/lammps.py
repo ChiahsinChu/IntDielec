@@ -20,7 +20,6 @@ def read_dump(dump_file="dump.lammpstrj"):
 
 
 class LammpsData:
-
     def __init__(self, atoms) -> None:
         self.atoms = atoms
         self._setup()
@@ -127,7 +126,6 @@ class LammpsData:
 
 
 class LammpsDump:
-
     def __init__(self, traj, type_map) -> None:
         self.traj = traj
         self._set_atype(type_map)
@@ -141,12 +139,12 @@ class LammpsDump:
         append=False,
     ):
         if isinstance(self.traj, Atoms):
-            _write_dump(self.traj, self.atype_dict, ts, out_file, append)
+            self._write_dump(self.traj, ts, out_file, append)
         else:
             nframe = len(self.traj)
             _ts = np.arange(start, step * nframe, step)
             for ts, atoms in zip(_ts, self.traj):
-                _write_dump(atoms, ts, out_file, append=True)
+                self._write_dump(atoms, ts, out_file, append=True)
 
     def _set_atype(self, type_map):
         if isinstance(type_map, list):

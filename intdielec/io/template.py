@@ -1,4 +1,3 @@
-
 # cp2k input templates
 cp2k_default_input = {
     "energy": {
@@ -6,8 +5,10 @@ cp2k_default_input = {
             "METHOD": "QS",
             "STRESS_TENSOR": "ANALYTICAL",
             "DFT": {
-                "BASIS_SET_FILE_NAME":
-                ["BASIS_MOLOPT", "BASIS_ADMM", "BASIS_ADMM_MOLOPT", "BASIS_MOLOPT-HSE06"],
+                "BASIS_SET_FILE_NAME": [
+                    "BASIS_MOLOPT", "BASIS_ADMM", "BASIS_ADMM_MOLOPT",
+                    "BASIS_MOLOPT-HSE06"
+                ],
                 "POTENTIAL_FILE_NAME":
                 "GTH_POTENTIALS",
                 "MGRID": {
@@ -51,6 +52,11 @@ cp2k_default_input = {
                             "PARAMETER_FILE_NAME": "dftd3.dat",
                             "REFERENCE_FUNCTIONAL": "PBE"
                         }
+                    }
+                },
+                "PRINT": {
+                    "MOMENTS": {
+                        "PERIODIC": ".FALSE."
                     }
                 }
             },
@@ -125,7 +131,8 @@ cp2k_default_input = {
     }
 }
 
-cp2k_default_input.update({"geo_opt": {
+cp2k_default_input.update({
+    "geo_opt": {
         "FORCE_EVAL": cp2k_default_input["energy"]["FORCE_EVAL"],
         "GLOBAL": {
             "PROJECT": "cp2k",
@@ -150,7 +157,8 @@ cp2k_default_input.update({"geo_opt": {
                 }
             }
         }
-    }})
+    }
+})
 default_aimd = {
     "FORCE_EVAL": {
         "METHOD": "QS",
