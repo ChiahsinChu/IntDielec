@@ -1,6 +1,7 @@
 # IntDielec
 
 ## To do list
+- [ ] set config files in installation
 - [ ] merge the code in `WatAnalysis` for ori_eps calculation
 - [ ] NNP validation code used in this work
 - [ ] add bash file for task submission (temporary use)

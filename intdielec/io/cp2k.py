@@ -10,48 +10,6 @@ from ase.io.cube import read_cube_data
 from ..utils.unit import *
 from ..utils.utils import iterdict, update_dict, axis_dict
 from .template import cp2k_default_input
-"""
-def iterdict(input_dict, out_list=["\n"], loop_idx=0):
-    if len(out_list) == 0:
-        out_list.append("\n")
-    start_idx = len(out_list) - loop_idx - 2
-    n_repeat = -1
-    for k,v in input_dict.items():
-        k=str(k) # cast key into string
-        #if value is dictionary
-        if isinstance(v, dict):
-            out_list.insert(-1-loop_idx, "&"+k)
-            out_list.insert(-1-loop_idx, "&END "+k)
-            iterdict(v, out_list, loop_idx+1)
-        elif isinstance(v, list):
-            n_repeat = len(v)
-            #print(loop_idx)
-            #print(input_dict)
-            #print(out_list)
-            #print(n_repeat)
-            break
-        else:
-            v = str(v)
-            if k == "_":
-                out_list[start_idx] = out_list[start_idx] + " " + v
-            else: 
-                out_list.insert(-1-loop_idx, k+" "+v)
-                #out_list.insert(-1-loop_idx, v)
-    if n_repeat >= 0 :
-        end_str = out_list[-1-loop_idx]
-        del out_list[-1-loop_idx]
-        start_str = out_list[-1-loop_idx]
-        del out_list[-1-loop_idx]
-        for i in range(n_repeat):
-            tmp_dict = {}
-            for k, v in input_dict.items():
-                k=str(k)
-                tmp_dict[k] = v[i]
-            out_list.insert(-loop_idx, start_str)
-            out_list.insert(-loop_idx, end_str)
-            iterdict(tmp_dict, out_list, loop_idx)
-    return out_list
-"""
 
 
 class Cp2kInput():
@@ -90,7 +48,6 @@ class Cp2kInput():
     >>>                   eden=True)
     >>> input.write()
     """
-
     def __init__(self, atoms, input_type="energy", **kwargs) -> None:
         self.atoms = atoms
         self.input_dict = copy.deepcopy(cp2k_default_input[input_type])
@@ -117,11 +74,11 @@ class Cp2kInput():
             os.makedirs(output_dir)
 
         cell = self.atoms.get_cell()
-        cell_a = np.array2string(cell[0])
+        cell_a = np.array2string(cell[0], formatter={'float_kind':lambda x: "%.4f" % x})
         cell_a = cell_a[1:-1]
-        cell_b = np.array2string(cell[1])
+        cell_b = np.array2string(cell[1], formatter={'float_kind':lambda x: "%.4f" % x})
         cell_b = cell_b[1:-1]
-        cell_c = np.array2string(cell[2])
+        cell_c = np.array2string(cell[2], formatter={'float_kind':lambda x: "%.4f" % x})
         cell_c = cell_c[1:-1]
 
         user_config = fp_params
@@ -156,6 +113,7 @@ class Cp2kInput():
         return update_d
 
     def set_pp_dir(self, pp_dir):
+        pp_dir = os.path.abspath(pp_dir)
         update_d = {
             "FORCE_EVAL": {
                 "DFT": {
@@ -180,8 +138,14 @@ class Cp2kInput():
         }
         return update_d
 
-    def set_wfn_restrat(self, wfn_file):
-        update_d = {"FORCE_EVAL": {"DFT": {"WFN_RESTART_FILE_NAME": wfn_file}}}
+    def set_wfn_restart(self, wfn_file):
+        update_d = {
+            "FORCE_EVAL": {
+                "DFT": {
+                    "WFN_RESTART_FILE_NAME": os.path.abspath(wfn_file)
+                }
+            }
+        }
         return update_d
 
     def set_qm_charge(self, charge):
@@ -342,6 +306,24 @@ class Cp2kInput():
         else:
             return {}
 
+    def set_totden(self, flag):
+        if flag:
+            update_d = {
+                "FORCE_EVAL": {
+                    "DFT": {
+                        "PRINT": {
+                            "TOT_DENSITY_CUBE": {
+                                "ADD_LAST": "NUMERIC",
+                                "STRIDE": "1 1 1"
+                            }
+                        }
+                    }
+                }
+            }
+            return update_d
+        else:
+            return {}
+
     def set_extended_fft_lengths(self, flag):
         if flag:
             update_d = {"GLOBAL": {"EXTENDED_FFT_LENGTHS": ".TRUE."}}
@@ -414,19 +396,17 @@ class Cp2kInput():
 
 
 class Cp2kOutput():
-
-    def __init__(self, fname="output*") -> None:
-        output_file = glob.glob(fname)
-        output_file.sort()
-        self.output_file = output_file
+    def __init__(self, fname="output.out") -> None:
+        self.output_file = fname
+        with open(fname, "r") as f:
+            self.content = f.readlines()
+        if self.scf_loop == -1:
+            raise Warning("SCF run NOT converged")
 
     @property
     def worktime(self):
-        worktime = []
-        for f in self.output_file:
-            start, end = self.grep_time(f)
-            worktime.append(self.time_gap(start, end))
-        return worktime
+        start, end = self.grep_time(self.output_file)
+        return self.time_gap(start, end)
 
     @staticmethod
     def grep_time(output_file):
@@ -484,28 +464,51 @@ class Cp2kOutput():
         worktime = t[-1] + t[-2] * 60 + t[-3] * 60 * 60
         return worktime
 
-    @staticmethod
-    def grep_text(fname, start_pattern, end_pattern):
-        with open(fname, "r") as f:
-            lines = f.readlines()
+    def grep_text(self, pattern):
+        search_pattern = re.compile(pattern)
+        flag = False
+        for line in self.content:
+            line = line.strip('\n')
+            if search_pattern.match(line):
+                flag = True
+                break
+        if flag:
+            return line
+        else:
+            return ""
+
+    def grep_texts(self, start_pattern, end_pattern):
         start_pattern = re.compile(start_pattern)
         end_pattern = re.compile(end_pattern)
 
         flag = False
         data_lines = []
         nframe = 0
-        for line in lines:
+        for line in self.content:
             line = line.strip('\n')
             if start_pattern.match(line):
                 flag = True
             if end_pattern.match(line):
                 assert flag is True, (flag,
-                                      'No charge data is found in this file.')
+                                      'No data is found in this file.')
                 flag = False
                 nframe += 1
             if flag is True:
                 data_lines.append(line)
         return nframe, data_lines
+
+    def grep_text_2(self, pattern):
+        search_pattern = re.compile(pattern)
+        flag = False
+        for line in self.content:
+            line = line.strip('\n')
+            if search_pattern.search(line) is not None:
+                flag = True
+                break
+        if flag:
+            return line
+        else:
+            return ""
 
     @property
     def coord(self):
@@ -517,8 +520,7 @@ class Cp2kOutput():
         """
         start_pattern = r' MODULE QUICKSTEP:  ATOMIC COORDINATES IN angstrom'
         end_pattern = r' SCF PARAMETERS'
-        for f in self.output_file:
-            nframe, data_lines = self.grep_text(f, start_pattern, end_pattern)
+        nframe, data_lines = self.grep_texts(start_pattern, end_pattern)
         data_lines = np.reshape(data_lines, (nframe, -1))
 
         data_list = []
@@ -544,8 +546,7 @@ class Cp2kOutput():
         """
         start_pattern = r' ATOMIC FORCES in'
         end_pattern = r' SUM OF ATOMIC FORCES'
-        for f in self.output_file:
-            nframe, data_lines = self.grep_text(f, start_pattern, end_pattern)
+        nframe, data_lines = self.grep_texts(start_pattern, end_pattern)
         data_lines = np.reshape(data_lines, (nframe, -1))
 
         data_list = []
@@ -560,40 +561,33 @@ class Cp2kOutput():
 
     @property
     def energy(self):
-        data = "".join(
-            os.popen("grep 'Total energy:' " +
-                     self.output_file[0]).readlines())
+        data = self.grep_text(r"  Total energy: ")
         data = data.replace('\n', ' ')
         data = data.split(' ')
         return float(data[-2]) * AU_TO_EV
 
     @property
     def scf_loop(self):
-        data = "".join(
-            os.popen("grep '*** SCF run converged in' " +
-                     self.output_file[0]).readlines())
+        data = self.grep_text_2(r"SCF run converged in")
         if len(data) == 0:
             return -1
         else:
             data = data.replace('\n', ' ')
             data = data.split(' ')
-            return int(data[-4])
+            return int(data[-3])
 
     @property
     def fermi(self):
-        data = "".join(
-            os.popen("grep 'Fermi' " + self.output_file[0]).readlines())
-        data = data.replace('\n', ' ')
-        data = data.split(' ')
-        return float(data[-2]) * AU_TO_EV
+        line = self.grep_text(r"  Fermi energy:")
+        line = line.replace('\n', ' ')
+        line = line.split(' ')
+        return float(line[-1]) * AU_TO_EV
 
     @property
     def m_charge(self):
         start_pattern = r'                     Mulliken Population Analysis'
         end_pattern = r' # Total charge '
-
-        for f in self.output_file:
-            nframe, data_lines = self.grep_text(f, start_pattern, end_pattern)
+        nframe, data_lines = self.grep_texts(start_pattern, end_pattern)
         data_lines = np.reshape(data_lines, (nframe, -1))
 
         data_list = []
@@ -608,9 +602,37 @@ class Cp2kOutput():
             r'                           Hirshfeld Charges')
         pass
 
+    def dipole_moment(self):
+        start_pattern = 'Dipole moment'
+        end_pattern = r' ENERGY| Total FORCE_EVAL '
+
+        start_pattern = re.compile(start_pattern)
+        end_pattern = re.compile(end_pattern)
+
+        flag = False
+        data_lines = []
+        nframe = 0
+        for line in output.content:
+            line = line.strip('\n')
+            if start_pattern.search(line) is not None:
+                flag = True
+            if end_pattern.match(line):
+                assert flag is True, (flag, 'No data is found in this file.')
+                flag = False
+                nframe += 1
+            if flag is True:
+                data_lines.append(line)
+
+        data_lines = np.reshape(data_lines, (nframe, -1))
+
+        data_list = []
+        for line in data_lines[:, 1]:
+            line_list = line.split()
+            print(line_list)
+            data_list.append([float(line_list[1]), float(line_list[3]), float(line_list[5])])
+        return np.reshape(data_list, (nframe, 3))
 
 class Cp2kCube():
-
     def __init__(self, fname) -> None:
         self.cube_data, self.atoms = read_cube_data(fname)
 
@@ -638,11 +660,10 @@ class Cp2kCube():
 
 
 class Cp2kHartreeCube(Cp2kCube):
-
     def __init__(
         self,
         fname,
-        vac_region: list[int] = None,
+        vac_region: list = None,
     ) -> None:
         super().__init__(fname)
         if vac_region:
@@ -653,10 +674,14 @@ class Cp2kHartreeCube(Cp2kCube):
         self.vac_region = vac_region
 
     def get_ave_cube(self, axis="z", gaussian_sigma=0):
-        # (self.ave_grid, self.ave_cube_data, self.ave_cube_data_convolve)
-        output = super().get_ave_cube(axis, gaussian_sigma)
-        self.ave_cube_data_convolve *= AU_TO_EV
-        self.ave_cube_data *= AU_TO_EV
+        if hasattr(self, 'axis') and self.axis == axis_dict[axis] and hasattr(
+                self, 'ave_cube_data'):
+            pass
+        else:
+            # (self.ave_grid, self.ave_cube_data, self.ave_cube_data_convolve)
+            output = super().get_ave_cube(axis, gaussian_sigma)
+            self.ave_cube_data_convolve *= AU_TO_EV
+            self.ave_cube_data *= AU_TO_EV
         return (self.ave_grid, self.ave_cube_data, self.ave_cube_data_convolve)
 
     @property
@@ -675,6 +700,9 @@ class Cp2kHartreeCube(Cp2kCube):
 
     @property
     def dipole(self):
+        """
+        Dipole moment of cell [e A]
+        """
         d = -self.potdrop * self.cross_area * (VAC_PERMITTIVITY / UNIT_CHARGE /
                                                M_2_ANGSTROM)
         return d
@@ -842,7 +870,6 @@ class PDOS:
         smearing(self,npts, width)
             return the smeared tpdos 
     """
-
     def __init__(self, infilename):
         """Read a CP2K .pdos file and build a pdos instance
 

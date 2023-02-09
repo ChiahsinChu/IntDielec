@@ -271,7 +271,7 @@ class ElecEps:
         ylabel = r"$\sigma(\varepsilon_e^{-1})$"
 
         ax.plot(v["inveps"][0], std_inveps_data, color="black")
-        
+
         ax.axhline(y=std_inveps_data[-1], color="gray", ls="--")
         ax.set_xlim(v["inveps"][0].min(), v["inveps"][0].max())
         core.ax_setlabel(ax, xlabel, ylabel)
@@ -281,7 +281,6 @@ class ElecEps:
                         bbox_inches='tight')
 
         return fig, ax
-
 
     def workflow(self):
         # connect all together
