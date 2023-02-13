@@ -4,8 +4,11 @@ import os
 import re
 
 import numpy as np
-from ase import io
+from ase import io, Atoms
 from ase.io.cube import read_cube_data
+
+from cp2kdata.pdos import *
+from cp2kdata.pdos import Cp2kPdos as _Cp2kPdos
 
 from ..utils.unit import *
 from ..utils.utils import iterdict, update_dict, axis_dict
@@ -48,6 +51,7 @@ class Cp2kInput():
     >>>                   eden=True)
     >>> input.write()
     """
+
     def __init__(self, atoms, input_type="energy", **kwargs) -> None:
         self.atoms = atoms
         self.input_dict = copy.deepcopy(cp2k_default_input[input_type])
@@ -74,11 +78,14 @@ class Cp2kInput():
             os.makedirs(output_dir)
 
         cell = self.atoms.get_cell()
-        cell_a = np.array2string(cell[0], formatter={'float_kind':lambda x: "%.4f" % x})
+        cell_a = np.array2string(
+            cell[0], formatter={'float_kind': lambda x: "%.4f" % x})
         cell_a = cell_a[1:-1]
-        cell_b = np.array2string(cell[1], formatter={'float_kind':lambda x: "%.4f" % x})
+        cell_b = np.array2string(
+            cell[1], formatter={'float_kind': lambda x: "%.4f" % x})
         cell_b = cell_b[1:-1]
-        cell_c = np.array2string(cell[2], formatter={'float_kind':lambda x: "%.4f" % x})
+        cell_c = np.array2string(
+            cell[2], formatter={'float_kind': lambda x: "%.4f" % x})
         cell_c = cell_c[1:-1]
 
         user_config = fp_params
@@ -396,6 +403,7 @@ class Cp2kInput():
 
 
 class Cp2kOutput():
+
     def __init__(self, fname="output.out") -> None:
         self.output_file = fname
         with open(fname, "r") as f:
@@ -489,8 +497,7 @@ class Cp2kOutput():
             if start_pattern.match(line):
                 flag = True
             if end_pattern.match(line):
-                assert flag is True, (flag,
-                                      'No data is found in this file.')
+                assert flag is True, (flag, 'No data is found in this file.')
                 flag = False
                 nframe += 1
             if flag is True:
@@ -533,8 +540,12 @@ class Cp2kOutput():
                 float(line_list[6])
             ])
             elem_list.append(line_list[2])
-        self.chemical_symbols = np.reshape(elem_list, (nframe, -1))[0]
-        return np.reshape(data_list, (nframe, -1, 3))
+        coord = np.reshape(data_list, (nframe, -1, 3))
+
+        self.atoms = Atoms(symbols=np.reshape(elem_list,
+                                              (nframe, -1))[0].tolist(),
+                           positions=coord[-1])
+        return coord
 
     @property
     def force(self):
@@ -553,9 +564,9 @@ class Cp2kOutput():
         for line in data_lines[:, 3:].reshape(-1):
             line_list = line.split()
             data_list.append([
+                float(line_list[3]) * AU_TO_EV_EVERY_ANG,
                 float(line_list[4]) * AU_TO_EV_EVERY_ANG,
-                float(line_list[5]) * AU_TO_EV_EVERY_ANG,
-                float(line_list[6]) * AU_TO_EV_EVERY_ANG
+                float(line_list[5]) * AU_TO_EV_EVERY_ANG
             ])
         return np.reshape(data_list, (nframe, -1, 3))
 
@@ -602,6 +613,7 @@ class Cp2kOutput():
             r'                           Hirshfeld Charges')
         pass
 
+    @property
     def dipole_moment(self):
         start_pattern = 'Dipole moment'
         end_pattern = r' ENERGY| Total FORCE_EVAL '
@@ -612,7 +624,7 @@ class Cp2kOutput():
         flag = False
         data_lines = []
         nframe = 0
-        for line in output.content:
+        for line in self.content:
             line = line.strip('\n')
             if start_pattern.search(line) is not None:
                 flag = True
@@ -628,11 +640,16 @@ class Cp2kOutput():
         data_list = []
         for line in data_lines[:, 1]:
             line_list = line.split()
-            print(line_list)
-            data_list.append([float(line_list[1]), float(line_list[3]), float(line_list[5])])
+            data_list.append([
+                float(line_list[1]),
+                float(line_list[3]),
+                float(line_list[5])
+            ])
         return np.reshape(data_list, (nframe, 3))
 
+
 class Cp2kCube():
+
     def __init__(self, fname) -> None:
         self.cube_data, self.atoms = read_cube_data(fname)
 
@@ -660,6 +677,7 @@ class Cp2kCube():
 
 
 class Cp2kHartreeCube(Cp2kCube):
+
     def __init__(
         self,
         fname,
@@ -710,6 +728,59 @@ class Cp2kHartreeCube(Cp2kCube):
     def set_cross_area(self, cross_area):
         self.cross_area = cross_area
 
+
+class Cp2kPdos(_Cp2kPdos):
+
+    def __init__(self, file_name, parse_file_name=True) -> None:
+        super().__init__(file_name, parse_file_name)
+
+    def get_raw_dos(self, dos_type="total", steplen=0.01):
+        energies = self.energies
+        fermi = self.fermi
+
+        weights = self._get_raw_dos(dos_type)
+        bins = int((energies[-1] - energies[0]) / steplen)
+        dos, ener = np.histogram(energies,
+                                 bins,
+                                 weights=weights,
+                                 range=(energies[0], energies[-1]))
+        dos = dos / steplen
+        ener = ener[:-1] - fermi + 0.5 * steplen
+        self.dos = dos
+        self.ener = ener
+        return dos, ener
+
+    def _get_raw_dos(self, dos_type):
+        try:
+            return getattr(self, "_get_raw_dos_%s" % dos_type)()
+        except:
+            raise NameError("dos type does not exist!")
+
+    def _get_raw_dos_total(self):
+        return np.loadtxt(self.file)[:, 3:].sum(axis=1)
+
+    def _get_raw_dos_system(self):
+        tmp_len = len(np.loadtxt(self.file, usecols=2))
+        return np.ones(tmp_len)
+
+    def _get_raw_dos_s(self):
+        return np.loadtxt(self.file, usecols=3)
+
+    def _get_raw_dos_p(self):
+        return np.loadtxt(self.file, usecols=np.arange(4, 7)).sum(axis=1)
+
+    def _get_raw_dos_d(self):
+        return np.loadtxt(self.file, usecols=np.arange(7, 12)).sum(axis=1)
+
+    def _get_raw_dos_f(self):
+        return np.loadtxt(self.file, usecols=np.arange(12, 19)).sum(axis=1)
+
+    def get_dos(self, sigma=0.2, dos_type="total", steplen=0.01):
+        # smooth the dos data
+        dos, ener = self.get_raw_dos(dos_type=dos_type, steplen=steplen)
+        smth_dos = gaussian_filter1d(dos, sigma)
+        self.smth_dos = smth_dos
+        return smth_dos, ener
 
 def get_coords(pos_file="cp2k-pos-1.xyz"):
     traj = io.read(pos_file, index=":")
@@ -816,126 +887,127 @@ def gaussian_convolve(xs, ys, sigma):
     return np.array(output)
 
 
-def get_pdos(pdos_file, smearing_width=0.2):
-    if isinstance(pdos_file, str):
-        alpha = PDOS(pdos_file)
-        npts = len(alpha.e)
-        totalDOS = alpha.smearing(smearing_width)
-        eigenvalues = np.linspace(min(alpha.e), max(alpha.e), npts)
-    elif isinstance(pdos_file, list) and len(pdos_file) == 2:
-        alpha = PDOS(pdos_file[0])
-        beta = PDOS(pdos_file[1])
-        npts = len(alpha.e)
-        alpha_smeared = alpha.smearing(smearing_width)
-        beta_smeared = beta.smearing(smearing_width)
-        totalDOS = alpha_smeared + beta_smeared
-        eigenvalues = np.linspace(min(alpha.e), max(alpha.e), npts)
-    else:
-        raise AttributeError('Unknown type of pdos file')
-    output = np.transpose([eigenvalues, totalDOS])
-    return output
+# def get_pdos(pdos_file, smearing_width=0.2):
+#     if isinstance(pdos_file, str):
+#         alpha = PDOS(pdos_file)
+#         npts = len(alpha.e)
+#         totalDOS = alpha.smearing(smearing_width)
+#         eigenvalues = np.linspace(min(alpha.e), max(alpha.e), npts)
+#     elif isinstance(pdos_file, list) and len(pdos_file) == 2:
+#         alpha = PDOS(pdos_file[0])
+#         beta = PDOS(pdos_file[1])
+#         npts = len(alpha.e)
+#         alpha_smeared = alpha.smearing(smearing_width)
+#         beta_smeared = beta.smearing(smearing_width)
+#         totalDOS = alpha_smeared + beta_smeared
+#         eigenvalues = np.linspace(min(alpha.e), max(alpha.e), npts)
+#     else:
+#         raise AttributeError('Unknown type of pdos file')
+#     output = np.transpose([eigenvalues, totalDOS])
+#     return output
 
 
-class PDOS:
-    """ Projected electronic density of states from CP2K output files
+# class PDOS:
+#     """ Projected electronic density of states from CP2K output files
 
-        Reference: https://wiki.wpi.edu/deskinsgroup/Density_of_States
+#         Reference: https://wiki.wpi.edu/deskinsgroup/Density_of_States
         
-        Attributes
-        ----------
-        atom: str 
-            the name of the atom where the DoS is projected
-        iterstep: int
-            the iteration step from the CP2K job
-        efermi: float
-            the energy of the Fermi level [a.u]
-        e: float
-            (eigenvalue - efermi) in eV
-        occupation: int
-            1 for occupied state or 0 for unoccupied
-        pdos: nested list of float
-            projected density of states on each orbital for each eigenvalue
-            [[s1, p1, d1,....], [s2, p2, d2,...],...]
-            s: pdos in s orbitals
-            p: pdos in p orbitals
-            d: pdos in d orbitals
-            .
-            .
-            .
-        tpdos: list of float
-            sum of all the orbitals PDOS
+#         Attributes
+#         ----------
+#         atom: str 
+#             the name of the atom where the DoS is projected
+#         iterstep: int
+#             the iteration step from the CP2K job
+#         efermi: float
+#             the energy of the Fermi level [a.u]
+#         e: float
+#             (eigenvalue - efermi) in eV
+#         occupation: int
+#             1 for occupied state or 0 for unoccupied
+#         pdos: nested list of float
+#             projected density of states on each orbital for each eigenvalue
+#             [[s1, p1, d1,....], [s2, p2, d2,...],...]
+#             s: pdos in s orbitals
+#             p: pdos in p orbitals
+#             d: pdos in d orbitals
+#             .
+#             .
+#             .
+#         tpdos: list of float
+#             sum of all the orbitals PDOS
             
-        Methods
-        -------
-        smearing(self,npts, width)
-            return the smeared tpdos 
-    """
-    def __init__(self, infilename):
-        """Read a CP2K .pdos file and build a pdos instance
+#         Methods
+#         -------
+#         smearing(self,npts, width)
+#             return the smeared tpdos 
+#     """
 
-        Parameters
-        ----------
-        infilename: str
-            pdos output from CP2K. 
+#     def __init__(self, infilename):
+#         """Read a CP2K .pdos file and build a pdos instance
 
-        """
-        input_file = open(infilename, 'r')
+#         Parameters
+#         ----------
+#         infilename: str
+#             pdos output from CP2K. 
 
-        firstline = input_file.readline().strip().split()
-        secondline = input_file.readline().strip().split()
+#         """
+#         input_file = open(infilename, 'r')
 
-        # Kind of atom
-        self.atom = firstline[6]
-        #iterationstep
-        self.iterstep = int(firstline[12][:-1])  #[:-1] delete ","
-        # Energy of the Fermi level
-        self.efermi = float(firstline[15])
+#         firstline = input_file.readline().strip().split()
+#         secondline = input_file.readline().strip().split()
 
-        # it keeps just the orbital names
-        secondline[0:5] = []
-        self.orbitals = secondline
+#         # Kind of atom
+#         self.atom = firstline[6]
+#         #iterationstep
+#         self.iterstep = int(firstline[12][:-1])  #[:-1] delete ","
+#         # Energy of the Fermi level
+#         self.efermi = float(firstline[15])
 
-        pdos_data = np.loadtxt(infilename)
+#         # it keeps just the orbital names
+#         secondline[0:5] = []
+#         self.orbitals = secondline
 
-        # lines = input_file.readlines()
+#         pdos_data = np.loadtxt(infilename)
 
-        eigenvalue = pdos_data[:, 1]
-        self.occupation = pdos_data[:, 2]
-        self.tpdos = np.sum(pdos_data[:, 3:], axis=-1)
-        self.e = (eigenvalue - self.efermi) * AU_TO_EV
+#         # lines = input_file.readlines()
 
-    def __add__(self, other):
-        """Return the sum of two PDOS objects"""
-        return self.tpdos + other.tpdos
+#         eigenvalue = pdos_data[:, 1]
+#         self.occupation = pdos_data[:, 2]
+#         self.tpdos = np.sum(pdos_data[:, 3:], axis=-1)
+#         self.e = (eigenvalue - self.efermi) * AU_TO_EV
 
-    def delta(self, emin, emax, npts, energy, width):
-        """Return a delta-function centered at energy
+#     def __add__(self, other):
+#         """Return the sum of two PDOS objects"""
+#         return self.tpdos + other.tpdos
+
+#     def delta(self, emin, emax, npts, energy, width):
+#         """Return a delta-function centered at energy
         
-        Parameters
-        ----------
-        emin: float
-            minimun eigenvalue
-        emax: float
-            maximun eigenvalue
-        npts: int
-            Number of points in the smeared pdos
-        energy: float
-            energy where the gaussian is centered
-        width: float
-            dispersion parameter
+#         Parameters
+#         ----------
+#         emin: float
+#             minimun eigenvalue
+#         emax: float
+#             maximun eigenvalue
+#         npts: int
+#             Number of points in the smeared pdos
+#         energy: float
+#             energy where the gaussian is centered
+#         width: float
+#             dispersion parameter
 
-        Return 
-        ------
-        delta: numpy array
-            array of delta function values
+#         Return 
+#         ------
+#         delta: numpy array
+#             array of delta function values
 
-        """
+#         """
 
-        energies = np.linspace(emin, emax, npts)
-        x = -((energies - energy) / width)**2
-        return np.exp(x) / (np.sqrt(np.pi) * width)
+#         energies = np.linspace(emin, emax, npts)
+#         x = -((energies - energy) / width)**2
+#         return np.exp(x) / (np.sqrt(np.pi) * width)
 
-    def smearing(self, width):
-        """Return a gaussian smeared DOS"""
+#     def smearing(self, width):
+#         """Return a gaussian smeared DOS"""
 
-        return gaussian_convolve(self.e, self.tpdos, width)
+#         return gaussian_convolve(self.e, self.tpdos, width)
