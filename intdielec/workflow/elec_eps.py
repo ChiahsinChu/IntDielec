@@ -24,6 +24,7 @@ class ElecEps:
         atoms: Atoms = None,
         work_dir: str = None,
         v_zero: float = None,
+        v_ref: float = 0.,
         v_seq: list or np.ndarray = None,
         data_fmt: str = "pkl",
     ) -> None:
@@ -34,6 +35,7 @@ class ElecEps:
 
         self.work_dir = work_dir
         self.v_zero = v_zero
+        self.v_ref = v_ref
         self.set_v_seq(v_seq)
         self.data_fmt = data_fmt
         self._load_data()
@@ -92,7 +94,7 @@ class ElecEps:
                             "DIRICHLET_BC": {
                                 "AA_PLANAR": [{
                                     "V_D":
-                                    0.0,
+                                    self.v_ref,
                                     "PARALLEL_PLANE":
                                     "XY",
                                     "X_XTNT":
@@ -287,8 +289,11 @@ class ElecEps:
         # hang in the background and check the output file (finished_tag)
         pass
 
-    def set_v_zero(self, v_zero: float = None):
+    def set_v_zero(self, v_zero: float):
         self.v_zero = v_zero
+
+    def set_v_ref(self, v_ref: float):
+        self.v_ref = v_ref
 
     def set_v_seq(self, v_seq: list or np.ndarray = None):
         self.v_seq = v_seq
