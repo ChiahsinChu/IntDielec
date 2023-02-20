@@ -404,12 +404,13 @@ class Cp2kInput():
 
 class Cp2kOutput():
 
-    def __init__(self, fname="output.out") -> None:
+    def __init__(self, fname="output.out", ignore_warning=False) -> None:
         self.output_file = fname
         with open(fname, "r") as f:
             self.content = f.readlines()
-        if self.scf_loop == -1:
-            raise Warning("SCF run NOT converged")
+        if not ignore_warning:
+            if self.scf_loop == -1:
+                raise Warning("SCF run NOT converged")
 
     @property
     def worktime(self):
@@ -572,10 +573,10 @@ class Cp2kOutput():
 
     @property
     def energy(self):
-        data = self.grep_text(r"  Total energy: ")
+        data = self.grep_text_2("Total FORCE_EVAL")
         data = data.replace('\n', ' ')
         data = data.split(' ')
-        return float(data[-2]) * AU_TO_EV
+        return float(data[-1]) * AU_TO_EV
 
     @property
     def scf_loop(self):
@@ -646,6 +647,87 @@ class Cp2kOutput():
                 float(line_list[5])
             ])
         return np.reshape(data_list, (nframe, 3))
+
+    @property
+    def energy_dict(self):
+        energy_dict = {"Total energy": []}
+
+        start_pattern = r"  Total charge density g-space grids:"
+        end_pattern = r"  Total energy:"
+        nframe, data_lines = self.grep_texts(start_pattern, end_pattern)
+        data_lines = np.reshape(data_lines, (nframe, -1))
+
+        tot_e = 0.
+        for kw in data_lines[0, 2:-1].reshape(-1):
+            kw = kw.split(":")
+            k = kw[0].strip(' ')
+            v = float(kw[1]) * AU_TO_EV
+            energy_dict[k] = [v]
+            tot_e += v
+        energy_dict["Total energy"].append(tot_e)
+        for kws in data_lines[1:, 2:-1].reshape(-1):
+            tot_e = 0.
+            for kw in kws:
+                kw = kw.split(":")
+                k = kw[0].strip(' ')
+                v = float(kw[1]) * AU_TO_EV
+                energy_dict[k].append(v)
+                tot_e += v
+            energy_dict["Total energy"].append(tot_e)
+            
+        energy_dict.pop("Fermi energy", None)
+
+        return energy_dict
+
+    @property
+    def xc_energy(self):
+        data = self.grep_text_2("Exchange-correlation energy")
+        data = data.replace('\n', ' ')
+        data = data.split(' ')
+        return float(data[-1]) * AU_TO_EV
+
+    @property
+    def core_hmt_energy(self):
+        data = self.grep_text_2("Core Hamiltonian energy")
+        data = data.replace('\n', ' ')
+        data = data.split(' ')
+        return float(data[-1]) * AU_TO_EV
+
+    @property
+    def overlap_energy(self):
+        data = self.grep_text_2(
+            "Overlap energy of the core charge distribution")
+        data = data.replace('\n', ' ')
+        data = data.split(' ')
+        return float(data[-1]) * AU_TO_EV
+
+    @property
+    def self_energy(self):
+        data = self.grep_text_2("Self energy of the core charge distribution")
+        data = data.replace('\n', ' ')
+        data = data.split(' ')
+        return float(data[-1]) * AU_TO_EV
+
+    @property
+    def hartree_energy(self):
+        data = self.grep_text_2("Hartree energy")
+        data = data.replace('\n', ' ')
+        data = data.split(' ')
+        return float(data[-1]) * AU_TO_EV
+
+    @property
+    def vdw_energy(self):
+        data = self.grep_text_2("Dispersion energy")
+        data = data.replace('\n', ' ')
+        data = data.split(' ')
+        return float(data[-1]) * AU_TO_EV
+
+    @property
+    def entropy_e_energy(self):
+        data = self.grep_text_2("Electronic entropic energy")
+        data = data.replace('\n', ' ')
+        data = data.split(' ')
+        return float(data[-1]) * AU_TO_EV
 
 
 class Cp2kCube():
@@ -782,6 +864,7 @@ class Cp2kPdos(_Cp2kPdos):
         self.smth_dos = smth_dos
         return smth_dos, ener
 
+
 def get_coords(pos_file="cp2k-pos-1.xyz"):
     traj = io.read(pos_file, index=":")
     coord = []
@@ -906,15 +989,14 @@ def gaussian_convolve(xs, ys, sigma):
 #     output = np.transpose([eigenvalues, totalDOS])
 #     return output
 
-
 # class PDOS:
 #     """ Projected electronic density of states from CP2K output files
 
 #         Reference: https://wiki.wpi.edu/deskinsgroup/Density_of_States
-        
+
 #         Attributes
 #         ----------
-#         atom: str 
+#         atom: str
 #             the name of the atom where the DoS is projected
 #         iterstep: int
 #             the iteration step from the CP2K job
@@ -935,11 +1017,11 @@ def gaussian_convolve(xs, ys, sigma):
 #             .
 #         tpdos: list of float
 #             sum of all the orbitals PDOS
-            
+
 #         Methods
 #         -------
 #         smearing(self,npts, width)
-#             return the smeared tpdos 
+#             return the smeared tpdos
 #     """
 
 #     def __init__(self, infilename):
@@ -948,7 +1030,7 @@ def gaussian_convolve(xs, ys, sigma):
 #         Parameters
 #         ----------
 #         infilename: str
-#             pdos output from CP2K. 
+#             pdos output from CP2K.
 
 #         """
 #         input_file = open(infilename, 'r')
@@ -982,7 +1064,7 @@ def gaussian_convolve(xs, ys, sigma):
 
 #     def delta(self, emin, emax, npts, energy, width):
 #         """Return a delta-function centered at energy
-        
+
 #         Parameters
 #         ----------
 #         emin: float
@@ -996,7 +1078,7 @@ def gaussian_convolve(xs, ys, sigma):
 #         width: float
 #             dispersion parameter
 
-#         Return 
+#         Return
 #         ------
 #         delta: numpy array
 #             array of delta function values
