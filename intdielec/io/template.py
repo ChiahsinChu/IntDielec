@@ -1,3 +1,8 @@
+import copy
+
+from ..utils.utils import update_dict
+
+
 # cp2k input templates
 cp2k_default_input = {
     "energy": {
@@ -21,10 +26,7 @@ cp2k_default_input = {
                     "SCF_GUESS": "RESTART",
                     "EPS_SCF": 1.0E-6,
                     "MAX_SCF": 500,
-                    "OT": {
-                        "_": ".FALSE."
-                    },
-                    "ADDED_MOS": 500,
+                    "ADDED_MOS": 50,
                     "CHOLESKY": "INVERSE",
                     "SMEAR": {
                         "_": "ON",
@@ -159,16 +161,42 @@ cp2k_default_input.update({
         }
     }
 })
-default_aimd = {
-    "FORCE_EVAL": {
-        "METHOD": "QS",
-        "STRESS_TENSOR": "ANALYTICAL",
-        "DFT": {
-            "BASIS_SET_FILE_NAME": "BASIS_MOLOPT",
-            "POTENTIAL_FILE_NAME": "GTH_POTENTIALS",
-            "MGRID": {
-                "CUTOFF": 400
+
+cp2k_default_input["bomd"] = copy.deepcopy(cp2k_default_input["energy"])
+
+update_d = {
+    "GLOBAL": {
+        "RUN_TYPE": "MD"
+    },
+    "MOTION": {
+        "PRINT": {
+            "TRAJECTORY": {},
+            "VELOCITIES": {},
+            "FORCES": {
+                "_": "ON"
             },
+            "RESTART_HISTORY": {
+                "EACH": {
+                    "MD": 1000
+                }
+            },
+            "RESTART": {
+                "BACKUP_COPIES": 3
+            }
+        }
+    }
+}
+
+update_dict(cp2k_default_input["bomd"], update_d)
+
+####################################### setup in the following has not been checked #######################################
+
+# turn off smearing, etc in sgcpmd (incompatible with OT)
+cp2k_default_input["sgcpmd"] = copy.deepcopy(cp2k_default_input["bomd"])
+
+update_d = {
+    "FORCE_EVAL": {
+        "DFT": {
             "QS": {
                 "EPS_DEFAULT": 1.0E-13,
                 "EXTRAPOLATION": "ASPC",
@@ -197,104 +225,13 @@ default_aimd = {
                         }
                     }
                 }
-            },
-            "XC": {
-                "XC_FUNCTIONAL": {
-                    "_": "PBE"
-                },
-                "vdW_POTENTIAL": {
-                    "DISPERSION_FUNCTIONAL": "PAIR_POTENTIAL",
-                    "PAIR_POTENTIAL": {
-                        "TYPE": "DFTD3",
-                        "PARAMETER_FILE_NAME": "dftd3.dat",
-                        "REFERENCE_FUNCTIONAL": "PBE"
-                    }
-                }
-            }
-        },
-        "SUBSYS": {
-            "CELL": {
-                "A": "0. 0. 0.",
-                "B": "0. 0. 0.",
-                "C": "0. 0. 0."
-            },
-            "TOPOLOGY": {
-                "COORD_FILE_FORMAT": "XYZ",
-                "COORD_FILE_NAME": "./coord.xyz"
-            },
-            "KIND": [{
-                "_": "O",
-                "POTENTIAL": "GTH-PBE-q6",
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-            }, {
-                "_": "H",
-                "POTENTIAL": "GTH-PBE-q1",
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-            }, {
-                "_": "Pt",
-                "POTENTIAL": "GTH-PBE-q10",
-                "BASIS_SET": "DZVP-A5-Q10-323-MOL-T1-DERIVED_SET-1"
-            }, {
-                "_": "Na",
-                "POTENTIAL": "GTH-PBE-q9",
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-            }, {
-                "_": "K",
-                "POTENTIAL": "GTH-PBE-q9",
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-            }, {
-                "_": "Li",
-                "POTENTIAL": "GTH-PBE-q3",
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-            }, {
-                "_": "C",
-                "POTENTIAL": "GTH-PBE-q4",
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-            }, {
-                "_": "N",
-                "POTENTIAL": "GTH-PBE-q5",
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-            }, {
-                "_": "Cl",
-                "POTENTIAL": "GTH-PBE-q7",
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-            }, {
-                "_": "F",
-                "POTENTIAL": "GTH-PBE-q7",
-                "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
-            }],
-        },
-        "PRINT": {
-            "FORCES": {
-                "_": "ON"
-            },
-            "STRESS_TENSOR": {
-                "_": "ON"
-            }
-        }
-    },
-    "GLOBAL": {
-        "PROJECT": "cp2k",
-        "RUN_TYPE": "MD"
-    },
-    "MOTION": {
-        "PRINT": {
-            "TRAJECTORY": {},
-            "VELOCITIES": {},
-            "FORCES": {
-                "_": "ON"
-            },
-            "RESTART_HISTORY": {
-                "EACH": {
-                    "MD": 1000
-                }
-            },
-            "RESTART": {
-                "BACKUP_COPIES": 3
             }
         }
     }
 }
+    
+update_dict(cp2k_default_input["sgcpmd"], update_d)
+
 
 default_dpmd = {
     "FORCE_EVAL": {
