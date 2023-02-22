@@ -864,6 +864,34 @@ class Cp2kPdos(_Cp2kPdos):
         self.smth_dos = smth_dos
         return smth_dos, ener
 
+    @property
+    def homo(self):
+        homo_idx = np.where(self.occupation == 0)[0][0] - 1
+        return self.energies[homo_idx] - self.fermi
+
+    @property
+    def lumo(self):
+        return self.energies[self.occupation == 0][0] - self.fermi
+
+    @property
+    def vbm(self):
+        raw_dos = self._get_raw_dos_total()
+        mask = (self.occupation > 1e-5) & (raw_dos > 1e-3)
+        try:
+            return self.energies[mask].max() - self.fermi
+        except:
+            return self.energies.min() - self.fermi
+    
+    @property
+    def cbm(self):
+        raw_dos = self._get_raw_dos_total()
+        mask = (self.occupation < 1e-5) & (raw_dos > 1e-3)
+        try:
+            return self.energies[mask].min() - self.fermi
+        except:
+            return self.energies.max() - self.fermi
+        
+        
 
 def get_coords(pos_file="cp2k-pos-1.xyz"):
     traj = io.read(pos_file, index=":")
