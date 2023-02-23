@@ -105,5 +105,8 @@ def update_dict(old_d, update_d):
         if (k in old_d and isinstance(old_d[k], dict)
                 and isinstance(update_d[k], collections.Mapping)):
             update_dict(old_d[k], update_d[k])
+        # elif (k in old_d and isinstance(old_d[k], list)
+        #       and isinstance(update_d[k], list)):
+        #     old_d[k].extend(update_d[k])
         else:
             old_d[k] = update_d[k]
