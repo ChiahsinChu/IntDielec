@@ -13,6 +13,7 @@ from ..io.cp2k import Cp2kCube, Cp2kHartreeCube, Cp2kInput
 from ..plot import core
 from ..utils.math import *
 from ..utils.unit import *
+from ..utils.utils import update_dict
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 
@@ -47,11 +48,12 @@ class ElecEps:
         """
         pp_dir="/data/jxzhu/basis", cutoff=400, eden=True
         """
-        kwargs.update({
+        update_d = {
             "dip_cor": True,
             "hartree": True,
             "extended_fft_lengths": True,
-        })
+        }
+        update_dict(kwargs, update_d)
 
         dname = os.path.join(self.work_dir, "ref")
         if not os.path.exists(dname):
@@ -74,13 +76,15 @@ class ElecEps:
         # self.fermi = output.fermi
 
     def preset(self, pos_dielec, fp_params={}, calculate=False, **kwargs):
-        kwargs.update({
+        update_d = {
             "dip_cor": False,
             "hartree": True,
             "eden": True,
             "extended_fft_lengths": True,
-        })
-        fp_params.update({
+        }
+        update_dict(kwargs, update_d)
+
+        update_d = {
             "GLOBAL": {
                 "PROJECT": "cp2k"
             },
@@ -88,7 +92,8 @@ class ElecEps:
                 "STRESS_TENSOR": "NONE",
                 "DFT": {
                     "POISSON": {
-                        "POISSON_SOLVER": "IMPLICIT",
+                        "POISSON_SOLVER":
+                        "IMPLICIT",
                         "IMPLICIT": {
                             "BOUNDARY_CONDITIONS": "MIXED_PERIODIC",
                             "DIRICHLET_BC": {
@@ -107,7 +112,7 @@ class ElecEps:
                                     ".TRUE."
                                 }, {
                                     "V_D":
-                                    0.0,
+                                    self.v_ref,
                                     "PARALLEL_PLANE":
                                     "XY",
                                     "X_XTNT":
@@ -129,7 +134,8 @@ class ElecEps:
                     }
                 }
             }
-        })
+        }
+        update_dict(fp_params, update_d)
 
         for v, task in zip(self.v_seq, self.v_tasks):
             dname = os.path.join(self.work_dir, task)
@@ -138,7 +144,8 @@ class ElecEps:
 
             task = Cp2kInput(self.atoms, **kwargs)
             fp_params["FORCE_EVAL"]["DFT"]["POISSON"]["IMPLICIT"][
-                "DIRICHLET_BC"]["AA_PLANAR"][1]["V_D"] = self.v_zero + v
+                "DIRICHLET_BC"]["AA_PLANAR"][1][
+                    "V_D"] = self.v_ref + self.v_zero + v
             task.write(output_dir=dname, fp_params=fp_params)
 
     def calculate(self, pos_vac, **kwargs):
