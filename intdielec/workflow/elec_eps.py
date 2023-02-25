@@ -19,7 +19,6 @@ _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 
 
 class ElecEps:
-
     def __init__(
         self,
         atoms: Atoms = None,
@@ -92,8 +91,7 @@ class ElecEps:
                 "STRESS_TENSOR": "NONE",
                 "DFT": {
                     "POISSON": {
-                        "POISSON_SOLVER":
-                        "IMPLICIT",
+                        "POISSON_SOLVER": "IMPLICIT",
                         "IMPLICIT": {
                             "BOUNDARY_CONDITIONS": "MIXED_PERIODIC",
                             "DIRICHLET_BC": {
@@ -164,9 +162,15 @@ class ElecEps:
             self.v_cubes.append(cube)
             efield_zero.append(self._calculate_efield_zero(cube, pos_vac))
             # eden cube
-            fname = glob.glob(os.path.join(dname, "*ELECTRON_DENSITY*.cube"))
-            assert len(fname) == 1
-            cube = Cp2kCube(fname[0])
+            try:
+                fname = glob.glob(os.path.join(dname, "*TOTAL_DENSITY*.cube"))
+                assert len(fname) == 1
+                cube = Cp2kCube(fname[0])
+            except:
+                fname = glob.glob(
+                    os.path.join(dname, "*ELECTRON_DENSITY*.cube"))
+                assert len(fname) == 1
+                cube = Cp2kCube(fname[0])
             output = cube.get_ave_cube(**kwargs)
             self.e_cubes.append(cube)
             rho_e.append(output[1])
