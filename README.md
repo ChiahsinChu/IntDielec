@@ -18,6 +18,27 @@ cd IntDielec
 pip install .
 ```
 
+### write user setup in config file
+
+You can set some user-defined parameters (e.g., directory for the basis set) in the `IntDielec/config.json`. Then, you don't need to define the variables when you call the relevant functions/methods.
+
+Here is an example of the `config.json`:
+
+```json
+{
+  "io": {
+    "cp2k": {
+      "input": {
+        "project": "project_name",
+        "pp_dir": "/home/user/basis",
+        "cutoff": 800,
+        "rel_cutoff": 50
+      }
+    }
+  }
+}
+```
+
 ## User guide
 
 ### calculation of electronic dielectric constant
