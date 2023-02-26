@@ -1,6 +1,8 @@
 # IntDielec
 
 ## To do list
+
+- [ ] fix bug in import plot module
 - [ ] set config files in installation
 - [ ] merge the code in `WatAnalysis` for ori_eps calculation
 - [ ] NNP validation code used in this work
@@ -20,7 +22,7 @@ pip install .
 
 ## User guide
 
-### calculation of electronic dielectric constant 
+### calculation of electronic dielectric constant
 
 Here is a simple example:
 
@@ -32,15 +34,15 @@ task.ref_preset()
 # submit and wait for calculation finish...
 task.ref_calculate(vac_region=[45, 10.])
 task.set_v_seq(np.arange(-3.5, 3.6, 0.5))
-task.preset()
+task.preset(pos_dielec=[5., 55.])
 # submit and wait for calculation finish...
 task.calculate(pos_vac=8.0)
-fig, axs = task.plot(fname="eps_cal.png")
+fig, axs = task.plot()
 ```
 
 methods and keywords... (TBC)
 
-### calculation of orientational dielectric constant 
+### calculation of orientational dielectric constant
 
 ## Developer guide
 
