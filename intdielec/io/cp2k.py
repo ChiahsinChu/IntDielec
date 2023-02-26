@@ -13,6 +13,7 @@ from cp2kdata.pdos import Cp2kPdos as _Cp2kPdos
 from ..utils.unit import *
 from ..utils.utils import iterdict, update_dict, axis_dict
 from .template import cp2k_default_input
+from .. import CONFIGS
 
 
 class Cp2kInput():
@@ -56,6 +57,12 @@ class Cp2kInput():
         self.atoms = atoms
         self.input_dict = copy.deepcopy(cp2k_default_input[input_type])
         # print(kwargs)
+        # read user setup in config file
+        try:
+            update_d = CONFIGS["io"]["cp2k"]["input"]
+        except:
+            update_d = {}
+        update_dict(kwargs, update_d)
         self.set_params(kwargs)
 
     def set_params(self, kwargs):
