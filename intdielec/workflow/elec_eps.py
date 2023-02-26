@@ -10,13 +10,14 @@ import numpy as np
 from ase import Atoms, io
 
 from ..io.cp2k import Cp2kCube, Cp2kHartreeCube, Cp2kInput
-from ..plot import core
+from ..plot import core, use_style
 from ..utils.math import *
 from ..utils.unit import *
 from ..utils.utils import update_dict
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 
+use_style("pub")
 
 class ElecEps:
     def __init__(

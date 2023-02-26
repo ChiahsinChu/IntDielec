@@ -5,39 +5,9 @@ import numpy as np
 from scipy import stats
 from sklearn import metrics
 
-############################ setting ############################
+from . import use_style
 
-fs = 15
-lw = 1.5
-dpi = 200
-
-# set figure style
-setting = {'dpi': dpi, 'figsize': [6, 4]}
-mpl.rc('figure', **setting)
-
-# set line style
-setting = {'linewidth': 1.5, 'color': 'black'}
-mpl.rc('lines', **setting)
-
-# set font style
-setting = {'family': 'serif', 'weight': 'normal', 'size': fs + 5}
-mpl.rc('font', **setting)
-mpl.rcParams['font.serif'] = ['Helvetica'] + mpl.rcParams['font.serif']
-
-# set savefig style
-setting = {'dpi': dpi, 'bbox': 'tight', 'format': 'png'}
-mpl.rc('savefig', **setting)
-
-# set tick style
-setting = {'labelsize': fs}
-mpl.rc(['xtick', 'ytick'], **setting)
-
-# set legend style
-setting = {'fontsize': fs + 3}
-mpl.rc('legend', **setting)
-
-############################ setting ############################
-
+use_style("pub")
 
 def ax_setlabel(ax, xlabel, ylabel, **kwargs):
     # set axis label

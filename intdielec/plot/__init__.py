@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 
-from .core import *
+# from .core import *
 
 def use_style(style_name):
     suffix="mplstyle"
@@ -10,4 +10,4 @@ def use_style(style_name):
     try:
         plt.style.use(fname)
     except:
-        print("No style %s is found. Use default style." % style_name)
+        print("Warning: no style %s is found. Use matplotlib default style." % style_name)
