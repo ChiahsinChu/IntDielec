@@ -234,26 +234,27 @@ class ElecEps:
         axs[0][0].set_xlim(data_dict[v_prime]["rho_pol"][0].min(),
                            data_dict[v_prime]["rho_pol"][0].max())
         core.ax_setlabel(axs[0][0], xlabel, ylabel)
-        axs[0][0].axhline(y=0.)
+        axs[0][0].axhline(y=0., ls="--", color="gray")
 
         ylabel = r"$\Delta P$ [a.u.]"
         axs[0][1].set_xlim(data_dict[v_prime]["polarization"][0].min(),
                            data_dict[v_prime]["polarization"][0].max())
         core.ax_setlabel(axs[0][1], xlabel, ylabel)
-        axs[0][1].axhline(y=0.)
+        axs[0][1].axhline(y=0., ls="--", color="gray")
 
         ylabel = r"$\Delta E_z$ [V/A]"
         axs[1][0].set_xlim(data_dict[v_prime]["efield"][0].min(),
                            data_dict[v_prime]["efield"][0].max())
         core.ax_setlabel(axs[1][0], xlabel, ylabel)
-        axs[1][0].axhline(y=0.)
+        axs[1][0].axhline(y=0., ls="--", color="gray")
 
         # ylabel = r"$\varepsilon_e^{-1}=\frac{\Delta E_z}{\Delta E_{z,vac}}$"
         ylabel = r"$\varepsilon_e^{-1}$"
         axs[1][1].set_xlim(data_dict[v_prime]["inveps"][0].min(),
                            data_dict[v_prime]["inveps"][0].max())
         core.ax_setlabel(axs[1][1], xlabel, ylabel)
-        axs[1][1].axhline(y=0.)
+        axs[1][1].axhline(y=0., ls="--", color="gray")
+        axs[1][1].axhline(y=1., ls="--", color="gray")
 
         # color map
         cb_ax = fig.add_axes([.95, 0.15, .035, .7])
