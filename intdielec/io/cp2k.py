@@ -656,6 +656,35 @@ class Cp2kOutput():
         return np.reshape(data_list, (nframe, 3))
 
     @property
+    def surf_dipole_moment(self):
+        """
+        Total dipole moment perpendicular to
+        the slab [electrons-Angstroem]:              -1.5878220042
+        """
+        pattern = 'Total dipole moment perpendicular to'
+        pattern = re.compile(pattern)
+
+        flag = False
+        data_lines = []
+        nframe = 0
+        for line in self.content:
+            line = line.strip('\n')
+            if pattern.search(line) is not None:
+                flag = True
+                nframe += 1
+                continue
+            if flag:
+                data_lines.append(line)
+                flag = False
+
+        data_lines = np.reshape(data_lines, (nframe))
+        data_list = []
+        for line in data_lines:
+            line_list = line.split()
+            data_list.append(float(line_list[-1]))
+        return np.reshape(data_list, (nframe))
+    
+    @property
     def energy_dict(self):
         energy_dict = {"Total energy": []}
 

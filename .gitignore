@@ -131,3 +131,5 @@ dmypy.json
 .history
 
 config.json
+*.cube
+*.wfn.*

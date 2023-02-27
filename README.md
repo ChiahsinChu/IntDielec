@@ -2,7 +2,6 @@
 
 ## To do list
 
-- [ ] fix bug in import plot module
 - [ ] merge the code in `WatAnalysis` for ori_eps calculation
 - [ ] NNP validation code used in this work
 - [ ] add workflow
