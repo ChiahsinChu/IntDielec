@@ -1,14 +1,13 @@
-import csv
 import glob
 import os
 import copy
-import pickle
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from ase import Atoms, io
 
+from . import Eps
 from ..io.cp2k import Cp2kCube, Cp2kHartreeCube, Cp2kInput
 from ..plot import core, use_style
 from ..utils.math import *
@@ -19,7 +18,8 @@ _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 
 use_style("pub")
 
-class ElecEps:
+
+class ElecEps(Eps):
     def __init__(
         self,
         atoms: Atoms = None,
@@ -29,17 +29,16 @@ class ElecEps:
         v_seq: list or np.ndarray = None,
         data_fmt: str = "pkl",
     ) -> None:
+        super().__init__(work_dir, data_fmt)
+
         if atoms is None:
             atoms = io.read(os.path.join(work_dir, "ref/coord.xyz"))
         self.atoms = atoms
         assert atoms.cell is not None
 
-        self.work_dir = work_dir
         self.v_zero = v_zero
         self.v_ref = v_ref
         self.set_v_seq(v_seq)
-        self.data_fmt = data_fmt
-        self._load_data()
 
         self.v_cubes = []
         self.e_cubes = []
@@ -317,36 +316,6 @@ class ElecEps:
                     self.v_tasks.append("%.1f" % v)
                 else:
                     self.v_tasks.append("_%.1f" % -v)
-
-    def _load_data(self):
-        fname = os.path.join(self.work_dir, "eps_data.%s" % self.data_fmt)
-        if os.path.exists(fname):
-            getattr(self, "_load_data_%s" % self.data_fmt)(fname)
-        else:
-            self.results = {}
-
-    def _load_data_csv(self, fname):
-        with open(fname, "r") as f:
-            data = csv.reader(f)
-            self.results = {rows[0]: rows[1] for rows in data}
-
-    def _load_data_pkl(self, fname):
-        with open(fname, "rb") as f:
-            self.results = pickle.load(f)
-
-    def _save_data(self):
-        fname = os.path.join(self.work_dir, "eps_data.%s" % self.data_fmt)
-        getattr(self, "_save_data_%s" % self.data_fmt)(fname)
-
-    def _save_data_csv(self, fname):
-        with open(fname, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=self.results.keys())
-            writer.writeheader()
-            writer.writerow(self.results)
-
-    def _save_data_pkl(self, fname):
-        with open(fname, "wb") as f:
-            pickle.dump(self.results, f)
 
     @staticmethod
     def _calculate_efield_zero(cube, pos_vac):
