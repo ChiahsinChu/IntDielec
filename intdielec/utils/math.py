@@ -25,3 +25,9 @@ def get_int(x, y):
     delta_x = np.diff(x)
     x = (x[1:] + x[:-1]) / 2
     return x, np.cumsum(ave_y * delta_x)
+
+
+def get_cum_ave(data):
+    cum_sum = data.cumsum()
+    cum_ave = cum_sum / (np.arange(len(data)) + 1)
+    return cum_ave
