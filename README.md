@@ -2,10 +2,8 @@
 
 ## To do list
 
-- [ ] merge the code in `WatAnalysis` for ori_eps calculation
 - [ ] NNP validation code used in this work
 - [ ] add workflow
-- [ ] format to save data (SQL?)
 
 ## Introduction
 

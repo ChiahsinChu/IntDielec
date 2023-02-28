@@ -57,7 +57,16 @@ class InverseDielectricConstant(AnalysisBase):
         ave_axis = np.delete(np.arange(3), self.axis)
         ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[
             ave_axis[1]]
-        ts_volume = self._ts.volume
+        # ts_volume = self._ts.volume
+        surf_ids = self.kwargs["surf_ids"]
+        # print(surf_ids)
+
+        z_lo = np.mean(self.atoms.positions[surf_ids[0]][:, 2])
+        z_hi = np.mean(self.atoms.positions[surf_ids[1]][:, 2])
+        # print("z_lo: ", z_lo)
+        # print("z_hi: ", z_hi)
+        ts_volume = ts_area * (z_hi - z_lo)
+
         self.volume += ts_volume
 
         if self.make_whole:
