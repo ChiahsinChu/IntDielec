@@ -580,7 +580,8 @@ class Cp2kOutput():
 
     @property
     def energy(self):
-        data = self.grep_text_2("Total FORCE_EVAL")
+        data = self.grep_text_2("Total energy: ")
+        # data = self.grep_text_2("Total FORCE_EVAL")
         data = data.replace('\n', ' ')
         data = data.split(' ')
         return float(data[-1]) * AU_TO_EV
@@ -683,10 +684,10 @@ class Cp2kOutput():
             line_list = line.split()
             data_list.append(float(line_list[-1]))
         return np.reshape(data_list, (nframe))
-    
+
     @property
     def energy_dict(self):
-        energy_dict = {"Total energy": []}
+        energy_dict = {}
 
         start_pattern = r"  Total charge density g-space grids:"
         end_pattern = r"  Total energy:"
@@ -700,7 +701,7 @@ class Cp2kOutput():
             v = float(kw[1]) * AU_TO_EV
             energy_dict[k] = [v]
             tot_e += v
-        energy_dict["Total energy"].append(tot_e)
+        # energy_dict["Total energy"].append(tot_e)
         for kws in data_lines[1:, 2:-1].reshape(-1):
             tot_e = 0.
             for kw in kws:
@@ -709,61 +710,61 @@ class Cp2kOutput():
                 v = float(kw[1]) * AU_TO_EV
                 energy_dict[k].append(v)
                 tot_e += v
-            energy_dict["Total energy"].append(tot_e)
-            
+            # energy_dict["Total energy"].append(tot_e)
+
         energy_dict.pop("Fermi energy", None)
 
         return energy_dict
 
-    @property
-    def xc_energy(self):
-        data = self.grep_text_2("Exchange-correlation energy")
-        data = data.replace('\n', ' ')
-        data = data.split(' ')
-        return float(data[-1]) * AU_TO_EV
+    # @property
+    # def xc_energy(self):
+    #     data = self.grep_text_2("Exchange-correlation energy")
+    #     data = data.replace('\n', ' ')
+    #     data = data.split(' ')
+    #     return float(data[-1]) * AU_TO_EV
 
-    @property
-    def core_hmt_energy(self):
-        data = self.grep_text_2("Core Hamiltonian energy")
-        data = data.replace('\n', ' ')
-        data = data.split(' ')
-        return float(data[-1]) * AU_TO_EV
+    # @property
+    # def core_hmt_energy(self):
+    #     data = self.grep_text_2("Core Hamiltonian energy")
+    #     data = data.replace('\n', ' ')
+    #     data = data.split(' ')
+    #     return float(data[-1]) * AU_TO_EV
 
-    @property
-    def overlap_energy(self):
-        data = self.grep_text_2(
-            "Overlap energy of the core charge distribution")
-        data = data.replace('\n', ' ')
-        data = data.split(' ')
-        return float(data[-1]) * AU_TO_EV
+    # @property
+    # def overlap_energy(self):
+    #     data = self.grep_text_2(
+    #         "Overlap energy of the core charge distribution")
+    #     data = data.replace('\n', ' ')
+    #     data = data.split(' ')
+    #     return float(data[-1]) * AU_TO_EV
 
-    @property
-    def self_energy(self):
-        data = self.grep_text_2("Self energy of the core charge distribution")
-        data = data.replace('\n', ' ')
-        data = data.split(' ')
-        return float(data[-1]) * AU_TO_EV
+    # @property
+    # def self_energy(self):
+    #     data = self.grep_text_2("Self energy of the core charge distribution")
+    #     data = data.replace('\n', ' ')
+    #     data = data.split(' ')
+    #     return float(data[-1]) * AU_TO_EV
 
-    @property
-    def hartree_energy(self):
-        data = self.grep_text_2("Hartree energy")
-        data = data.replace('\n', ' ')
-        data = data.split(' ')
-        return float(data[-1]) * AU_TO_EV
+    # @property
+    # def hartree_energy(self):
+    #     data = self.grep_text_2("Hartree energy")
+    #     data = data.replace('\n', ' ')
+    #     data = data.split(' ')
+    #     return float(data[-1]) * AU_TO_EV
 
-    @property
-    def vdw_energy(self):
-        data = self.grep_text_2("Dispersion energy")
-        data = data.replace('\n', ' ')
-        data = data.split(' ')
-        return float(data[-1]) * AU_TO_EV
+    # @property
+    # def vdw_energy(self):
+    #     data = self.grep_text_2("Dispersion energy")
+    #     data = data.replace('\n', ' ')
+    #     data = data.split(' ')
+    #     return float(data[-1]) * AU_TO_EV
 
-    @property
-    def entropy_e_energy(self):
-        data = self.grep_text_2("Electronic entropic energy")
-        data = data.replace('\n', ' ')
-        data = data.split(' ')
-        return float(data[-1]) * AU_TO_EV
+    # @property
+    # def entropy_e_energy(self):
+    #     data = self.grep_text_2("Electronic entropic energy")
+    #     data = data.replace('\n', ' ')
+    #     data = data.split(' ')
+    #     return float(data[-1]) * AU_TO_EV
 
 
 class Cp2kCube():
