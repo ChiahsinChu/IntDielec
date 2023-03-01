@@ -52,7 +52,6 @@ class Cp2kInput():
     >>>                   eden=True)
     >>> input.write()
     """
-
     def __init__(self, atoms, input_type="energy", **kwargs) -> None:
         self.atoms = atoms
         self.input_dict = copy.deepcopy(cp2k_default_input[input_type])
@@ -410,14 +409,15 @@ class Cp2kInput():
 
 
 class Cp2kOutput():
-
     def __init__(self, fname="output.out", ignore_warning=False) -> None:
         self.output_file = fname
         with open(fname, "r") as f:
             self.content = f.readlines()
+        coord = self.coord
+        self.natoms = len(self.atoms)
         if not ignore_warning:
             if self.scf_loop == -1:
-                raise Warning("SCF run NOT converged")
+                raise Warning("SCF run NOT converged")\
 
     @property
     def worktime(self):
@@ -525,6 +525,19 @@ class Cp2kOutput():
         else:
             return ""
 
+    def grep_texts_by_nlines(self, start_pattern, nlines):
+        start_pattern = re.compile(start_pattern)
+
+        data_lines = []
+        nframe = 0
+        for ii, line in enumerate(self.content):
+            line = line.strip('\n')
+            if start_pattern.search(line) is not None:
+                data_lines.append(self.content[ii:ii + nlines])
+                nframe += 1
+                continue
+        return nframe, data_lines
+
     @property
     def coord(self):
         """
@@ -605,9 +618,9 @@ class Cp2kOutput():
 
     @property
     def m_charge(self):
-        start_pattern = r'                     Mulliken Population Analysis'
-        end_pattern = r' # Total charge '
-        nframe, data_lines = self.grep_texts(start_pattern, end_pattern)
+        start_pattern = 'Mulliken Population Analysis'
+        nframe, data_lines = self.grep_texts_by_nlines(start_pattern,
+                                                       self.natoms + 3)
         data_lines = np.reshape(data_lines, (nframe, -1))
 
         data_list = []
@@ -618,9 +631,16 @@ class Cp2kOutput():
 
     @property
     def h_charge(self):
-        start_pattern = re.compile(
-            r'                           Hirshfeld Charges')
-        pass
+        start_pattern = 'Hirshfeld Charges'
+        nframe, data_lines = self.grep_texts_by_nlines(start_pattern,
+                                                       self.natoms + 3)
+        data_lines = np.reshape(data_lines, (nframe, -1))
+
+        data_list = []
+        for line in data_lines[:, 3:].reshape(-1):
+            line_list = line.split()
+            data_list.append(float(line_list[-1]))
+        return np.reshape(data_list, (nframe, -1))
 
     @property
     def dipole_moment(self):
@@ -768,7 +788,6 @@ class Cp2kOutput():
 
 
 class Cp2kCube():
-
     def __init__(self, fname) -> None:
         self.cube_data, self.atoms = read_cube_data(fname)
 
@@ -796,7 +815,6 @@ class Cp2kCube():
 
 
 class Cp2kHartreeCube(Cp2kCube):
-
     def __init__(
         self,
         fname,
@@ -840,8 +858,8 @@ class Cp2kHartreeCube(Cp2kCube):
         """
         Dipole moment of cell [e A]
         """
-        d = -self.potdrop * self.cross_area * (VAC_PERMITTIVITY / UNIT_CHARGE /
-                                               M_2_ANGSTROM)
+        d = -self.potdrop * self.cross_area * (VAC_PERMITTIVITY / UNIT_CHARGE *
+                                               ANG_TO_M)
         return d
 
     def set_cross_area(self, cross_area):
@@ -849,7 +867,6 @@ class Cp2kHartreeCube(Cp2kCube):
 
 
 class Cp2kPdos(_Cp2kPdos):
-
     def __init__(self, file_name, parse_file_name=True) -> None:
         super().__init__(file_name, parse_file_name)
 
@@ -918,7 +935,7 @@ class Cp2kPdos(_Cp2kPdos):
             return self.energies[mask].max() - self.fermi
         except:
             return self.energies.min() - self.fermi
-    
+
     @property
     def cbm(self):
         raw_dos = self._get_raw_dos_total()
@@ -927,8 +944,7 @@ class Cp2kPdos(_Cp2kPdos):
             return self.energies[mask].min() - self.fermi
         except:
             return self.energies.max() - self.fermi
-        
-        
+
 
 def get_coords(pos_file="cp2k-pos-1.xyz"):
     traj = io.read(pos_file, index=":")
