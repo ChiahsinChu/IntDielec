@@ -2,7 +2,6 @@ import copy
 
 from ..utils.utils import update_dict
 
-
 # cp2k input templates
 cp2k_default_input = {
     "energy": {
@@ -26,7 +25,7 @@ cp2k_default_input = {
                     "SCF_GUESS": "RESTART",
                     "EPS_SCF": 1.0E-6,
                     "MAX_SCF": 500,
-                    "ADDED_MOS": 50,
+                    "ADDED_MOS": 500,
                     "CHOLESKY": "INVERSE",
                     "SMEAR": {
                         "_": "ON",
@@ -40,7 +39,7 @@ cp2k_default_input = {
                         "METHOD": "BROYDEN_MIXING",
                         "ALPHA": 0.3,
                         "BETA": 1.5,
-                        "NBROYDEN": 8
+                        "NBUFFER": 8
                     }
                 },
                 "XC": {
@@ -189,6 +188,23 @@ update_d = {
 
 update_dict(cp2k_default_input["bomd"], update_d)
 
+cp2k_restart_pbc = {
+    "FORCE_EVAL": {
+        "DFT": {
+            "SCF": {
+                "MAX_SCF": 3,
+                "EPS_DIIS": 1e-8,
+                "DIAGONALIZATION": {
+                    "_": ".FALSE."
+                },
+                "MIXING": {
+                    "ALPHA": 0.,
+                    "METHOD": "DIRECT_P_MIXING"
+                }
+            }
+        }
+    }
+}
 ####################################### setup in the following has not been checked #######################################
 
 # turn off smearing, etc in sgcpmd (incompatible with OT)
@@ -229,9 +245,8 @@ update_d = {
         }
     }
 }
-    
-update_dict(cp2k_default_input["sgcpmd"], update_d)
 
+update_dict(cp2k_default_input["sgcpmd"], update_d)
 
 default_dpmd = {
     "FORCE_EVAL": {
