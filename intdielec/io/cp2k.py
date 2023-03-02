@@ -1,5 +1,4 @@
 import copy
-import glob
 import os
 import re
 
@@ -7,9 +6,7 @@ import numpy as np
 from ase import io, Atoms
 from ase.io.cube import read_cube_data
 
-from cp2kdata.pdos import *
-from cp2kdata.pdos import Cp2kPdos as _Cp2kPdos
-
+from ...exts.cp2kdata.cp2kdata.pdos import Cp2kPdos as _Cp2kPdos
 from ..utils.unit import *
 from ..utils.utils import iterdict, update_dict, axis_dict
 from .template import cp2k_default_input
