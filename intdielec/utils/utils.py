@@ -1,5 +1,3 @@
-axis_dict = {"x": 0, "y": 1, "z": 2}
-
 
 def iterdict(input_dict, out_list, loop_idx):
     """ 

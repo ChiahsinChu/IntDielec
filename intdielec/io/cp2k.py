@@ -3,14 +3,15 @@ import os
 import re
 
 import numpy as np
-from ase import io, Atoms
+from ase import Atoms, io
 from ase.io.cube import read_cube_data
 
-from ...exts.cp2kdata.cp2kdata.pdos import Cp2kPdos as _Cp2kPdos
-from ..utils.unit import *
-from ..utils.utils import iterdict, update_dict, axis_dict
-from .template import cp2k_default_input
 from .. import CONFIGS
+from ..exts.cp2kdata.cp2kdata.pdos import Cp2kPdos as _Cp2kPdos
+from ..exts.cp2kdata.cp2kdata.pdos import gaussian_filter1d
+from ..utils.unit import *
+from ..utils.utils import iterdict, update_dict
+from .template import cp2k_default_input
 
 
 class Cp2kInput():
@@ -788,13 +789,13 @@ class Cp2kCube():
     def __init__(self, fname) -> None:
         self.cube_data, self.atoms = read_cube_data(fname)
 
-    def get_ave_cube(self, axis="z", gaussian_sigma=0.):
-        if hasattr(self, 'axis') and self.axis == axis_dict[axis] and hasattr(
+    def get_ave_cube(self, axis=2, gaussian_sigma=0.):
+        if hasattr(self, 'axis') and self.axis == axis and hasattr(
                 self, 'ave_cube_data'):
             pass
         else:
             cell_param = self.atoms.cell.cellpar()
-            self.axis = axis_dict[axis]
+            self.axis = axis
             # assert cell_param[-3:]
             self.ave_grid = np.arange(
                 0, cell_param[self.axis],
@@ -825,8 +826,8 @@ class Cp2kHartreeCube(Cp2kCube):
         assert len(vac_region) == 2
         self.vac_region = vac_region
 
-    def get_ave_cube(self, axis="z", gaussian_sigma=0):
-        if hasattr(self, 'axis') and self.axis == axis_dict[axis] and hasattr(
+    def get_ave_cube(self, axis=2, gaussian_sigma=0):
+        if hasattr(self, 'axis') and self.axis == axis and hasattr(
                 self, 'ave_cube_data'):
             pass
         else:
@@ -931,6 +932,7 @@ class Cp2kPdos(_Cp2kPdos):
         try:
             return self.energies[mask].max() - self.fermi
         except:
+            print("Warning: No VBM is found!")
             return self.energies.min() - self.fermi
 
     @property
@@ -940,6 +942,7 @@ class Cp2kPdos(_Cp2kPdos):
         try:
             return self.energies[mask].min() - self.fermi
         except:
+            print("Warning: No CBM is found!")
             return self.energies.max() - self.fermi
 
 
