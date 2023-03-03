@@ -12,7 +12,7 @@ from ..io.cp2k import Cp2kCube, Cp2kHartreeCube, Cp2kInput
 from ..plot import core, use_style
 from ..utils.math import *
 from ..utils.unit import *
-from ..utils.utils import update_dict
+from ..utils.utils import update_dict, iterdict, read_json
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 
@@ -59,7 +59,7 @@ class ElecEps(Eps):
             os.makedirs(dname)
 
         task = Cp2kInput(self.atoms, **kwargs)
-        task.write(output_dir=dname, fp_params=fp_params)
+        task.write(output_dir=dname, fp_params=fp_params, save_dict=calculate)
 
     def ref_calculate(self, vac_region):
         dname = os.path.join(self.work_dir, "ref")
@@ -144,7 +144,9 @@ class ElecEps(Eps):
             fp_params["FORCE_EVAL"]["DFT"]["POISSON"]["IMPLICIT"][
                 "DIRICHLET_BC"]["AA_PLANAR"][1][
                     "V_D"] = self.v_ref + self.v_zero + v
-            task.write(output_dir=dname, fp_params=fp_params)
+            task.write(output_dir=dname,
+                       fp_params=fp_params,
+                       save_dict=calculate)
 
     def calculate(self, pos_vac, **kwargs):
         sigma = kwargs.get("gaussian_sigma", 0.0)
@@ -296,10 +298,65 @@ class ElecEps(Eps):
 
         return fig, ax
 
-    def workflow(self):
-        # connect all together
-        # hang in the background and check the output file (finished_tag)
-        pass
+    def workflow(self,
+                 f_configs: str = "param.json",
+                 ignore_finished_tag: bool = False):
+        """
+        Example for `param.json`:
+        ```json
+        {
+            "load_module": [
+                "intel/17.5.239", 
+                "mpi/intel/2017.5.239", 
+                "gcc/5.5.0", 
+                "cp2k/7.1"
+            ],
+            "command": "mpiexec.hydra cp2k_shell.popt"
+            "ref_preset": {},
+            "ref_calculate": {},
+            "preset": {},
+            "calculate": {}
+        }
+        ```
+        """
+        wf_configs = read_json(f_configs)
+
+        # set env variables
+        load_module = wf_configs.get("load_module", [])
+        command = ""
+        if len(load_module) > 0:
+            command = "module load "
+            for m in load_module:
+                command += (m + " ")
+            command += "&& "
+        _command = wf_configs.get("command", "mpiexec.hydra cp2k_shell.popt")
+        command += _command
+        self.command = command
+        print(command)
+
+        # ref: preset
+        tmp_params = wf_configs.get("ref_preset", {})
+        self.ref_preset(calculate=True, **tmp_params)
+
+        # ref: DFT calculation
+        self._ase_cp2k_calculator(os.path.join(self.work_dir, "ref"),
+                                  ignore_finished_tag)
+
+        # ref: calculate dipole moment
+        tmp_params = wf_configs.get("ref_calculate", {})
+        self.ref_calculate(**tmp_params)
+
+        # eps_cal: preset
+        tmp_params = wf_configs.get("preset", {})
+        self.preset(calculate=True, **tmp_params)
+        # eps_cal: DFT calculation
+        for task in self.v_tasks:
+            self._ase_cp2k_calculator(os.path.join(self.work_dir, task),
+                                      ignore_finished_tag)
+
+        # eps_cal: calculate eps
+        tmp_params = wf_configs.get("calculate", {})
+        self.calculate(**tmp_params)
 
     def set_v_zero(self, v_zero: float):
         self.v_zero = v_zero
@@ -358,3 +415,46 @@ class ElecEps(Eps):
         # inveps
         x, y = self._calculate_inveps(x_in, delta_rho_e, delta_efield_zero)
         out_dict["inveps"] = (x, y)
+
+    @staticmethod
+    def _dict_to_cp2k_input(input_dict):
+        input_str = iterdict(input_dict, out_list=["\n"], loop_idx=0)
+        str = "\n".join(input_str)
+        str = str.strip("\n")
+        return str
+
+    def _ase_cp2k_calculator(self, work_dir, ignore_finished_tag):
+
+        from ase.calculators.cp2k import CP2K
+
+        root_dir = os.getcwd()
+        os.chdir(work_dir)
+
+        if (ignore_finished_tag == True) or (os.path.exists("finished_tag")
+                                             == False):
+            atoms = io.read("coord.xyz")
+            inp_dict = read_json("input.json")
+            label = inp_dict["GLOBAL"].pop("PROJECT", "cp2k")
+            inp_dict["FORCE_EVAL"]["SUBSYS"].pop("TOPOLOGY", None)
+            inp = self._dict_to_cp2k_input(inp_dict)
+
+            calc = CP2K(command=self.command,
+                        inp=inp,
+                        label=label,
+                        force_eval_method=None,
+                        print_level=None,
+                        stress_tensor=None,
+                        basis_set=None,
+                        pseudo_potential=None,
+                        basis_set_file=None,
+                        potential_file=None,
+                        cutoff=None,
+                        max_scf=None,
+                        xc=None,
+                        uks=None,
+                        charge=None,
+                        poisson_solver=None)
+            atoms.calc = calc
+            atoms.get_potential_energy()
+
+        os.chdir(root_dir)

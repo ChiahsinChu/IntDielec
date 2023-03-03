@@ -61,12 +61,7 @@ cp2k_default_input = {
                     }
                 }
             },
-            "SUBSYS": {
-                "CELL": {
-                    "A": "0. 0. 0.",
-                    "B": "0. 0. 0.",
-                    "C": "0. 0. 0."
-                },
+            "SUBSYS": { 
                 "TOPOLOGY": {
                     "COORD_FILE_FORMAT": "XYZ",
                     "COORD_FILE_NAME": "coord.xyz"

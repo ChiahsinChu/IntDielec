@@ -1,3 +1,5 @@
+import json
+
 
 def iterdict(input_dict, out_list, loop_idx):
     """ 
@@ -108,3 +110,14 @@ def update_dict(old_d, update_d):
         #     old_d[k].extend(update_d[k])
         else:
             old_d[k] = update_d[k]
+
+
+def write_json(input_dict, fname):
+    with open(fname, "w") as f:
+        json.dump(input_dict, f, indent=4)
+
+
+def read_json(fname):
+    with open(fname, "r") as f:
+        d = json.load(f)
+    return d

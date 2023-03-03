@@ -2,9 +2,8 @@
 
 ## To do list
 
-- [ ] test ASE [calculator interface](https://www.cp2k.org/tools:ase) for workflow
+- [ ] test workflow
 - [ ] NNP validation code used in this work
-- [ ] add workflow
 
 ## Introduction
 
@@ -27,7 +26,7 @@ Here is an example of the `config.json`:
   "io": {
     "cp2k": {
       "input": {
-        "project": "project_name",
+        "project": "eps_cal",
         "pp_dir": "/home/user/basis",
         "cutoff": 800,
         "rel_cutoff": 50
