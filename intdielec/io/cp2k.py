@@ -10,7 +10,7 @@ from .. import CONFIGS
 from ..exts.cp2kdata.cp2kdata.pdos import Cp2kPdos as _Cp2kPdos
 from ..exts.cp2kdata.cp2kdata.pdos import gaussian_filter1d
 from ..utils.unit import *
-from ..utils.utils import iterdict, update_dict
+from ..utils.utils import iterdict, update_dict, write_json
 from .template import cp2k_default_input
 
 
@@ -67,7 +67,7 @@ class Cp2kInput():
             update_d = getattr(self, "set_%s" % kw)(value)
             update_dict(self.input_dict, update_d)
 
-    def write(self, output_dir=".", fp_params={}):
+    def write(self, output_dir=".", fp_params={}, save_dict=False):
         """
         generate coord.xyz and input.inp for CP2K calculation at output_dir
 
@@ -118,6 +118,9 @@ class Cp2kInput():
         with open(os.path.join(output_dir, "input.inp"), "w",
                   encoding='utf-8') as f:
             f.write(str)
+
+        if save_dict:
+            write_json(self.input, os.path.join(output_dir, "input.json"))
 
     def set_project(self, project_name: str):
         update_d = {"GLOBAL": {"PROJECT": project_name}}
