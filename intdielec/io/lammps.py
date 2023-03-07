@@ -174,12 +174,16 @@ class LammpsDump:
 
     @staticmethod
     def make_header(atoms, ts):
+        bc_dict = {True: "pp", False: "ff"}
+
         cell = atoms.cell.cellpar()
+        bc = atoms.get_pbc()
         nat = len(atoms)
         s = "ITEM: TIMESTEP\n%d\n" % ts
         s += "ITEM: NUMBER OF ATOMS\n"
         s += "%d\n" % nat
-        s += "ITEM: BOX BOUNDS pp pp pp\n"
+        s += "ITEM: BOX BOUNDS %s %s %s\n" % (bc_dict[bc[0]], bc_dict[bc[1]],
+                                              bc_dict[bc[2]])
         s += "%.4f %.4f\n%.4f %.4f\n%.4f %.4f\n" % (0.0, cell[0], 0.0, cell[1],
                                                     0.0, cell[2])
         if len(atoms.get_initial_charges()) > 0:
