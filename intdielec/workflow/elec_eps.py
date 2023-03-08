@@ -17,6 +17,13 @@ from ..utils.unit import *
 from ..utils.utils import update_dict, iterdict, read_json
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
+N_SURF = 16
+L_WAT = 15.
+L_VAC = 10.
+EPS_WAT = 2.
+L_WAT_PDOS = 10.
+MAX_LOOP = 20
+SEARCH_CONVERGENCE = 1e-3
 
 use_style("pub")
 
@@ -469,6 +476,7 @@ class ElecEps(Eps):
                         charge=None,
                         poisson_solver=None)
             atoms.calc = calc
+            logging.info("{:=^50}".format(" Start: CP2K calculation "))
             atoms.get_potential_energy()
             logging.info("{:=^50}".format(" End: CP2K calculation "))
 
@@ -492,3 +500,300 @@ class ElecEps(Eps):
             logging.info("{:=^50}".format(" End: CP2K calculation "))
 
         os.chdir(root_dir)
+
+
+class IterElecEps(ElecEps):
+    def __init__(self,
+                 atoms: Atoms = None,
+                 work_dir: str = None,
+                 v_zero: float = None,
+                 v_ref: float = 0,
+                 v_seq: list or np.ndarray = None,
+                 data_fmt: str = "pkl") -> None:
+        super().__init__(atoms, work_dir, v_zero, v_ref, v_seq, data_fmt)
+        self._setup("pbc")
+
+    def pbc_preset(self, fp_params={}, dname="pbc", calculate=False, **kwargs):
+        update_d = {"dip_cor": False}
+        update_dict(kwargs, update_d)
+
+        n_wat = self.pbc_info["n_wat"]
+        update_d = self._water_pdos_input(n_wat=n_wat)
+        update_dict(fp_params, update_d)
+
+        dname = os.path.join(self.work_dir, dname)
+        if not os.path.exists(dname):
+            os.makedirs(dname)
+
+        task = Cp2kInput(self.pbc_atoms, **kwargs)
+        task.write(output_dir=dname, fp_params=fp_params, save_dict=calculate)
+
+        self.work_subdir = dname
+
+    def pbc_calculate(self):
+        n_wat = self.pbc_info["n_wat"]
+        z_wat = self.pbc_atoms.get_positions()[self.pbc_info["O_mask"], 2]
+        z_wat_vs_lo = z_wat - self.pbc_info["z_lo"]
+        z_wat_vs_hi = self.pbc_info["z_hi"] - z_wat
+
+        sort_ids = np.argsort(z_wat)
+
+        cbm, vbm = self._water_mo_output(n_wat)
+
+        np.save(os.path.join(self.work_subdir, "data.npy"), [
+            z_wat_vs_lo[sort_ids], z_wat_vs_hi[sort_ids], cbm[sort_ids],
+            vbm[sort_ids]
+        ])
+
+    def ref_preset(self, fp_params={}, calculate=False, **kwargs):
+        # lower surface
+        self.atoms = self._convert()
+        self._setup("ref_lo")
+        update_dict(fp_params,
+                    self._water_pdos_input(n_wat=self.ref_lo_info["n_wat"]))
+        super().ref_preset(fp_params=fp_params,
+                           dname="ref_lo",
+                           calculate=calculate,
+                           **kwargs)
+        # upper surface
+        self.atoms = self._convert(inverse=True)
+        self._setup("ref_hi")
+        update_dict(fp_params,
+                    self._water_pdos_input(n_wat=self.ref_hi_info["n_wat"]))
+        super().ref_preset(fp_params=fp_params,
+                           dname="ref_hi",
+                           calculate=calculate,
+                           **kwargs)
+
+    def ref_calculate(self, suffix, vac_region=None):
+        dname = "ref_%s" % suffix
+        self.work_subdir = os.path.join(self.work_dir, dname)
+        self.atoms = getattr(self, "%s_atoms" % dname)
+        super().ref_calculate(vac_region=vac_region, dname=dname)
+        # setattr(IterElecEps, "v_zero_%s" % suffix, self.v_zero)
+        info_dict = getattr(self, "%s_info" % dname)
+        info_dict["v_zero"] = self.v_zero
+        n_wat = info_dict["n_wat"]
+        z_wat = self.atoms.get_positions()[info_dict["O_mask"],
+                                           2] - info_dict["z_ave"]
+        sort_ids = np.argsort(z_wat)
+        cbm, vbm = self._water_mo_output(n_wat)
+
+        np.save(os.path.join(self.work_subdir, "data.npy"),
+                [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+        self.v_seq = [self._initial_guess()]
+
+    def _initial_guess(self):
+        # BUG: use list pdos rather than total pdos
+        # charge transfer
+        pdos_O = Cp2kPdos(os.path.join(self.work_subdir, "cp2k-k1-1.pdos"))
+        e = pdos_O.energies - pdos_O.fermi
+        mask = ((e - 0.1) * (e + 0.1) < 0.)
+
+        raw_dos = pdos_O._get_raw_dos()
+        occupation = pdos_O.occupation
+        n_e = (raw_dos[mask] * (2.0 - occupation[mask])).sum()
+
+        pdos_H = Cp2kPdos(os.path.join(self.work_subdir, "cp2k-k2-1.pdos"))
+        raw_dos = pdos_H._get_raw_dos()
+        occupation = pdos_H.occupation
+        n_e += (raw_dos[mask] * (2.0 - occupation[mask])).sum()
+
+        cross_area = np.linalg.norm(
+            np.cross(self.atoms.cell[0], self.atoms.cell[1]))
+        logging.debug("cross area: %f" % cross_area)
+        v_guess = 2 * L_VAC * (n_e / cross_area / _EPSILON)
+        logging.debug("v_guess (1): %f" % v_guess)
+
+        # dielectrics
+        slope = (EPS_WAT * L_VAC + L_WAT_PDOS) / (EPS_WAT * L_VAC * 2 + L_WAT)
+        if "lo" in self.work_subdir:
+            pass
+        else:
+            pass
+
+        delta_v = 0.
+        v_guess += delta_v / slope
+        logging.debug("v_guess (2): %f" % v_guess)
+        return v_guess
+
+    def search_preset(self, dname, fp_params={}, calculate=False, **kwargs):
+        self.work_subdir = os.path.join(self.work_dir, dname)
+        self.v_tasks = [dname]
+
+        kwargs.update({"max_scf": 50, "eps_scf": 1e-4})
+        super().preset(
+            pos_dielec=[L_VAC / 2.,
+                        self.atoms.get_cell()[2][2] - L_VAC / 2.],
+            fp_params=fp_params,
+            calculate=calculate,
+            **kwargs)
+
+    def search_calculate(self, pos_vac, **kwargs):
+        return super().calculate(pos_vac, **kwargs)
+
+    def workflow(self,
+                 configs: str = "param.json",
+                 ignore_finished_tag: bool = False):
+        default_command = "mpiexec.hydra cp2k_shell.popt"
+        Eps.workflow(self, configs, default_command)
+
+        # pbc: preset
+        logging.info(
+            "{:=^50}".format(" Start: set up files for PBC calculation "))
+        tmp_params = self.wf_configs.get("pbc_preset", {})
+        self.pbc_preset(calculate=True, **tmp_params)
+        logging.info(
+            "{:=^50}".format(" End: set up files for PBC calculation "))
+        # pbc: DFT calculation
+        self._bash_cp2k_calculator(self.work_subdir, ignore_finished_tag)
+        # pbc: calculate ref water MO
+        logging.info("{:=^50}".format(" Start: analyse PBC data "))
+        self.pbc_calculate()
+        logging.info("{:=^50}".format(" End: analyse PBC data "))
+
+        # ref: preset
+        logging.info(
+            "{:=^50}".format(" Start: set up files for dipole correction "))
+        tmp_params = self.wf_configs.get("ref_preset", {})
+        self.ref_preset(calculate=True, **tmp_params)
+        logging.info(
+            "{:=^50}".format(" End: set up files for dipole correction "))
+
+        for suffix in ["lo", "hi"]:
+            dname = "ref_%s" % suffix
+            self.work_subdir = os.path.join(self.work_dir, dname)
+            # ref: DFT calculation
+            self._bash_cp2k_calculator(self.work_subdir, ignore_finished_tag)
+            # ref: calculate dipole moment
+            logging.info("{:=^50}".format(" Start: analyse %s data " % dname))
+            tmp_params = self.wf_configs.get("ref_calculate", {})
+            self.ref_calculate(suffix=suffix, **tmp_params)
+            logging.info("{:=^50}".format(" End: analyse %s data " % dname))
+
+            for n_loop in range(MAX_LOOP):
+                dname = "search_%s.%06d" % (suffix, n_loop)
+                # search
+                logging.info("{:=^50}".format(" Start: search %s iter.%06d " %
+                                              (suffix, n_loop)))
+                tmp_params = self.wf_configs.get("search_preset", {})
+                self.search_preset(dname=dname, calculate=True, **tmp_params)
+                # search: DFT calculation
+                self._ase_cp2k_calculator(self.work_subdir,
+                                          ignore_finished_tag)
+                convergence = self.search_calculate()
+                logging.info("{:=^50}".format(" End: search %s iter.%06d " %
+                                              (suffix, n_loop)))
+                if convergence <= SEARCH_CONVERGENCE:
+                    break
+
+            # task_lo.000000
+            self.preset()
+            self.calculate()
+
+    def _convert(self, inverse: bool = False):
+        cell = self.pbc_atoms.get_cell()
+        new_cell = self.pbc_atoms.get_cell()
+        # add vac layer in both boundary of the cell
+        new_cell[2][2] += 2 * L_VAC
+        coords = self.pbc_atoms.get_positions()
+        if inverse:
+            coords[:, 2] = cell[2][2] - coords[:, 2]
+
+        # fold Pt slab
+        mask_z = (coords[:, 2] > cell[2][2] / 2.)
+        mask = self.pbc_info["metal_mask"] * mask_z
+        coords[mask, 2] -= cell[2][2]
+        # shift supercell
+        z_shifted = L_VAC - coords[:, 2].min()
+        coords[:, 2] += z_shifted
+
+        if inverse:
+            z_ave = cell[2][2] - self.pbc_info["z_hi"] + z_shifted
+        else:
+            z_ave = self.pbc_info["z_lo"] + z_shifted
+
+        # logging.info("Position of metal surface: %.3f [A]" % z_ave)
+        mask_atype = self.pbc_info["O_mask"]
+        mask_z = (coords[:, 2] <= (z_ave + L_WAT))
+        mask = mask_atype * mask_z
+        ids_O = np.arange(len(self.pbc_atoms))[mask]
+        ids_Pt = np.arange(len(self.pbc_atoms))[self.pbc_info["metal_mask"]]
+        ids_sel = np.concatenate([ids_O, ids_O + 1, ids_O + 2, ids_Pt])
+        ids_sel = np.sort(ids_sel)
+
+        new_atoms = Atoms(symbols=self.pbc_info["atype"][ids_sel],
+                          positions=coords[ids_sel],
+                          cell=new_cell,
+                          pbc=True)
+
+        # check water config
+        check_water(new_atoms)
+
+        return new_atoms
+
+    @staticmethod
+    def _water_pdos_input(n_wat):
+        update_d = {"FORCE_EVAL": {"DFT": {"PRINT": {"PDOS": {"LDOS": []}}}}}
+        for ii in range(n_wat):
+            id_start = ii * 3 + 1
+            id_end = (ii + 1) * 3
+            update_d["FORCE_EVAL"]["DFT"]["PRINT"]["PDOS"]["LDOS"].append(
+                {"LIST": "%d..%d" % (id_start, id_end)})
+        return update_d
+
+    def _water_mo_output(self, n_wat):
+        cbm = []
+        vbm = []
+        for ii in range(n_wat):
+            fname = os.path.join(self.work_subdir,
+                                 "cp2k-list%d-1.pdos" % (ii + 1))
+            task = Cp2kPdos(fname)
+            cbm.append(task.cbm)
+            vbm.append(task.vbm)
+        return np.array(cbm), np.array(vbm)
+
+    def _setup(self, type: str):
+        setattr(IterElecEps, "%s_atoms" % type, self.atoms.copy())
+        setattr(IterElecEps, "%s_info" % type, {})
+        info_dict = getattr(self, "%s_info" % type)
+        atoms = getattr(self, "%s_atoms" % type)
+        info_dict["atype"] = np.array(atoms.get_chemical_symbols())
+
+        info_dict["O_mask"] = (info_dict["atype"] == "O")
+        info_dict["H_mask"] = (info_dict["atype"] == "H")
+        info_dict["water_mask"] = info_dict["O_mask"] + info_dict["H_mask"]
+        info_dict["metal_mask"] = ~info_dict["water_mask"]
+        info_dict["n_wat"] = len(
+            info_dict["atype"][info_dict["water_mask"]]) // 3
+
+        logging.info("Number of water molecules: %d" % info_dict["n_wat"])
+
+        getattr(self, "_%s_setup" % type)()
+
+    def _pbc_setup(self):
+        z = self.pbc_atoms.get_positions()[:, 2]
+        mask_z = (z < self.pbc_atoms.get_cell()[2][2] / 2.)
+        mask = mask_z * self.pbc_info["metal_mask"]
+        self.pbc_info["z_lo"] = np.sort(z[mask])[-N_SURF:].mean()
+        mask_z = (z > self.pbc_atoms.get_cell()[2][2] / 2.)
+        mask = mask_z * self.pbc_info["metal_mask"]
+        self.pbc_info["z_hi"] = np.sort(z[mask])[:N_SURF].mean()
+        logging.info("Position of lower surface: %.3f [A]" %
+                     self.pbc_info["z_lo"])
+        logging.info("Position of upper surface: %.3f [A]" %
+                     self.pbc_info["z_hi"])
+
+    def _ref_lo_setup(self):
+        mask = self.ref_lo_info["metal_mask"]
+        z = self.ref_lo_atoms.get_positions()[mask, 2]
+        self.ref_lo_info["z_ave"] = np.sort(z)[-N_SURF:].mean()
+        logging.info("Position of metal surface: %.3f [A]" %
+                     self.ref_lo_info["z_ave"])
+
+    def _ref_hi_setup(self):
+        mask = self.ref_hi_info["metal_mask"]
+        z = self.ref_hi_atoms.get_positions()[mask, 2]
+        self.ref_hi_info["z_ave"] = np.sort(z)[-N_SURF:].mean()
+        logging.info("Position of metal surface: %.3f [A]" %
+                     self.ref_hi_info["z_ave"])
