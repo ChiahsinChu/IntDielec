@@ -333,8 +333,10 @@ class ElecEps(Eps):
         self.ref_preset(calculate=True, **tmp_params)
 
         # ref: DFT calculation
-        self._ase_cp2k_calculator(os.path.join(self.work_dir, "ref"),
-                                  ignore_finished_tag)
+        self._bash_cp2k_calculator(os.path.join(self.work_dir, "ref"),
+                                  ignore_finished_tag) 
+        # self._ase_cp2k_calculator(os.path.join(self.work_dir, "ref"),
+        #                           ignore_finished_tag)
 
         # ref: calculate dipole moment
         tmp_params = self.wf_configs.get("ref_calculate", {})
@@ -345,8 +347,10 @@ class ElecEps(Eps):
         self.preset(calculate=True, **tmp_params)
         # eps_cal: DFT calculation
         for task in self.v_tasks:
-            self._ase_cp2k_calculator(os.path.join(self.work_dir, task),
+            self._bash_cp2k_calculator(os.path.join(self.work_dir, task),
                                       ignore_finished_tag)
+            # self._ase_cp2k_calculator(os.path.join(self.work_dir, task),
+            #                           ignore_finished_tag)
 
         # eps_cal: calculate eps
         tmp_params = self.wf_configs.get("calculate", {})
@@ -450,5 +454,18 @@ class ElecEps(Eps):
                         poisson_solver=None)
             atoms.calc = calc
             atoms.get_potential_energy()
+            logging.info("{:=^50}".format(" End: CP2K calculation "))
+
+        os.chdir(root_dir)
+
+    def _bash_cp2k_calculator(self, work_dir, ignore_finished_tag):
+        root_dir = os.getcwd()
+        os.chdir(work_dir)
+
+        if (ignore_finished_tag == True) or (os.path.exists("finished_tag")
+                                             == False):
+            logging.info("{:=^50}".format(" Start: CP2K calculation "))
+            os.system(self.command)
+            logging.info("{:=^50}".format(" End: CP2K calculation "))
 
         os.chdir(root_dir)
