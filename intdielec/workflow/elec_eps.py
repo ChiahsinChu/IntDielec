@@ -9,7 +9,7 @@ import numpy as np
 from ase import Atoms, io
 
 from . import Eps
-from ..io.cp2k import Cp2kCube, Cp2kHartreeCube, Cp2kInput
+from ..io.cp2k import Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput, Cp2kPdos
 from ..plot import core, use_style
 from ..utils.math import *
 from ..utils.unit import *
@@ -44,7 +44,9 @@ class ElecEps(Eps):
         self.v_cubes = []
         self.e_cubes = []
 
-    def ref_preset(self, fp_params={}, calculate=False, **kwargs):
+        logging.info("Number of atoms: %d" % len(atoms))
+
+    def ref_preset(self, fp_params={}, dname="ref", calculate=False, **kwargs):
         """
         pp_dir="/data/jxzhu/basis", cutoff=400, eden=True
         """
@@ -55,25 +57,28 @@ class ElecEps(Eps):
         }
         update_dict(kwargs, update_d)
 
-        dname = os.path.join(self.work_dir, "ref")
+        dname = os.path.join(self.work_dir, dname)
         if not os.path.exists(dname):
             os.makedirs(dname)
 
         task = Cp2kInput(self.atoms, **kwargs)
         task.write(output_dir=dname, fp_params=fp_params, save_dict=calculate)
 
-    def ref_calculate(self, vac_region):
-        dname = os.path.join(self.work_dir, "ref")
-        fname = glob.glob(os.path.join(dname, "*hartree*.cube"))
-        # print(fname)
-        assert len(fname) == 1
-        cube = Cp2kHartreeCube(fname[0], vac_region)
-        output = cube.get_ave_cube()
-        self.set_v_zero(cube.potdrop)
-        # fname = glob.glob(os.path.join(dname, "output*"))
-        # assert len(fname) == 1
-        # output = Cp2kOutput(fname[0])
-        # self.fermi = output.fermi
+    def ref_calculate(self, vac_region=None, dname="ref"):
+        try:
+            fname = glob.glob(os.path.join(dname, "*out*"))
+            assert len(fname) == 1
+            output = Cp2kOutput(fname[0])
+            DeltaV = output.potdrop
+        except:
+            assert (vac_region is not None)
+            dname = os.path.join(self.work_dir, dname)
+            fname = glob.glob(os.path.join(dname, "*hartree*.cube"))
+            assert len(fname) == 1
+            cube = Cp2kHartreeCube(fname[0], vac_region)
+            output = cube.get_ave_cube()
+            DeltaV = cube.potdrop
+        self.set_v_zero(DeltaV)
 
     def preset(self, pos_dielec, fp_params={}, calculate=False, **kwargs):
         update_d = {
@@ -300,7 +305,7 @@ class ElecEps(Eps):
         return fig, ax
 
     def workflow(self,
-                 f_configs: str = "param.json",
+                 configs: str = "param.json",
                  ignore_finished_tag: bool = False):
         """
         Example for `param.json`:
@@ -312,7 +317,7 @@ class ElecEps(Eps):
                 "gcc/5.5.0", 
                 "cp2k/7.1"
             ],
-            "command": "mpiexec.hydra cp2k_shell.popt"
+            "command": "mpiexec.hydra cp2k_shell.popt",
             "ref_preset": {},
             "ref_calculate": {},
             "preset": {},
@@ -320,23 +325,11 @@ class ElecEps(Eps):
         }
         ```
         """
-        wf_configs = read_json(f_configs)
-
-        # set env variables
-        load_module = wf_configs.get("load_module", [])
-        command = ""
-        if len(load_module) > 0:
-            command = "module load "
-            for m in load_module:
-                command += (m + " ")
-            command += "&& "
-        _command = wf_configs.get("command", "mpiexec.hydra cp2k_shell.popt")
-        command += _command
-        self.command = command
-        print(command)
+        default_command = "mpiexec.hydra cp2k_shell.popt"
+        super().workflow(configs, default_command)
 
         # ref: preset
-        tmp_params = wf_configs.get("ref_preset", {})
+        tmp_params = self.wf_configs.get("ref_preset", {})
         self.ref_preset(calculate=True, **tmp_params)
 
         # ref: DFT calculation
@@ -344,11 +337,11 @@ class ElecEps(Eps):
                                   ignore_finished_tag)
 
         # ref: calculate dipole moment
-        tmp_params = wf_configs.get("ref_calculate", {})
+        tmp_params = self.wf_configs.get("ref_calculate", {})
         self.ref_calculate(**tmp_params)
 
         # eps_cal: preset
-        tmp_params = wf_configs.get("preset", {})
+        tmp_params = self.wf_configs.get("preset", {})
         self.preset(calculate=True, **tmp_params)
         # eps_cal: DFT calculation
         for task in self.v_tasks:
@@ -356,7 +349,7 @@ class ElecEps(Eps):
                                       ignore_finished_tag)
 
         # eps_cal: calculate eps
-        tmp_params = wf_configs.get("calculate", {})
+        tmp_params = self.wf_configs.get("calculate", {})
         self.calculate(**tmp_params)
 
     def set_v_zero(self, v_zero: float):
@@ -420,9 +413,9 @@ class ElecEps(Eps):
     @staticmethod
     def _dict_to_cp2k_input(input_dict):
         input_str = iterdict(input_dict, out_list=["\n"], loop_idx=0)
-        str = "\n".join(input_str)
-        str = str.strip("\n")
-        return str
+        s = "\n".join(input_str)
+        s = s.strip("\n")
+        return s
 
     def _ase_cp2k_calculator(self, work_dir, ignore_finished_tag):
 

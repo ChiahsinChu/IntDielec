@@ -715,6 +715,14 @@ class Cp2kOutput():
         return np.reshape(data_list, (nframe))
 
     @property
+    def potdrop(self):
+        cross_area = np.linalg.norm(
+            np.cross(self.atoms.cell[0], self.atoms.cell[1]))
+        DeltaV = self.surf_dipole_moment / cross_area / (
+            VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M)
+        return DeltaV
+
+    @property
     def energy_dict(self):
         energy_dict = {}
 
