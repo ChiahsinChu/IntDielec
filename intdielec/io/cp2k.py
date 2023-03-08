@@ -422,7 +422,6 @@ class Cp2kOutput():
         self.output_file = fname
         with open(fname, "r") as f:
             self.content = f.readlines()
-        coord = self.coord
         self.natoms = len(self.atoms)
         if not ignore_warning:
             if self.scf_loop == -1:
@@ -571,11 +570,22 @@ class Cp2kOutput():
             ])
             elem_list.append(line_list[2])
         coord = np.reshape(data_list, (nframe, -1, 3))
-
-        self.atoms = Atoms(symbols=np.reshape(elem_list,
-                                              (nframe, -1))[0].tolist(),
-                           positions=coord[-1])
+        self.chemical_symbols = np.reshape(elem_list, (nframe, -1))[0].tolist()
         return coord
+
+    @property
+    def atoms(self):
+        positions = self.coord[-1]
+        atoms = Atoms(symbols=self.chemical_symbols, positions=positions)
+        a = float(self.grep_text_2(r"Vector a").split()[-1])
+        b = float(self.grep_text_2(r"Vector b").split()[-1])
+        c = float(self.grep_text_2(r"Vector c").split()[-1])
+        alpha = float(self.grep_text_2(r"Angle | alpha").split()[-1])
+        beta = float(self.grep_text_2(r"Angle | beta").split()[-1])
+        gamma = float(self.grep_text_2(r"Angle | gamma").split()[-1])
+        atoms.set_cell([a, b, c, alpha, beta, gamma])
+        atoms.set_pbc(True)
+        return atoms
 
     @property
     def force(self):

@@ -33,7 +33,7 @@ class Eps:
             command += "&& "
         _command = self.wf_configs.get("command", default_command)
         command += _command
-        command += " && touch finished_tag"
+        # command += " && touch finished_tag"
         self.command = command
 
     def _load_data(self):

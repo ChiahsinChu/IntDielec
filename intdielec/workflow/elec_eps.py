@@ -2,6 +2,7 @@ import copy
 import glob
 import logging
 import os
+import sys
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -466,6 +467,12 @@ class ElecEps(Eps):
                                              == False):
             logging.info("{:=^50}".format(" Start: CP2K calculation "))
             os.system(self.command)
+            try:
+                output = Cp2kOutput("output.out")
+                with open("finished_tag", 'w') as f:
+                    pass
+            except:
+                sys.exit("CP2K task is not finished!")
             logging.info("{:=^50}".format(" End: CP2K calculation "))
 
         os.chdir(root_dir)
