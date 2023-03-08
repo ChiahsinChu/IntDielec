@@ -66,6 +66,7 @@ class ElecEps(Eps):
         task.write(output_dir=dname, fp_params=fp_params, save_dict=calculate)
 
     def ref_calculate(self, vac_region=None, dname="ref"):
+        dname = os.path.join(self.work_dir, dname)
         try:
             fname = glob.glob(os.path.join(dname, "output*"))
             assert len(fname) == 1
@@ -73,7 +74,6 @@ class ElecEps(Eps):
             DeltaV = output.potdrop[0]
         except:
             assert (vac_region is not None)
-            dname = os.path.join(self.work_dir, dname)
             fname = glob.glob(os.path.join(dname, "*hartree*.cube"))
             assert len(fname) == 1
             cube = Cp2kHartreeCube(fname[0], vac_region)
