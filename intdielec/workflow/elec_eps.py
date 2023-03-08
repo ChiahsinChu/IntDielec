@@ -330,8 +330,12 @@ class ElecEps(Eps):
         super().workflow(configs, default_command)
 
         # ref: preset
+        logging.info(
+            "{:=^50}".format(" Start: set up files for dipole correction "))
         tmp_params = self.wf_configs.get("ref_preset", {})
         self.ref_preset(calculate=True, **tmp_params)
+        logging.info(
+            "{:=^50}".format(" End: set up files for dipole correction "))
 
         # ref: DFT calculation
         self._bash_cp2k_calculator(os.path.join(self.work_dir, "ref"),
@@ -340,12 +344,19 @@ class ElecEps(Eps):
         #                           ignore_finished_tag)
 
         # ref: calculate dipole moment
+        logging.info(
+            "{:=^50}".format(" Start: analyse dipole correction data "))
         tmp_params = self.wf_configs.get("ref_calculate", {})
         self.ref_calculate(**tmp_params)
+        logging.info("{:=^50}".format(" End: analyse dipole correction data "))
 
         # eps_cal: preset
+        logging.info(
+            "{:=^50}".format(" Start: set up files for Efield calculation "))
         tmp_params = self.wf_configs.get("preset", {})
         self.preset(calculate=True, **tmp_params)
+        logging.info(
+            "{:=^50}".format(" End: set up files for Efield calculation "))
         # eps_cal: DFT calculation
         for task in self.v_tasks:
             self._bash_cp2k_calculator(os.path.join(self.work_dir, task),
@@ -354,8 +365,12 @@ class ElecEps(Eps):
             #                           ignore_finished_tag)
 
         # eps_cal: calculate eps
+        logging.info("{:=^50}".format(" Start: analyse eps calculation "))
         tmp_params = self.wf_configs.get("calculate", {})
         self.calculate(**tmp_params)
+        logging.info("{:=^50}".format(" End: analyse eps calculation "))
+
+        logging.info("{:=^50}".format(" End: eps Calculation "))
 
     def set_v_zero(self, v_zero: float):
         self.v_zero = v_zero
