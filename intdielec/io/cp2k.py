@@ -216,6 +216,14 @@ class Cp2kInput():
         }
         return update_d
 
+    def set_max_scf(self, max_scf: int):
+        update_d = {"FORCE_EVAL": {"DFT": {"SCF": {"MAX_SCF": max_scf}}}}
+        return update_d
+
+    def set_eps_scf(self, eps_scf: float):
+        update_d = {"FORCE_EVAL": {"DFT": {"SCF": {"EPS_SCF": eps_scf}}}}
+        return update_d
+
     def set_dip_cor(self, flag):
         if flag:
             update_d = {
