@@ -132,7 +132,7 @@ dmypy.json
 
 config.json
 *.cube
-*.wfn.*
+*.wfn*
 *.lammpstrj
 *.xyz
 *.pdos
