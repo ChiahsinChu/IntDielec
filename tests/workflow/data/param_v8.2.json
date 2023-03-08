@@ -6,13 +6,13 @@
     ],
     "command": "mpiexec.hydra cp2k.popt input.inp > output.out",
     "ref_preset": {
-        "eps_scf": 1e-3
+        "eps_scf": 1e-2
     },
     "ref_calculate": {
-        "eps_scf": 1e-3
     },
     "preset": {
-        "pos_dielec": [5, 55]
+        "pos_dielec": [5, 55],
+        "eps_scf": 1e-2
     },
     "calculate": {
         "pos_vac": 8.0

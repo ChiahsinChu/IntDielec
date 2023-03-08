@@ -18,7 +18,7 @@
             },
             "SCF": {
                 "SCF_GUESS": "RESTART",
-                "EPS_SCF": 1e-06,
+                "EPS_SCF": 0.01,
                 "MAX_SCF": 500,
                 "ADDED_MOS": 500,
                 "CHOLESKY": "INVERSE",
@@ -75,7 +75,7 @@
                                 "PERIODIC_REGION": ".TRUE."
                             },
                             {
-                                "V_D": -2.65369405022502,
+                                "V_D": -2.067273060337132,
                                 "PARALLEL_PLANE": "XY",
                                 "X_XTNT": "0.0 11.2460",
                                 "Y_XTNT": "0.0 11.2460",
