@@ -15,6 +15,7 @@ from ..plot import core, use_style
 from ..utils.math import *
 from ..utils.unit import *
 from ..utils.utils import update_dict, iterdict, read_json
+from ..utils.config import check_water
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 N_SURF = 16
@@ -514,8 +515,7 @@ class IterElecEps(ElecEps):
         self._setup("pbc")
 
     def pbc_preset(self, fp_params={}, dname="pbc", calculate=False, **kwargs):
-        update_d = {"dip_cor": False}
-        update_dict(kwargs, update_d)
+        kwargs.update({"dip_cor": False})
 
         n_wat = self.pbc_info["n_wat"]
         update_d = self._water_pdos_input(n_wat=n_wat)
