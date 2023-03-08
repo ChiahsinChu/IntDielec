@@ -481,6 +481,7 @@ class ElecEps(Eps):
         if (ignore_finished_tag == True) or (os.path.exists("finished_tag")
                                              == False):
             logging.info("{:=^50}".format(" Start: CP2K calculation "))
+            logging.info("Path: %s" % os.path.abspath(work_dir))
             os.system(self.command)
             try:
                 output = Cp2kOutput("output.out")

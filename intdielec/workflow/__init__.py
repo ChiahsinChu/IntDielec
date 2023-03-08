@@ -19,9 +19,9 @@ class Eps:
         self.data_fmt = data_fmt
         self._load_data()
 
-        logging.info("{:=^50}".format(" Start: Eps Calculation "))
-
     def workflow(self, configs: str = "param.json", default_command=None):
+        logging.info("{:=^50}".format(" Start: eps Calculation "))
+
         self.wf_configs = read_json(configs)
         # set env variables
         load_module = self.wf_configs.get("load_module", [])
