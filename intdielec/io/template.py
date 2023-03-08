@@ -55,11 +55,6 @@ cp2k_default_input = {
                         }
                     }
                 },
-                "PRINT": {
-                    "MOMENTS": {
-                        "PERIODIC": ".FALSE."
-                    }
-                }
             },
             "SUBSYS": { 
                 "TOPOLOGY": {

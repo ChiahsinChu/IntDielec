@@ -137,3 +137,5 @@ config.json
 *.xyz
 *.pdos
 .DS_Store
+
+watanalysis
