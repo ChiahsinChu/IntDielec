@@ -1,6 +1,7 @@
-import glob
-import os
 import copy
+import glob
+import logging
+import os
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt

@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 
 fname = os.path.join(__path__[0], "../config.json")
 if os.path.exists(fname):

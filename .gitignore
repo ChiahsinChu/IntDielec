@@ -135,3 +135,5 @@ config.json
 *.wfn.*
 *.lammpstrj
 *.xyz
+*.pdos
+.DS_Store
