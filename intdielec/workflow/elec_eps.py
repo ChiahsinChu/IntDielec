@@ -67,10 +67,10 @@ class ElecEps(Eps):
 
     def ref_calculate(self, vac_region=None, dname="ref"):
         try:
-            fname = glob.glob(os.path.join(dname, "*out*"))
+            fname = glob.glob(os.path.join(dname, "output*"))
             assert len(fname) == 1
             output = Cp2kOutput(fname[0])
-            DeltaV = output.potdrop
+            DeltaV = output.potdrop[0]
         except:
             assert (vac_region is not None)
             dname = os.path.join(self.work_dir, dname)
@@ -335,7 +335,7 @@ class ElecEps(Eps):
 
         # ref: DFT calculation
         self._bash_cp2k_calculator(os.path.join(self.work_dir, "ref"),
-                                  ignore_finished_tag) 
+                                   ignore_finished_tag)
         # self._ase_cp2k_calculator(os.path.join(self.work_dir, "ref"),
         #                           ignore_finished_tag)
 
@@ -349,7 +349,7 @@ class ElecEps(Eps):
         # eps_cal: DFT calculation
         for task in self.v_tasks:
             self._bash_cp2k_calculator(os.path.join(self.work_dir, task),
-                                      ignore_finished_tag)
+                                       ignore_finished_tag)
             # self._ase_cp2k_calculator(os.path.join(self.work_dir, task),
             #                           ignore_finished_tag)
 
