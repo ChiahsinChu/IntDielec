@@ -120,7 +120,7 @@ class Cp2kInput():
             f.write(str)
 
         if save_dict:
-            write_json(self.input, os.path.join(output_dir, "input.json"))
+            write_json(self.input_dict, os.path.join(output_dir, "input.json"))
 
     def set_project(self, project_name: str):
         update_d = {"GLOBAL": {"PROJECT": project_name}}
