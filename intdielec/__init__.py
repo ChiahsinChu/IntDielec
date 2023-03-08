@@ -7,3 +7,8 @@ if os.path.exists(fname):
         CONFIGS = json.loads(f.read())
 else:
     CONFIGS = {}
+
+logging.basicConfig(filename="eps_cal.log",
+                    level=logging.INFO,
+                    format='%(asctime)s - %(message)s',
+                    datefmt='%d-%m-%y %H:%M:%S')
