@@ -773,8 +773,8 @@ class IterElecEps(ElecEps):
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
                     break
-                print("search history (V, convergence): \n",
-                      self.search_history)
+                # print("search history (V, convergence): \n",
+                #       self.search_history)
 
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
