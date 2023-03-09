@@ -685,8 +685,13 @@ class IterElecEps(ElecEps):
                 [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
 
-    def preset(self, v_seq, fp_params={}, calculate=False, **kwargs):
-        self.v_seq = np.sort(v_seq)
+    def preset(self, fp_params={}, calculate=False, **kwargs):
+        v_start = kwargs.pop("v_start", -1.0)
+        v_end = kwargs.pop("v_end", 1.0)
+        v_step = kwargs.pop("v_step", 0.5)
+        n_step = int((v_end - v_start) / v_step)
+        v_seq = np.linspace(v_start, v_end, n_step)
+
         self.v_tasks = []
         for ii in range(len(v_seq)):
             self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
@@ -697,8 +702,6 @@ class IterElecEps(ElecEps):
             fp_params=fp_params,
             calculate=calculate,
             **kwargs)
-
-
 
     def workflow(self,
                  configs: str = "param.json",
@@ -769,7 +772,7 @@ class IterElecEps(ElecEps):
                 self.work_subdir = os.path.join(self.work_dir, task)
                 self._bash_cp2k_calculator(self.work_subdir,
                                            ignore_finished_tag)
-            tmp_params = self.wf_configs.get("calculate", {}) 
+            tmp_params = self.wf_configs.get("calculate", {})
             self.calculate(pos_vac=0.75 * L_VAC, **tmp_params)
             logging.info("{:=^50}".format(" End: eps calculation "))
 
