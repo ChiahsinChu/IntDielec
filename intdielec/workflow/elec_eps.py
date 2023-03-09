@@ -32,6 +32,7 @@ use_style("pub")
 
 
 class ElecEps(Eps):
+
     def __init__(
         self,
         atoms: Atoms = None,
@@ -506,6 +507,7 @@ class ElecEps(Eps):
 
 
 class IterElecEps(ElecEps):
+
     def __init__(self,
                  atoms: Atoms = None,
                  work_dir: str = None,
@@ -585,7 +587,7 @@ class IterElecEps(ElecEps):
 
             np.save(os.path.join(self.work_subdir, "data.npy"),
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
-        self.v_seq = [self._guess()]
+        self.v_seq = [self._guess(type="simple")]
 
     def _guess(self, type="optimize", **kwargs):
         v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
@@ -637,7 +639,6 @@ class IterElecEps(ElecEps):
         if len(self.search_history) < n_step:
             return self._guess_simple()
         else:
-
             def func(x):
                 y = np.interp([x],
                               xp=np.array(self.search_history)[:, 0],
@@ -774,8 +775,8 @@ class IterElecEps(ElecEps):
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
                     break
-                # print("search history (V, convergence): \n",
-                #       self.search_history)
+                print("search history (V, convergence): \n",
+                      self.search_history)
 
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
