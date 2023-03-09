@@ -1,4 +1,5 @@
 import json
+import os
 
 
 def iterdict(input_dict, out_list, loop_idx):
@@ -121,3 +122,8 @@ def read_json(fname):
     with open(fname, "r") as f:
         d = json.load(f)
     return d
+
+
+def symlink(src, _dst):
+    dst = os.path.abspath(_dst)
+    os.symlink(src, dst)
