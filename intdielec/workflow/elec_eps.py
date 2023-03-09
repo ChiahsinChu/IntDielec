@@ -32,7 +32,6 @@ use_style("pub")
 
 
 class ElecEps(Eps):
-
     def __init__(
         self,
         atoms: Atoms = None,
@@ -507,7 +506,6 @@ class ElecEps(Eps):
 
 
 class IterElecEps(ElecEps):
-
     def __init__(self,
                  atoms: Atoms = None,
                  work_dir: str = None,
@@ -587,9 +585,9 @@ class IterElecEps(ElecEps):
 
             np.save(os.path.join(self.work_subdir, "data.npy"),
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
-        self.v_seq = [self._guess(type="simple")]
+        self.v_seq = [self._guess()]
 
-    def _guess(self, type="optimize", **kwargs):
+    def _guess(self, type="mixing", **kwargs):
         v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
         logging.info("V_guess: %f" % v_guess)
         self.search_history.append([v_guess, self.convergence])
@@ -625,13 +623,15 @@ class IterElecEps(ElecEps):
         test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
         ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
         test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
-        if "lo" in self.work_subdir:
+        self.convergence = test_data[-1][:ref_id].mean()
+        if self.suffix == "lo":
             ref_homo = ref_data[-1][(ref_id - 4):(ref_id + 1)].mean()
+            self.convergence -= ref_data[-1][:ref_id].mean()
         else:
             ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
-
-        self.convergence = test_homo - ref_homo
-        v_guess += self.convergence * slope
+            self.convergence -= ref_data[-1][-ref_id:].mean()
+        delta_v = test_homo - ref_homo
+        v_guess += delta_v * slope
         logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
 
@@ -639,6 +639,7 @@ class IterElecEps(ElecEps):
         if len(self.search_history) < n_step:
             return self._guess_simple()
         else:
+
             def func(x):
                 y = np.interp([x],
                               xp=np.array(self.search_history)[:, 0],
@@ -651,6 +652,11 @@ class IterElecEps(ElecEps):
                                       x0=x0,
                                       xtol=SEARCH_CONVERGENCE)[0]
             return v_guess
+
+    def _guess_mixing(self, n_step=3, alpha=0.8):
+        v_guess = alpha * self._guess_optimize(
+            n_step=n_step) + (1. - alpha) * self._guess_simple()
+        return v_guess
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
         dname = "search_%s.%06d" % (self.suffix, n_iter)
@@ -747,10 +753,12 @@ class IterElecEps(ElecEps):
         for suffix in ["lo", "hi"]:
             self.suffix = suffix
             try:
-                self.search_history = np.load(os.path.join(self.work_dir, "search_history_%s.npy" % self.suffix))
+                self.search_history = np.load(
+                    os.path.join(self.work_dir,
+                                 "search_history_%s.npy" % self.suffix))
             except:
                 self.search_history = []
-                
+
             dname = "ref_%s" % suffix
             self.work_subdir = os.path.join(self.work_dir, dname)
             # ref: DFT calculation
@@ -778,7 +786,10 @@ class IterElecEps(ElecEps):
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
                     break
-                np.save(os.path.join(self.work_dir, "search_history_%s.npy" % self.suffix), self.search_history)
+                np.save(
+                    os.path.join(self.work_dir,
+                                 "search_history_%s.npy" % self.suffix),
+                    self.search_history)
 
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
