@@ -639,8 +639,8 @@ class IterElecEps(ElecEps):
 
             def func(x):
                 y = np.interp([x],
-                              xp=self.search_history[0],
-                              fp=self.search_history[1])
+                              xp=self.search_history[:, 0],
+                              fp=self.search_history[:, 1])
                 return y[0]
 
             x0 = self.search_history[0][np.argmin(
@@ -694,7 +694,7 @@ class IterElecEps(ElecEps):
         v_step = kwargs.pop("v_step", 1.0)
         n_step = int((v_end - v_start) / v_step) + 1
         self.v_seq = np.linspace(v_start, v_end, n_step)
-        self.v_seq += self.search_history[0][-1]
+        self.v_seq += self.search_history[-1][0]
 
         self.v_tasks = []
         for ii in range(len(self.v_seq)):
