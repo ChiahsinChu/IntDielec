@@ -587,7 +587,7 @@ class IterElecEps(ElecEps):
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
 
-    def _guess(self, type="mixing", **kwargs):
+    def _guess(self, type="optimize", **kwargs):
         v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
         logging.info("V_guess: %f" % v_guess)
         try:
@@ -644,7 +644,7 @@ class IterElecEps(ElecEps):
         logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
 
-    def _guess_optimize(self, n_step=5):
+    def _guess_optimize(self, n_step=3):
         if len(self.search_history) < n_step:
             return self._guess_simple()
         else:
@@ -662,10 +662,10 @@ class IterElecEps(ElecEps):
                                       xtol=SEARCH_CONVERGENCE)[0]
             return v_guess
 
-    def _guess_mixing(self, n_step=3, alpha=0.8):
-        v_guess = alpha * self._guess_optimize(
-            n_step=n_step) + (1. - alpha) * self._guess_simple()
-        return v_guess
+    # def _guess_mixing(self, n_step=3, alpha=0.8):
+    #     v_guess = alpha * self._guess_optimize(
+    #         n_step=n_step) + (1. - alpha) * self._guess_simple()
+    #     return v_guess
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
         dname = "search_%s.%06d" % (self.suffix, n_iter)

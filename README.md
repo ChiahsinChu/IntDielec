@@ -2,7 +2,6 @@
 
 ## To do list
 
-- [ ] test workflow
 - [ ] NNP validation code used in this work
 
 ## Introduction
@@ -15,10 +14,11 @@ cd IntDielec
 pip install .
 ```
 
-If you don't use `--recursive` in `git clone`, you will miss the external package(s). You can also download the submodule(s) in two steps:
+If you don't use `--recursive`, you will miss the submodule(s). You can, alternatively, download the submodule(s) in two steps:
 
 ```bash
-git clone --recursive https://github.com/ChiahsinChu/IntDielec.git ./IntDielec
+git clone --recursive https://github.com/ChiahsinChu/IntDielec.git .
+cd IntDielec
 git submodule update --init --recursive
 ```
 
@@ -66,6 +66,10 @@ fig, axs = task.plot()
 methods and keywords... (TBC)
 
 ### calculation of orientational dielectric constant
+
+### workflow
+
+TBC
 
 ## Developer guide
 
