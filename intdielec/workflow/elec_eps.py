@@ -575,14 +575,15 @@ class IterElecEps(ElecEps):
         # setattr(IterElecEps, "v_zero_%s" % suffix, self.v_zero)
         self.info_dict["v_zero"] = self.v_zero
         logging.debug("V_zero: %f" % self.v_zero)
-        n_wat = self.info_dict["n_wat"]
-        z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
-                                           2] - self.info_dict["z_ave"]
-        sort_ids = np.argsort(z_wat)
-        cbm, vbm = self._water_mo_output(n_wat)
+        if not os.path.exists(os.path.join(self.work_subdir, "data.npy")):
+            n_wat = self.info_dict["n_wat"]
+            z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
+                                               2] - self.info_dict["z_ave"]
+            sort_ids = np.argsort(z_wat)
+            cbm, vbm = self._water_mo_output(n_wat)
 
-        np.save(os.path.join(self.work_subdir, "data.npy"),
-                [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+            np.save(os.path.join(self.work_subdir, "data.npy"),
+                    [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
 
     def _guess(self, type="optimize", **kwargs):
@@ -675,14 +676,16 @@ class IterElecEps(ElecEps):
             **kwargs)
 
     def search_calculate(self):
-        n_wat = self.info_dict["n_wat"]
-        z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
-                                           2] - self.info_dict["z_ave"]
-        sort_ids = np.argsort(z_wat)
-        cbm, vbm = self._water_mo_output(n_wat)
+        if not os.path.exists(os.path.join(self.work_subdir, "data.npy")):
+            n_wat = self.info_dict["n_wat"]
+            z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
+                                               2] - self.info_dict["z_ave"]
+            sort_ids = np.argsort(z_wat)
+            cbm, vbm = self._water_mo_output(n_wat)
 
-        np.save(os.path.join(self.work_subdir, "data.npy"),
-                [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+            np.save(os.path.join(self.work_subdir, "data.npy"),
+                    [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+
         self.v_seq = [self._guess()]
 
     def preset(self, fp_params={}, calculate=False, **kwargs):
@@ -691,6 +694,7 @@ class IterElecEps(ElecEps):
         v_step = kwargs.pop("v_step", 0.5)
         n_step = int((v_end - v_start) / v_step)
         v_seq = np.linspace(v_start, v_end, n_step)
+        v_seq += self.search_history[0][-1]
 
         self.v_tasks = []
         for ii in range(len(v_seq)):
