@@ -31,3 +31,8 @@ def get_cum_ave(data):
     cum_sum = data.cumsum()
     cum_ave = cum_sum / (np.arange(len(data)) + 1)
     return cum_ave
+
+
+def interp(x, dataset):
+    y = np.interp(x, xp=dataset[0], fp=dataset[1])
+    return y

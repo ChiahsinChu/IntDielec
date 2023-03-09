@@ -3,7 +3,7 @@ import glob
 import logging
 import os
 import sys
-import re
+from scipy import optimize
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -585,7 +585,13 @@ class IterElecEps(ElecEps):
                 [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
 
-    def _guess(self):
+    def _guess(self, type="optimize", **kwargs):
+        v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
+        logging.info("V_guess: %f" % v_guess)
+        self.search_history.append([v_guess, self.convergence])
+        return v_guess
+
+    def _guess_simple(self):
         z = self.atoms.get_positions()[:, 2]
         mask_coord = (z >= (self.info_dict["z_ave"] + L_WAT_PDOS))
         mask = self.info_dict["O_mask"] * mask_coord
@@ -610,7 +616,7 @@ class IterElecEps(ElecEps):
         logging.debug("V_guess (1): %f" % v_guess)
 
         # dielectrics
-        slope = (EPS_WAT * L_VAC + L_WAT_PDOS) / (EPS_WAT * L_VAC * 2 + L_WAT)
+        slope = (EPS_WAT * L_VAC * 2 + L_WAT) / (EPS_WAT * L_VAC + L_WAT_PDOS)
         ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
         test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
         ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
@@ -621,9 +627,27 @@ class IterElecEps(ElecEps):
             ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
 
         self.convergence = test_homo - ref_homo
-        v_guess += self.convergence / slope
+        v_guess += self.convergence * slope
         logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
+
+    def _guess_optimize(self, n_step=5):
+        if len(self.search_history) < n_step:
+            self._guess_simple()
+        else:
+
+            def func(x):
+                y = np.interp([x],
+                              xp=self.search_history[0],
+                              fp=self.search_history[1])
+                return y[0]
+
+            x0 = self.search_history[0][np.argmin(
+                np.abs(self.search_history[1]))]
+            v_guess = optimize.fsolve(func=func,
+                                      x0=x0,
+                                      xtol=SEARCH_CONVERGENCE)[0]
+            return v_guess
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
         dname = "search_%s.%06d" % (self.suffix, n_iter)
@@ -708,6 +732,8 @@ class IterElecEps(ElecEps):
 
         for suffix in ["lo", "hi"]:
             self.suffix = suffix
+            self.search_history = []
+
             dname = "ref_%s" % suffix
             self.work_subdir = os.path.join(self.work_dir, dname)
             # ref: DFT calculation
@@ -719,7 +745,6 @@ class IterElecEps(ElecEps):
             logging.info("{:=^50}".format(" End: analyse %s data " % dname))
 
             for n_loop in range(MAX_LOOP):
-
                 # search
                 logging.info("{:=^50}".format(" Start: search %s iter.%06d " %
                                               (suffix, n_loop)))
@@ -729,6 +754,7 @@ class IterElecEps(ElecEps):
                 self._bash_cp2k_calculator(self.work_subdir,
                                            ignore_finished_tag)
                 self.search_calculate()
+                logging.info("Convergence [V]: %f" % self.convergence)
                 logging.info("{:=^50}".format(" End: search %s iter.%06d " %
                                               (suffix, n_loop)))
                 if self.convergence <= SEARCH_CONVERGENCE:
