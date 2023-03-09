@@ -691,16 +691,15 @@ class IterElecEps(ElecEps):
     def preset(self, fp_params={}, calculate=False, **kwargs):
         v_start = kwargs.pop("v_start", -1.0)
         v_end = kwargs.pop("v_end", 1.0)
-        v_step = kwargs.pop("v_step", 0.5)
-        n_step = int((v_end - v_start) / v_step)
-        v_seq = np.linspace(v_start, v_end, n_step)
-        v_seq += self.search_history[0][-1]
+        v_step = kwargs.pop("v_step", 1.0)
+        n_step = int((v_end - v_start) / v_step) + 1
+        self.v_seq = np.linspace(v_start, v_end, n_step)
+        self.v_seq += self.search_history[0][-1]
 
         self.v_tasks = []
-        for ii in range(len(v_seq)):
+        for ii in range(len(self.v_seq)):
             self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
 
-        print(self.v_seq, self.v_tasks)
         super().preset(
             pos_dielec=[L_VAC / 2.,
                         self.atoms.get_cell()[2][2] - L_VAC / 2.],
