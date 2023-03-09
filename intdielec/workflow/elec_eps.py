@@ -26,7 +26,7 @@ L_VAC = 10.
 EPS_WAT = 2.
 L_WAT_PDOS = 10.
 MAX_LOOP = 20
-SEARCH_CONVERGENCE = 1e-2
+SEARCH_CONVERGENCE = 1e-1
 V_GUESS_BOUND = [-(L_WAT + EPS_WAT * L_VAC * 2), L_WAT + EPS_WAT * L_VAC * 2]
 
 use_style("pub")
@@ -591,7 +591,7 @@ class IterElecEps(ElecEps):
     def _guess(self, type="optimize", **kwargs):
         v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
         logging.info("V_guess: %f" % v_guess)
-        logging.debug("working directory: %s" % self.work_subdir)
+        # logging.debug("working directory: %s" % self.work_subdir)
         ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
         test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
         ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
@@ -716,10 +716,9 @@ class IterElecEps(ElecEps):
         self.v_seq = [self._guess()]
 
     def preset(self, fp_params={}, calculate=False, **kwargs):
-        v_start = kwargs.pop("v_start", -1.0)
-        v_end = kwargs.pop("v_end", 1.0)
-        v_step = kwargs.pop("v_step", 1.0)
-        n_step = int((v_end - v_start) / v_step) + 1
+        v_start = kwargs.pop("v_start", -0.05 * (L_WAT + EPS_WAT * L_VAC * 2))
+        v_end = kwargs.pop("v_end", 0.05 * (L_WAT + EPS_WAT * L_VAC * 2))
+        n_step = kwargs.pop("n_step", 3)
         self.v_seq = np.linspace(v_start, v_end, n_step)
         self.v_seq += self.search_history[-1][0]
 
@@ -788,6 +787,8 @@ class IterElecEps(ElecEps):
             self.ref_calculate(**tmp_params)
             logging.info("{:=^50}".format(" End: analyse %s data " % dname))
 
+            convergence = self.wf_configs.get("convergence",
+                                              SEARCH_CONVERGENCE)
             for n_loop in range(MAX_LOOP):
                 # search
                 logging.info("{:=^50}".format(" Start: search %s iter.%06d " %
@@ -801,7 +802,7 @@ class IterElecEps(ElecEps):
                 logging.info("Convergence [V]: %f" % self.convergence)
                 logging.info("{:=^50}".format(" End: search %s iter.%06d " %
                                               (suffix, n_loop)))
-                if np.abs(self.convergence) <= SEARCH_CONVERGENCE:
+                if np.abs(self.convergence) <= convergence:
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
                     break
