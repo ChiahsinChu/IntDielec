@@ -10,6 +10,6 @@ else:
     CONFIGS = {}
 
 logging.basicConfig(filename="eps_cal.log",
-                    level=logging.INFO,
+                    level=logging.DEBUG,
                     format='%(asctime)s - %(message)s',
                     datefmt='%d-%m-%y %H:%M:%S')

@@ -581,23 +581,24 @@ class IterElecEps(ElecEps):
 
         np.save(os.path.join(self.work_subdir, "data.npy"),
                 [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
-        self.v_seq = [self._initial_guess()]
+        self.v_seq = [self._guess(info_dict)]
 
-    def _initial_guess(self):
-        # BUG: use list pdos rather than total pdos
-        # charge transfer
-        pdos_O = Cp2kPdos(os.path.join(self.work_subdir, "cp2k-k1-1.pdos"))
-        e = pdos_O.energies - pdos_O.fermi
-        mask = ((e - 0.1) * (e + 0.1) < 0.)
-
-        raw_dos = pdos_O._get_raw_dos()
-        occupation = pdos_O.occupation
-        n_e = (raw_dos[mask] * (2.0 - occupation[mask])).sum()
-
-        pdos_H = Cp2kPdos(os.path.join(self.work_subdir, "cp2k-k2-1.pdos"))
-        raw_dos = pdos_H._get_raw_dos()
-        occupation = pdos_H.occupation
-        n_e += (raw_dos[mask] * (2.0 - occupation[mask])).sum()
+    def _guess(self, info_dict):
+        z = self.atoms.get_positions()[:, 2]
+        mask_coord = (z >= (info_dict["z_ave"] + L_WAT_PDOS))
+        mask = info_dict["O_mask"] * mask_coord
+        sel_water_ids = np.arange(len(self.atoms))[mask] // 3
+        n_e = 0.
+        for ii in range(sel_water_ids):
+            fname = os.path.join(self.work_subdir,
+                                 "cp2k-list%d-1.pdos" % (ii + 1))
+            pdos = Cp2kPdos(fname)
+            e = pdos.energies - pdos.fermi
+            mask = ((e - 0.1) * (e + 0.1) < 0.)
+            raw_dos = pdos._get_raw_dos("total")
+            occupation = pdos.occupation
+            n_e += (raw_dos[mask] * (2.0 - occupation[mask])).sum()
+        logging.debug("number of electron at wat/vac interface: %f" % n_e)
 
         cross_area = np.linalg.norm(
             np.cross(self.atoms.cell[0], self.atoms.cell[1]))
@@ -607,12 +608,16 @@ class IterElecEps(ElecEps):
 
         # dielectrics
         slope = (EPS_WAT * L_VAC + L_WAT_PDOS) / (EPS_WAT * L_VAC * 2 + L_WAT)
+        ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
+        test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
+        ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
+        test_homo = test_data[-1][ref_id]
         if "lo" in self.work_subdir:
-            pass
+            ref_homo = ref_data[-1][ref_id]
         else:
-            pass
+            ref_homo = ref_data[-1][-(ref_id + 1)]
 
-        delta_v = 0.
+        delta_v = test_homo - ref_homo
         v_guess += delta_v / slope
         logging.debug("v_guess (2): %f" % v_guess)
         return v_guess
@@ -621,7 +626,7 @@ class IterElecEps(ElecEps):
         self.work_subdir = os.path.join(self.work_dir, dname)
         self.v_tasks = [dname]
 
-        kwargs.update({"max_scf": 50, "eps_scf": 1e-4})
+        kwargs.update({"eps_scf": 1e-4})
         super().preset(
             pos_dielec=[L_VAC / 2.,
                         self.atoms.get_cell()[2][2] - L_VAC / 2.],
