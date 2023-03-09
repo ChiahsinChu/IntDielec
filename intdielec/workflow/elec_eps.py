@@ -25,7 +25,7 @@ L_WAT = 15.
 L_VAC = 10.
 EPS_WAT = 2.
 L_WAT_PDOS = 10.
-MAX_LOOP = 20
+MAX_LOOP = 10
 SEARCH_CONVERGENCE = 1e-1
 V_GUESS_BOUND = [-(L_WAT + EPS_WAT * L_VAC * 2), L_WAT + EPS_WAT * L_VAC * 2]
 
@@ -806,6 +806,7 @@ class IterElecEps(ElecEps):
 
             convergence = self.wf_configs.get("convergence",
                                               SEARCH_CONVERGENCE)
+            max_loop = self.wf_configs.get("max_loop", MAX_LOOP)
             for n_loop in range(MAX_LOOP):
                 # search
                 logging.info("{:=^50}".format(" Start: search %s iter.%06d " %
