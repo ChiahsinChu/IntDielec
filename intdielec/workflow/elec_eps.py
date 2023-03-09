@@ -589,7 +589,8 @@ class IterElecEps(ElecEps):
         mask = info_dict["O_mask"] * mask_coord
         sel_water_ids = np.arange(len(self.atoms))[mask] // 3
         n_e = 0.
-        for ii in range(sel_water_ids):
+        for ii in sel_water_ids:
+            logging.debug("selected water index: %d" % ii)
             fname = os.path.join(self.work_subdir,
                                  "cp2k-list%d-1.pdos" % (ii + 1))
             pdos = Cp2kPdos(fname)
