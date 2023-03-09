@@ -773,13 +773,8 @@ class IterElecEps(ElecEps):
 
         for suffix in ["lo", "hi"]:
             self.suffix = suffix
-            try:
-                self.search_history = np.load(
-                    os.path.join(self.work_dir,
-                                 "search_history_%s.npy" % self.suffix))
-            except:
-                self.search_history = np.array([])
-
+            self.search_history = np.array([])
+            
             dname = "ref_%s" % suffix
             self.work_subdir = os.path.join(self.work_dir, dname)
             # ref: DFT calculation
