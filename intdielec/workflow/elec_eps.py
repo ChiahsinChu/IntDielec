@@ -663,19 +663,19 @@ class IterElecEps(ElecEps):
                               fp=self.search_history[:, 1])
                 return y[0]
 
-            x0 = self.search_history[:, 0][np.argmin(
-                np.abs(self.search_history[:, 1]))]
+            id_argmin = np.argmin(np.abs(self.search_history[:, 1]))
+            x0 = self.search_history[:, 0][id_argmin]
             v_guess = optimize.fsolve(func=func,
                                       x0=x0,
                                       xtol=SEARCH_CONVERGENCE)[0]
+
+            # avoid trapping
+            if np.abs(x0 - v_guess) < 1e-3:
+                v_guess += (0.1 * self.search_history[:, 1][id_argmin] /
+                            np.abs(self.search_history[:, 1][id_argmin]))
             # avoid the guess goes mad...
             v_guess = min(max(v_guess, V_GUESS_BOUND[0]), V_GUESS_BOUND[1])
             return v_guess
-
-    # def _guess_mixing(self, n_step=2, alpha=0.8):
-    #     v_guess = alpha * self._guess_optimize(
-    #         n_step=n_step) + (1. - alpha) * self._guess_simple()
-    #     return v_guess
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
         dname = "search_%s.%06d" % (self.suffix, n_iter)
