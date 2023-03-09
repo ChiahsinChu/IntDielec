@@ -26,7 +26,8 @@ L_VAC = 10.
 EPS_WAT = 2.
 L_WAT_PDOS = 10.
 MAX_LOOP = 20
-SEARCH_CONVERGENCE = 1e-3
+SEARCH_CONVERGENCE = 1e-2
+V_GUESS_BOUND = [-(L_WAT + EPS_WAT * L_VAC * 2), L_WAT + EPS_WAT * L_VAC * 2]
 
 use_style("pub")
 
@@ -644,7 +645,7 @@ class IterElecEps(ElecEps):
         logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
 
-    def _guess_optimize(self, n_step=3):
+    def _guess_optimize(self, n_step=2):
         if len(self.search_history) < n_step:
             return self._guess_simple()
         else:
@@ -660,9 +661,11 @@ class IterElecEps(ElecEps):
             v_guess = optimize.fsolve(func=func,
                                       x0=x0,
                                       xtol=SEARCH_CONVERGENCE)[0]
+            # avoid the guess goes mad...
+            v_guess = min(max(v_guess, V_GUESS_BOUND[0]), V_GUESS_BOUND[1])
             return v_guess
 
-    # def _guess_mixing(self, n_step=3, alpha=0.8):
+    # def _guess_mixing(self, n_step=2, alpha=0.8):
     #     v_guess = alpha * self._guess_optimize(
     #         n_step=n_step) + (1. - alpha) * self._guess_simple()
     #     return v_guess
