@@ -3,20 +3,21 @@ import glob
 import logging
 import os
 import sys
-from scipy import optimize
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from ase import Atoms, io
+from scipy import optimize
 
-from . import Eps
-from ..io.cp2k import Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput, Cp2kPdos
+from ..io.cp2k import (Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput,
+                       Cp2kPdos)
 from ..plot import core, use_style
+from ..utils.config import check_water
 from ..utils.math import *
 from ..utils.unit import *
-from ..utils.utils import update_dict, iterdict, read_json
-from ..utils.config import check_water
+from ..utils.utils import iterdict, read_json, update_dict
+from . import Eps
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 N_SURF = 16
@@ -639,8 +640,8 @@ class IterElecEps(ElecEps):
 
             def func(x):
                 y = np.interp([x],
-                              xp=self.search_history[:, 0],
-                              fp=self.search_history[:, 1])
+                              xp=np.array(self.search_history)[:, 0],
+                              fp=np.array(self.search_history)[:, 1])
                 return y[0]
 
             x0 = self.search_history[0][np.argmin(
