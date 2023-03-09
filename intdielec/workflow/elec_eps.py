@@ -591,6 +591,7 @@ class IterElecEps(ElecEps):
     def _guess(self, type="optimize", **kwargs):
         v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
         logging.info("V_guess: %f" % v_guess)
+        logging.debug("working directory: %s" % self.work_subdir)
         ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
         test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
         ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
