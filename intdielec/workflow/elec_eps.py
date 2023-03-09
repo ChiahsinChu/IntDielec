@@ -700,6 +700,9 @@ class IterElecEps(ElecEps):
         for ii in range(len(self.v_seq)):
             self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
 
+        dnames = glob.glob(os.path.join(self.work_dir, "search_%s.*" % self.suffix))
+        dnames.sort()
+        kwargs.update({"wfn_restart": os.path.join(self.work_dir, dnames[-1], "cp2k-RESTART.wfn")})
         super().preset(
             pos_dielec=[L_VAC / 2.,
                         self.atoms.get_cell()[2][2] - L_VAC / 2.],
