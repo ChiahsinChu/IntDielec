@@ -630,6 +630,7 @@ class IterElecEps(ElecEps):
         ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
         test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
         ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
+        logging.debug("ref_id: %d" % ref_id)
         test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
         self.convergence = test_data[-1][:ref_id].mean()
         if self.suffix == "lo":
