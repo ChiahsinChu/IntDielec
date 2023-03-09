@@ -746,8 +746,11 @@ class IterElecEps(ElecEps):
 
         for suffix in ["lo", "hi"]:
             self.suffix = suffix
-            self.search_history = []
-
+            try:
+                self.search_history = np.load(os.path.join(self.work_dir, "search_history_%s.npy" % self.suffix))
+            except:
+                self.search_history = []
+                
             dname = "ref_%s" % suffix
             self.work_subdir = os.path.join(self.work_dir, dname)
             # ref: DFT calculation
@@ -775,8 +778,7 @@ class IterElecEps(ElecEps):
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
                     break
-                print("search history (V, convergence): \n",
-                      self.search_history)
+                np.save(os.path.join(self.work_dir, "search_history_%s.npy" % self.suffix), self.search_history)
 
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
