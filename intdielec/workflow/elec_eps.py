@@ -566,8 +566,8 @@ class IterElecEps(ElecEps):
                            calculate=calculate,
                            **kwargs)
 
-    def ref_calculate(self, suffix, vac_region=None):
-        dname = "ref_%s" % suffix
+    def ref_calculate(self, vac_region=None):
+        dname = "ref_%s" % self.suffix
         self.info_dict = getattr(self, "%s_info" % dname)
         self.work_subdir = os.path.join(self.work_dir, dname)
         self.atoms = getattr(self, "%s_atoms" % dname)
@@ -625,25 +625,21 @@ class IterElecEps(ElecEps):
         logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
 
-    def search_preset(self, dname, fp_params={}, calculate=False, **kwargs):
+    def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
+        dname = "search_%s.%06d" % (self.suffix, n_iter)
+
         self.work_subdir = os.path.join(self.work_dir, dname)
         self.v_tasks = [dname]
 
         # set restart wfn for DFT initial guess
-        out = re.split("[_|.]", dname)
-        if len(out) == 3:
-            n_iter = int(out[-1])
-            if n_iter > 0:
-                wfn_dname = "%s_%s.%06d" % (out[0], out[1], (n_iter - 1))
-            else:
-                wfn_dname = "ref_%s" % out[1]
-        elif len(out) == 2:
-            wfn_dname = "ref_%s" % out[1]
+        if n_iter > 0:
+            wfn_dname = "search_%s.%06d" % (self.suffix, (n_iter - 1))
         else:
-            raise RuntimeError("")
+            wfn_dname = "ref_%s" % self.suffix
         wfn_restart = os.path.join(self.work_dir, wfn_dname,
                                    "cp2k-RESTART.wfn")
 
+        # TODO: change the eps_scf
         kwargs.update({"eps_scf": 1e-2, "wfn_restart": wfn_restart})
         update_dict(fp_params,
                     self._water_pdos_input(n_wat=self.info_dict["n_wat"]))
@@ -664,6 +660,23 @@ class IterElecEps(ElecEps):
         np.save(os.path.join(self.work_subdir, "data.npy"),
                 [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
+
+    def preset(self, v_seq, fp_params={}, calculate=False, **kwargs):
+        self.v_seq = np.sort(v_seq)
+        self.v_tasks = []
+        for ii in range(len(v_seq)):
+            self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
+
+        super().preset(
+            pos_dielec=[L_VAC / 2.,
+                        self.atoms.get_cell()[2][2] - L_VAC / 2.],
+            fp_params=fp_params,
+            calculate=calculate,
+            **kwargs)
+
+    def calculate(self, pos_vac, **kwargs):
+        # return super().calculate(pos_vac, **kwargs)
+        pass
 
     def workflow(self,
                  configs: str = "param.json",
@@ -694,6 +707,7 @@ class IterElecEps(ElecEps):
             "{:=^50}".format(" End: set up files for dipole correction "))
 
         for suffix in ["lo", "hi"]:
+            self.suffix = suffix
             dname = "ref_%s" % suffix
             self.work_subdir = os.path.join(self.work_dir, dname)
             # ref: DFT calculation
@@ -701,16 +715,16 @@ class IterElecEps(ElecEps):
             # ref: calculate dipole moment
             logging.info("{:=^50}".format(" Start: analyse %s data " % dname))
             tmp_params = self.wf_configs.get("ref_calculate", {})
-            self.ref_calculate(suffix=suffix, **tmp_params)
+            self.ref_calculate(**tmp_params)
             logging.info("{:=^50}".format(" End: analyse %s data " % dname))
 
             for n_loop in range(MAX_LOOP):
-                dname = "search_%s.%06d" % (suffix, n_loop)
+
                 # search
                 logging.info("{:=^50}".format(" Start: search %s iter.%06d " %
                                               (suffix, n_loop)))
                 tmp_params = self.wf_configs.get("search_preset", {})
-                self.search_preset(dname=dname, calculate=True, **tmp_params)
+                self.search_preset(n_iter=n_loop, calculate=True, **tmp_params)
                 # search: DFT calculation
                 self._bash_cp2k_calculator(self.work_subdir,
                                            ignore_finished_tag)
@@ -718,12 +732,21 @@ class IterElecEps(ElecEps):
                 logging.info("{:=^50}".format(" End: search %s iter.%06d " %
                                               (suffix, n_loop)))
                 if self.convergence <= SEARCH_CONVERGENCE:
-                    logging.info("Finish searching in %d step(s)." % (n_loop+1))
+                    logging.info("Finish searching in %d step(s)." %
+                                 (n_loop + 1))
                     break
 
-            # # task_lo.000000
-            # self.preset()
+            logging.info("{:=^50}".format(" Start: eps calculation "))
+            # eps_cal: preset
+            tmp_params = self.wf_configs.get("preset", {})
+            self.preset(calculate=True, **tmp_params)
+            # eps_cal: DFT calculation
+            for task in self.v_tasks:
+                self.work_subdir = os.path.join(self.work_dir, task)
+                self._bash_cp2k_calculator(self.work_subdir,
+                                           ignore_finished_tag)
             # self.calculate()
+            logging.info("{:=^50}".format(" End: eps calculation "))
 
     def _convert(self, inverse: bool = False):
         cell = self.pbc_atoms.get_cell()
