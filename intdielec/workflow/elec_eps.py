@@ -682,18 +682,19 @@ class IterElecEps(ElecEps):
         if len(self.search_history) < 2:
             return self._guess_simple()
         else:
-            dataset = self.search_history[np.argsort(self.search_history[:,
-                                                                         0])]
-            id_argmin = np.argmin(np.abs(dataset[:, 1]))
-            if id_argmin == 0:
-                # left endpoint
-                data = dataset[:id_argmin + 2]
-            elif id_argmin == (len(dataset) - 1):
-                # right endpoint
-                data = dataset[id_argmin - 1:]
-            else:
-                data = dataset[id_argmin - 1:id_argmin + 2]
-            result = stats.linregress(x=data[:, 0], y=data[:, 1])
+            # dataset = self.search_history[np.argsort(self.search_history[:,
+            #                                                              0])]
+            # id_argmin = np.argmin(np.abs(dataset[:, 1]))
+            # if id_argmin == 0:
+            #     # left endpoint
+            #     data = dataset[:id_argmin + 2]
+            # elif id_argmin == (len(dataset) - 1):
+            #     # right endpoint
+            #     data = dataset[id_argmin - 1:]
+            # else:
+            #     data = dataset[id_argmin - 1:id_argmin + 2]
+            result = stats.linregress(x=self.search_history[:, 0],
+                                      y=self.search_history[:, 1])
         return -result.intercept / result.slope
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
@@ -887,7 +888,18 @@ class IterElecEps(ElecEps):
 
     @staticmethod
     def _water_pdos_input(n_wat):
-        update_d = {"FORCE_EVAL": {"DFT": {"PRINT": {"PDOS": {"LDOS": []}}}}}
+        update_d = {
+            "FORCE_EVAL": {
+                "DFT": {
+                    "PRINT": {
+                        "PDOS": {
+                            "_": "HIGH",
+                            "LDOS": []
+                        }
+                    }
+                }
+            }
+        }
         for ii in range(n_wat):
             id_start = ii * 3 + 1
             id_end = (ii + 1) * 3
