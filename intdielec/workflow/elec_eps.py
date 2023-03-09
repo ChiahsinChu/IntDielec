@@ -164,7 +164,7 @@ class ElecEps(Eps):
                        fp_params=fp_params,
                        save_dict=calculate)
 
-    def calculate(self, pos_vac, **kwargs):
+    def calculate(self, pos_vac, save_fname="eps_data", **kwargs):
         sigma = kwargs.get("gaussian_sigma", 0.0)
 
         efield_zero = []
@@ -215,7 +215,7 @@ class ElecEps(Eps):
                 self._calculate_results(self.results[sigma][v_prime],
                                         output[0], self.delta_rho_e_conv[ii],
                                         self.delta_efield_zero[ii])
-        self._save_data()
+        self._save_data(save_fname)
 
     def plot(self, sigma=0.0, fname="eps_cal.png"):
         fig, axs = plt.subplots(nrows=2, ncols=2, figsize=[12, 8], dpi=300)
@@ -700,9 +700,13 @@ class IterElecEps(ElecEps):
         for ii in range(len(self.v_seq)):
             self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
 
-        dnames = glob.glob(os.path.join(self.work_dir, "search_%s.*" % self.suffix))
+        dnames = glob.glob(
+            os.path.join(self.work_dir, "search_%s.*" % self.suffix))
         dnames.sort()
-        kwargs.update({"wfn_restart": os.path.join(self.work_dir, dnames[-1], "cp2k-RESTART.wfn")})
+        kwargs.update({
+            "wfn_restart":
+            os.path.join(self.work_dir, dnames[-1], "cp2k-RESTART.wfn")
+        })
         super().preset(
             pos_dielec=[L_VAC / 2.,
                         self.atoms.get_cell()[2][2] - L_VAC / 2.],
@@ -769,6 +773,8 @@ class IterElecEps(ElecEps):
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
                     break
+                print("search history (V, convergence): \n",
+                      self.search_history)
 
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
@@ -780,7 +786,9 @@ class IterElecEps(ElecEps):
                 self._bash_cp2k_calculator(self.work_subdir,
                                            ignore_finished_tag)
             tmp_params = self.wf_configs.get("calculate", {})
-            self.calculate(pos_vac=0.75 * L_VAC, **tmp_params)
+            self.calculate(pos_vac=0.75 * L_VAC,
+                           save_fname="eps_data_%s" % self.suffix,
+                           **tmp_params)
             logging.info("{:=^50}".format(" End: eps calculation "))
 
     def _convert(self, inverse: bool = False):

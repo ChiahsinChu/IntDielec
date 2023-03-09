@@ -55,8 +55,8 @@ class Eps:
     def _load_data_hdf5(self, fname):
         self.results = {}
 
-    def _save_data(self):
-        fname = os.path.join(self.work_dir, "eps_data.%s" % self.data_fmt)
+    def _save_data(self, fname="eps_data"):
+        fname = os.path.join(self.work_dir, "%s.%s" % (fname, self.data_fmt))
         getattr(self, "_save_data_%s" % self.data_fmt)(fname)
 
     def _save_data_csv(self, fname):
