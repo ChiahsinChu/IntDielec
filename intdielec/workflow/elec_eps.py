@@ -3,6 +3,7 @@ import glob
 import logging
 import os
 import sys
+import re
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -334,7 +335,7 @@ class ElecEps(Eps):
         }
         ```
         """
-        default_command = "mpiexec.hydra cp2k_shell.popt"
+        default_command = "mpiexec.hydra cp2k.popt input.inp > output.out"
         super().workflow(configs, default_command)
 
         # ref: preset
@@ -567,26 +568,27 @@ class IterElecEps(ElecEps):
 
     def ref_calculate(self, suffix, vac_region=None):
         dname = "ref_%s" % suffix
+        self.info_dict = getattr(self, "%s_info" % dname)
         self.work_subdir = os.path.join(self.work_dir, dname)
         self.atoms = getattr(self, "%s_atoms" % dname)
         super().ref_calculate(vac_region=vac_region, dname=dname)
         # setattr(IterElecEps, "v_zero_%s" % suffix, self.v_zero)
-        info_dict = getattr(self, "%s_info" % dname)
-        info_dict["v_zero"] = self.v_zero
-        n_wat = info_dict["n_wat"]
-        z_wat = self.atoms.get_positions()[info_dict["O_mask"],
-                                           2] - info_dict["z_ave"]
+        self.info_dict["v_zero"] = self.v_zero
+        logging.debug("V_zero: %f" % self.v_zero)
+        n_wat = self.info_dict["n_wat"]
+        z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
+                                           2] - self.info_dict["z_ave"]
         sort_ids = np.argsort(z_wat)
         cbm, vbm = self._water_mo_output(n_wat)
 
         np.save(os.path.join(self.work_subdir, "data.npy"),
                 [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
-        self.v_seq = [self._guess(info_dict)]
+        self.v_seq = [self._guess()]
 
-    def _guess(self, info_dict):
+    def _guess(self):
         z = self.atoms.get_positions()[:, 2]
-        mask_coord = (z >= (info_dict["z_ave"] + L_WAT_PDOS))
-        mask = info_dict["O_mask"] * mask_coord
+        mask_coord = (z >= (self.info_dict["z_ave"] + L_WAT_PDOS))
+        mask = self.info_dict["O_mask"] * mask_coord
         sel_water_ids = np.arange(len(self.atoms))[mask] // 3
         n_e = 0.
         for ii in sel_water_ids:
@@ -605,29 +607,46 @@ class IterElecEps(ElecEps):
             np.cross(self.atoms.cell[0], self.atoms.cell[1]))
         logging.debug("cross area: %f" % cross_area)
         v_guess = 2 * L_VAC * (n_e / cross_area / _EPSILON)
-        logging.debug("v_guess (1): %f" % v_guess)
+        logging.debug("V_guess (1): %f" % v_guess)
 
         # dielectrics
         slope = (EPS_WAT * L_VAC + L_WAT_PDOS) / (EPS_WAT * L_VAC * 2 + L_WAT)
         ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
         test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
         ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
-        test_homo = test_data[-1][ref_id]
+        test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
         if "lo" in self.work_subdir:
-            ref_homo = ref_data[-1][ref_id]
+            ref_homo = ref_data[-1][(ref_id - 4):(ref_id + 1)].mean()
         else:
-            ref_homo = ref_data[-1][-(ref_id + 1)]
+            ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
 
-        delta_v = test_homo - ref_homo
-        v_guess += delta_v / slope
-        logging.debug("v_guess (2): %f" % v_guess)
+        self.convergence = test_homo - ref_homo
+        v_guess += self.convergence / slope
+        logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
 
     def search_preset(self, dname, fp_params={}, calculate=False, **kwargs):
         self.work_subdir = os.path.join(self.work_dir, dname)
         self.v_tasks = [dname]
 
-        kwargs.update({"eps_scf": 1e-4})
+        # set restart wfn for DFT initial guess
+        out = re.split("[_|.]", dname)
+        if len(out) == 3:
+            n_iter = int(out[-1])
+            if n_iter > 0:
+                wfn_dname = "%s_%s.%06d" % (out[0], out[1], (n_iter - 1))
+            else:
+                wfn_dname = "ref_%s" % out[1]
+        elif len(out) == 2:
+            wfn_dname = "ref_%s" % out[1]
+        else:
+            raise RuntimeError("")
+        wfn_restart = os.path.join(self.work_dir, wfn_dname,
+                                   "cp2k-RESTART.wfn")
+
+        kwargs.update({"eps_scf": 1e-2, "wfn_restart": wfn_restart})
+        update_dict(fp_params,
+                    self._water_pdos_input(n_wat=self.info_dict["n_wat"]))
         super().preset(
             pos_dielec=[L_VAC / 2.,
                         self.atoms.get_cell()[2][2] - L_VAC / 2.],
@@ -635,13 +654,21 @@ class IterElecEps(ElecEps):
             calculate=calculate,
             **kwargs)
 
-    def search_calculate(self, pos_vac, **kwargs):
-        return super().calculate(pos_vac, **kwargs)
+    def search_calculate(self):
+        n_wat = self.info_dict["n_wat"]
+        z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
+                                           2] - self.info_dict["z_ave"]
+        sort_ids = np.argsort(z_wat)
+        cbm, vbm = self._water_mo_output(n_wat)
+
+        np.save(os.path.join(self.work_subdir, "data.npy"),
+                [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+        self.v_seq = [self._guess()]
 
     def workflow(self,
                  configs: str = "param.json",
                  ignore_finished_tag: bool = False):
-        default_command = "mpiexec.hydra cp2k_shell.popt"
+        default_command = "mpiexec.hydra cp2k.popt input.inp > output.out"
         Eps.workflow(self, configs, default_command)
 
         # pbc: preset
@@ -685,17 +712,18 @@ class IterElecEps(ElecEps):
                 tmp_params = self.wf_configs.get("search_preset", {})
                 self.search_preset(dname=dname, calculate=True, **tmp_params)
                 # search: DFT calculation
-                self._ase_cp2k_calculator(self.work_subdir,
-                                          ignore_finished_tag)
-                convergence = self.search_calculate()
+                self._bash_cp2k_calculator(self.work_subdir,
+                                           ignore_finished_tag)
+                self.search_calculate()
                 logging.info("{:=^50}".format(" End: search %s iter.%06d " %
                                               (suffix, n_loop)))
-                if convergence <= SEARCH_CONVERGENCE:
+                if self.convergence <= SEARCH_CONVERGENCE:
+                    logging.info("Finish searching in %d step(s)." % (n_loop+1))
                     break
 
-            # task_lo.000000
-            self.preset()
-            self.calculate()
+            # # task_lo.000000
+            # self.preset()
+            # self.calculate()
 
     def _convert(self, inverse: bool = False):
         cell = self.pbc_atoms.get_cell()
