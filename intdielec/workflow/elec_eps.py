@@ -782,7 +782,7 @@ class IterElecEps(ElecEps):
                 logging.info("Convergence [V]: %f" % self.convergence)
                 logging.info("{:=^50}".format(" End: search %s iter.%06d " %
                                               (suffix, n_loop)))
-                if self.convergence <= SEARCH_CONVERGENCE:
+                if np.abs(self.convergence) <= SEARCH_CONVERGENCE:
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
                     break
