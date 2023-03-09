@@ -598,7 +598,7 @@ class IterElecEps(ElecEps):
         sel_water_ids = np.arange(len(self.atoms))[mask] // 3
         n_e = 0.
         for ii in sel_water_ids:
-            logging.debug("selected water index: %d" % ii)
+            # logging.debug("selected water index: %d" % ii)
             fname = os.path.join(self.work_subdir,
                                  "cp2k-list%d-1.pdos" % (ii + 1))
             pdos = Cp2kPdos(fname)
@@ -633,7 +633,7 @@ class IterElecEps(ElecEps):
 
     def _guess_optimize(self, n_step=5):
         if len(self.search_history) < n_step:
-            self._guess_simple()
+            return self._guess_simple()
         else:
 
             def func(x):
