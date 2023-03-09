@@ -2,6 +2,7 @@ import copy
 import glob
 import logging
 import os
+import pickle
 import sys
 
 import matplotlib as mpl
@@ -31,6 +32,7 @@ V_GUESS_BOUND = [-(L_WAT + EPS_WAT * L_VAC * 2), L_WAT + EPS_WAT * L_VAC * 2]
 
 use_style("pub")
 
+# TODO: plot for IterElecEps
 
 class ElecEps(Eps):
     def __init__(
@@ -97,6 +99,7 @@ class ElecEps(Eps):
             "dip_cor": False,
             "hartree": True,
             "eden": True,
+            "totden": True,
             "extended_fft_lengths": True,
         }
         update_dict(kwargs, update_d)
@@ -791,9 +794,11 @@ class IterElecEps(ElecEps):
         logging.info(
             "{:=^50}".format(" End: set up files for dipole correction "))
 
+        data_dict = {}
         for suffix in ["lo", "hi"]:
             self.suffix = suffix
             self.search_history = np.array([])
+            data_dict[suffix] = {}
 
             dname = "ref_%s" % suffix
             self.work_subdir = os.path.join(self.work_dir, dname)
@@ -803,12 +808,13 @@ class IterElecEps(ElecEps):
             logging.info("{:=^50}".format(" Start: analyse %s data " % dname))
             tmp_params = self.wf_configs.get("ref_calculate", {})
             self.ref_calculate(**tmp_params)
+            data_dict[suffix]["v_zero"] = self.v_zero
             logging.info("{:=^50}".format(" End: analyse %s data " % dname))
 
             convergence = self.wf_configs.get("convergence",
                                               SEARCH_CONVERGENCE)
             max_loop = self.wf_configs.get("max_loop", MAX_LOOP)
-            for n_loop in range(MAX_LOOP):
+            for n_loop in range(max_loop):
                 # search
                 logging.info("{:=^50}".format(" Start: search %s iter.%06d " %
                                               (suffix, n_loop)))
@@ -829,7 +835,8 @@ class IterElecEps(ElecEps):
                     os.path.join(self.work_dir,
                                  "search_history_%s.npy" % self.suffix),
                     self.search_history)
-
+            data_dict[suffix]["v_cor"] = self.search_history[-1][0]
+            data_dict[suffix]["v_seq"] = self.v_seq
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
             tmp_params = self.wf_configs.get("preset", {})
@@ -843,6 +850,9 @@ class IterElecEps(ElecEps):
             self.calculate(pos_vac=0.75 * L_VAC,
                            save_fname="eps_data_%s" % self.suffix,
                            **tmp_params)
+            # TODO: add staticmethod for data saving
+            with open(os.path.join(self.work_dir, "task_info.pkl"), "rb") as f:
+                data_dict = pickle.load(f)
             logging.info("{:=^50}".format(" End: eps calculation "))
 
     def _convert(self, inverse: bool = False):
@@ -888,18 +898,7 @@ class IterElecEps(ElecEps):
 
     @staticmethod
     def _water_pdos_input(n_wat):
-        update_d = {
-            "FORCE_EVAL": {
-                "DFT": {
-                    "PRINT": {
-                        "PDOS": {
-                            
-                            "LDOS": []
-                        }
-                    }
-                }
-            }
-        }
+        update_d = {"FORCE_EVAL": {"DFT": {"PRINT": {"PDOS": {"LDOS": []}}}}}
         for ii in range(n_wat):
             id_start = ii * 3 + 1
             id_end = (ii + 1) * 3
