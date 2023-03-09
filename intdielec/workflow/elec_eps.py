@@ -590,7 +590,15 @@ class IterElecEps(ElecEps):
     def _guess(self, type="mixing", **kwargs):
         v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
         logging.info("V_guess: %f" % v_guess)
-        self.search_history.append([v_guess, self.convergence])
+        try:
+            self.search_history = np.append(self.search_history,
+                                            np.array(
+                                                [[v_guess, self.convergence]]),
+                                            axis=0)
+        except:
+            self.search_history = np.append(
+                self.search_history, np.array([v_guess, self.convergence]))
+            self.search_history = self.search_history.reshape(-1, 2)
         return v_guess
 
     def _guess_simple(self):
@@ -642,12 +650,12 @@ class IterElecEps(ElecEps):
 
             def func(x):
                 y = np.interp([x],
-                              xp=np.array(self.search_history)[:, 0],
-                              fp=np.array(self.search_history)[:, 1])
+                              xp=self.search_history[:, 0],
+                              fp=self.search_history[:, 1])
                 return y[0]
 
-            x0 = self.search_history[0][np.argmin(
-                np.abs(self.search_history[1]))]
+            x0 = self.search_history[:, 0][np.argmin(
+                np.abs(self.search_history[:, 1]))]
             v_guess = optimize.fsolve(func=func,
                                       x0=x0,
                                       xtol=SEARCH_CONVERGENCE)[0]
@@ -757,7 +765,7 @@ class IterElecEps(ElecEps):
                     os.path.join(self.work_dir,
                                  "search_history_%s.npy" % self.suffix))
             except:
-                self.search_history = []
+                self.search_history = np.array([])
 
             dname = "ref_%s" % suffix
             self.work_subdir = os.path.join(self.work_dir, dname)
