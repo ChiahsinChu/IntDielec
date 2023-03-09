@@ -671,7 +671,8 @@ class IterElecEps(ElecEps):
 
             # avoid trapping
             if np.abs(x0 - v_guess) < 1e-3:
-                v_guess -= (0.1 * self.search_history[:, 1][id_argmin] /
+                coeff = np.random.uniform() * 0.1 + 0.1
+                v_guess += (coeff * self.search_history[:, 1][id_argmin] /
                             np.abs(self.search_history[:, 1][id_argmin]))
             # avoid the guess goes mad...
             v_guess = min(max(v_guess, V_GUESS_BOUND[0]), V_GUESS_BOUND[1])
