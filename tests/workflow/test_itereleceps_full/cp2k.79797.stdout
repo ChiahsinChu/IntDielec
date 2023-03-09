@@ -1,0 +1,58 @@
+Sender: LSF System <lsfadmin@c52-010>
+Subject: Job 79797: <iter_elec_eps> in cluster <xmuhpc> Exited
+
+Job <iter_elec_eps> was submitted from host <c51-s001> by user <jxzhu> in cluster <xmuhpc> at Fri Mar 10 03:55:51 2023
+Job was executed on host(s) <28*c52-010>, in queue <52-large>, as user <jxzhu> in cluster <xmuhpc> at Fri Mar 10 03:55:51 2023
+</data/home/jxzhu> was used as the home directory.
+</data/jxzhu/2022_leiden/IntDielec/tests/workflow/test_itereleceps_full> was used as the working directory.
+Started at Fri Mar 10 03:55:51 2023
+Terminated at Fri Mar 10 04:02:31 2023
+Results reported at Fri Mar 10 04:02:31 2023
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+#!/bin/bash
+#
+#BSUB -q 52-large
+#BSUB -W 24:00
+#BSUB -J iter_elec_eps
+#BSUB -o cp2k.%J.stdout
+#BSUB -e cp2k.%J.stderr
+#BSUB -n 28
+#BSUB -R "span[ptile=28]"
+
+# add modulefiles
+module load miniconda/3
+source activate gnn
+module load mkl/latest mpi/latest gcc/9.3.0
+module load cp2k/9.1
+
+python run.py 
+------------------------------------------------------------
+
+TERM_OWNER: job killed by owner.
+Exited with signal termination: 9.
+
+Resource usage summary:
+
+    CPU time :                                   7327.00 sec.
+    Max Memory :                                 22200 MB
+    Average Memory :                             14131.11 MB
+    Total Requested Memory :                     -
+    Delta Memory :                               -
+    Max Swap :                                   4 MB
+    Max Processes :                              37
+    Max Threads :                                121
+    Run time :                                   399 sec.
+    Turnaround time :                            400 sec.
+
+The output (if any) follows:
+
+
+
+PS:
+
+Read file <cp2k.79797.stderr> for stderr output of this job.
+

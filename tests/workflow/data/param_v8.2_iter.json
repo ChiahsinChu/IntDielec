@@ -1,0 +1,25 @@
+{
+    "load_module": [
+        "intel/17.5.239",
+        "mpi/intel/2017.5.239",
+        "gcc/5.5.0"
+    ],
+    "command": "mpiexec.hydra cp2k.popt input.inp > output.out",
+    "pbc_preset": {
+        "eps_scf": 1e-2
+    },
+    "ref_preset": {
+        "eps_scf": 1e-2
+    },
+    "ref_calculate": {
+    },
+    "search_preset" :{
+        "eps_scf": 1e-2
+    },
+    "preset": {
+        "eps_scf": 1e-2
+    },
+    "calculate": {
+        "pos_vac": 8.0
+    }
+}

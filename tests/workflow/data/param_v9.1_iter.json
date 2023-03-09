@@ -1,0 +1,27 @@
+{
+    "load_module": [
+        "mkl/latest",
+        "mpi/latest",
+        "gcc/9.3.0",
+        "cp2k/9.1"
+    ],
+    "command": "mpiexec.hydra cp2k.popt input.inp > output.out",
+    "pbc_preset": {
+        "eps_scf": 1e-2,
+        "cutoff": 200
+    },
+    "ref_preset": {
+        "eps_scf": 1e-2,
+        "cutoff": 200
+    },
+    "ref_calculate": {},
+    "search_preset": {
+        "eps_scf": 1e-2,
+        "cutoff": 200
+    },
+    "preset": {
+        "eps_scf": 1e-2,
+        "cutoff": 200
+    },
+    "calculate": {}
+}
