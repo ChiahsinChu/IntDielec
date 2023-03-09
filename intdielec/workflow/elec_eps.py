@@ -591,6 +591,15 @@ class IterElecEps(ElecEps):
     def _guess(self, type="optimize", **kwargs):
         v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
         logging.info("V_guess: %f" % v_guess)
+        ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
+        test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
+        ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
+        self.convergence = test_data[-1][:ref_id].mean()
+        if self.suffix == "lo":
+            self.convergence -= ref_data[-1][:ref_id].mean()
+        else:
+            self.convergence -= ref_data[-1][-ref_id:].mean()
+
         try:
             self.search_history = np.append(self.search_history,
                                             np.array(
@@ -633,13 +642,10 @@ class IterElecEps(ElecEps):
         ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
         logging.debug("ref_id: %d" % ref_id)
         test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
-        self.convergence = test_data[-1][:ref_id].mean()
         if self.suffix == "lo":
             ref_homo = ref_data[-1][(ref_id - 4):(ref_id + 1)].mean()
-            self.convergence -= ref_data[-1][:ref_id].mean()
         else:
             ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
-            self.convergence -= ref_data[-1][-ref_id:].mean()
         delta_v = test_homo - ref_homo
         v_guess += delta_v * slope
         logging.debug("V_guess (2): %f" % v_guess)
