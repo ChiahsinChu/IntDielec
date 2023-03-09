@@ -893,7 +893,7 @@ class IterElecEps(ElecEps):
                 "DFT": {
                     "PRINT": {
                         "PDOS": {
-                            "_": "HIGH",
+                            
                             "LDOS": []
                         }
                     }
