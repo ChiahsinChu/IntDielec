@@ -723,8 +723,11 @@ class IterElecEps(ElecEps):
         self.v_seq += self.search_history[-1][0]
 
         self.v_tasks = []
-        for ii in range(len(self.v_seq)):
+        for ii, v in enumerate(self.v_seq):
+            efield = v / self.atoms.cell[2][2]
             self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
+            logging.info("Macroscopic E-field: %.3f [V/A] in %s" %
+                         (efield, self.v_tasks[-1]))
 
         dnames = glob.glob(
             os.path.join(self.work_dir, "search_%s.*" % self.suffix))
