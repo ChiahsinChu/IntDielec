@@ -10,9 +10,16 @@
 ## Installation
 
 ```bash
-git clone https://github.com/ChiahsinChu/IntDielec.git ./IntDielec
+git clone --recursive https://github.com/ChiahsinChu/IntDielec.git ./IntDielec
 cd IntDielec
 pip install .
+```
+
+If you don't use `--recursive` in `git clone`, you will miss the external package(s). You can also download the submodule(s) in two steps:
+
+```bash
+git clone --recursive https://github.com/ChiahsinChu/IntDielec.git ./IntDielec
+git submodule update --init --recursive
 ```
 
 ### write user setup in config file
