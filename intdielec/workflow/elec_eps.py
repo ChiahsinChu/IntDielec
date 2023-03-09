@@ -700,6 +700,7 @@ class IterElecEps(ElecEps):
         for ii in range(len(v_seq)):
             self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
 
+        print(self.v_seq, self.v_tasks)
         super().preset(
             pos_dielec=[L_VAC / 2.,
                         self.atoms.get_cell()[2][2] - L_VAC / 2.],
