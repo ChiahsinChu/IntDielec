@@ -698,9 +698,7 @@ class IterElecEps(ElecEps):
             calculate=calculate,
             **kwargs)
 
-    def calculate(self, pos_vac, **kwargs):
-        # return super().calculate(pos_vac, **kwargs)
-        pass
+
 
     def workflow(self,
                  configs: str = "param.json",
@@ -771,7 +769,8 @@ class IterElecEps(ElecEps):
                 self.work_subdir = os.path.join(self.work_dir, task)
                 self._bash_cp2k_calculator(self.work_subdir,
                                            ignore_finished_tag)
-            # self.calculate()
+            tmp_params = self.wf_configs.get("calculate", {}) 
+            self.calculate(pos_vac=0.75 * L_VAC, **tmp_params)
             logging.info("{:=^50}".format(" End: eps calculation "))
 
     def _convert(self, inverse: bool = False):
