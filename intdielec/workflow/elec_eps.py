@@ -8,7 +8,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from ase import Atoms, io
-from scipy import optimize
+from scipy import optimize, stats
 
 from ..io.cp2k import (Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput,
                        Cp2kPdos)
@@ -588,7 +588,7 @@ class IterElecEps(ElecEps):
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
 
-    def _guess(self, type="optimize", **kwargs):
+    def _guess(self, type="linear", **kwargs):
         v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
         logging.info("V_guess: %f" % v_guess)
         # logging.debug("working directory: %s" % self.work_subdir)
@@ -677,6 +677,24 @@ class IterElecEps(ElecEps):
             # avoid the guess goes mad...
             v_guess = min(max(v_guess, V_GUESS_BOUND[0]), V_GUESS_BOUND[1])
             return v_guess
+
+    def _guess_linear(self):
+        if len(self.search_history) < 2:
+            return self._guess_simple()
+        else:
+            dataset = self.search_history[np.argsort(self.search_history[:,
+                                                                         0])]
+            id_argmin = np.argmin(np.abs(dataset[:, 1]))
+            if id_argmin == 0:
+                # left endpoint
+                data = dataset[:id_argmin + 2]
+            elif id_argmin == (len(dataset) - 1):
+                # right endpoint
+                data = dataset[id_argmin - 1:]
+            else:
+                data = dataset[id_argmin - 1:id_argmin + 2]
+            result = stats.linregress(x=data[:, 0], y=data[:, 1])
+        return -result.intercept / result.slope
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
         dname = "search_%s.%06d" % (self.suffix, n_iter)
