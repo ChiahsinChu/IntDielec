@@ -9,6 +9,7 @@ from .style import use_style
 
 use_style("pub")
 
+
 def ax_setlabel(ax, xlabel, ylabel, **kwargs):
     # set axis label
     ax.set_xlabel(xlabel, **kwargs)
@@ -105,15 +106,10 @@ def plot_colormap_lines(xs, ys, legends, xlabel, ylabel, colormap='GnBu'):
     return fig, ax
 
 
-def ax_colormap_lines(ax, xs, ys, legends, colormap):
-    n_lines = len(xs)
-    l_bin = 0.85 / n_lines
-    for ii in range(n_lines):
-        ax.plot(xs[ii],
-                ys[ii],
-                lw=1.5,
-                color=plt.get_cmap(colormap)(0.15 + ii * l_bin),
-                label=legends[ii])
+def ax_colormap_lines(ax, xs, ys, labels, scale=(0., 1.), colormap="GnBu"):
+    cm_scales = (np.array(labels) - scale[0]) / (scale[1] - scale[0])
+    for x, y, label, cm_scale in zip(xs, ys, labels, cm_scales):
+        ax.plot(x, y, color=plt.get_cmap(colormap)(cm_scale), label=label)
 
 
 """

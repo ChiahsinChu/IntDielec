@@ -125,7 +125,7 @@ def save_dict(d, fname, format=None):
     if format is None:
         format = os.path.splitext(fname)[1][1:]
     try:
-        getattr(__name__, "save_dict_%s" % format)(d, fname)
+        globals()["save_dict_%s" % format](d, fname)
     except:
         raise AttributeError("Unknown format %s" % format)
 
@@ -159,7 +159,8 @@ def load_dict(fname, format=None):
     if format is None:
         format = os.path.splitext(fname)[1][1:]
     try:
-        return getattr(__name__, "load_dict_%s" % format)(fname)
+
+        return globals()["load_dict_%s" % format](fname)
     except:
         raise AttributeError("Unknown format %s" % format)
 

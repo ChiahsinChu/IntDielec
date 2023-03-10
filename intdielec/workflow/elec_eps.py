@@ -11,13 +11,14 @@ import numpy as np
 from ase import Atoms, io
 from scipy import optimize, stats
 
+from .. import plot
+from ..calculator.cp2k import Cp2kCalculator
 from ..io.cp2k import (Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput,
                        Cp2kPdos)
-from ..plot import core, use_style
 from ..utils.config import check_water
 from ..utils.math import *
 from ..utils.unit import *
-from ..utils.utils import iterdict, read_json, update_dict
+from ..utils.utils import update_dict, load_dict
 from . import Eps
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
@@ -30,7 +31,7 @@ MAX_LOOP = 10
 SEARCH_CONVERGENCE = 1e-1
 V_GUESS_BOUND = [-(L_WAT + EPS_WAT * L_VAC * 2), L_WAT + EPS_WAT * L_VAC * 2]
 
-use_style("pub")
+plot.use_style("pub")
 
 # TODO: plot for IterElecEps
 
@@ -256,26 +257,26 @@ class ElecEps(Eps):
         ylabel = r"$\rho_{pol}$ [a.u.]"
         axs[0][0].set_xlim(data_dict[v_prime]["rho_pol"][0].min(),
                            data_dict[v_prime]["rho_pol"][0].max())
-        core.ax_setlabel(axs[0][0], xlabel, ylabel)
+        plot.ax_setlabel(axs[0][0], xlabel, ylabel)
         axs[0][0].axhline(y=0., ls="--", color="gray")
 
         ylabel = r"$\Delta P$ [a.u.]"
         axs[0][1].set_xlim(data_dict[v_prime]["polarization"][0].min(),
                            data_dict[v_prime]["polarization"][0].max())
-        core.ax_setlabel(axs[0][1], xlabel, ylabel)
+        plot.ax_setlabel(axs[0][1], xlabel, ylabel)
         axs[0][1].axhline(y=0., ls="--", color="gray")
 
         ylabel = r"$\Delta E_z$ [V/A]"
         axs[1][0].set_xlim(data_dict[v_prime]["efield"][0].min(),
                            data_dict[v_prime]["efield"][0].max())
-        core.ax_setlabel(axs[1][0], xlabel, ylabel)
+        plot.ax_setlabel(axs[1][0], xlabel, ylabel)
         axs[1][0].axhline(y=0., ls="--", color="gray")
 
         # ylabel = r"$\varepsilon_e^{-1}=\frac{\Delta E_z}{\Delta E_{z,vac}}$"
         ylabel = r"$\varepsilon_e^{-1}$"
         axs[1][1].set_xlim(data_dict[v_prime]["inveps"][0].min(),
                            data_dict[v_prime]["inveps"][0].max())
-        core.ax_setlabel(axs[1][1], xlabel, ylabel)
+        plot.ax_setlabel(axs[1][1], xlabel, ylabel)
         axs[1][1].axhline(y=0., ls="--", color="gray")
         axs[1][1].axhline(y=1., ls="--", color="gray")
 
@@ -312,7 +313,7 @@ class ElecEps(Eps):
 
         ax.axhline(y=std_inveps_data[-1], color="gray", ls="--")
         ax.set_xlim(v["inveps"][0].min(), v["inveps"][0].max())
-        core.ax_setlabel(ax, xlabel, ylabel)
+        plot.ax_setlabel(ax, xlabel, ylabel)
 
         if fname:
             fig.savefig(os.path.join(self.work_dir, fname),
@@ -353,8 +354,8 @@ class ElecEps(Eps):
             "{:=^50}".format(" End: set up files for dipole correction "))
 
         # ref: DFT calculation
-        self._bash_cp2k_calculator(os.path.join(self.work_dir, "ref"),
-                                   ignore_finished_tag)
+        self._dft_calculate(os.path.join(self.work_dir, "ref"),
+                            ignore_finished_tag)
         # self._ase_cp2k_calculator(os.path.join(self.work_dir, "ref"),
         #                           ignore_finished_tag)
 
@@ -374,10 +375,8 @@ class ElecEps(Eps):
             "{:=^50}".format(" End: set up files for Efield calculation "))
         # eps_cal: DFT calculation
         for task in self.v_tasks:
-            self._bash_cp2k_calculator(os.path.join(self.work_dir, task),
-                                       ignore_finished_tag)
-            # self._ase_cp2k_calculator(os.path.join(self.work_dir, task),
-            #                           ignore_finished_tag)
+            self._dft_calculate(os.path.join(self.work_dir, task),
+                                ignore_finished_tag)
 
         # eps_cal: calculate eps
         logging.info("{:=^50}".format(" Start: analyse eps calculation "))
@@ -445,80 +444,25 @@ class ElecEps(Eps):
         x, y = self._calculate_inveps(x_in, delta_rho_e, delta_efield_zero)
         out_dict["inveps"] = (x, y)
 
-    @staticmethod
-    def _dict_to_cp2k_input(input_dict):
-        input_str = iterdict(input_dict, out_list=["\n"], loop_idx=0)
-        s = "\n".join(input_str)
-        s = s.strip("\n")
-        return s
-
-    def _ase_cp2k_calculator(self, work_dir, ignore_finished_tag):
-
-        from ase.calculators.cp2k import CP2K
-
-        root_dir = os.getcwd()
-        os.chdir(work_dir)
-
-        if (ignore_finished_tag == True) or (os.path.exists("finished_tag")
-                                             == False):
-            atoms = io.read("coord.xyz")
-            inp_dict = read_json("input.json")
-            label = inp_dict["GLOBAL"].pop("PROJECT", "cp2k")
-            inp_dict["FORCE_EVAL"]["SUBSYS"].pop("TOPOLOGY", None)
-            inp = self._dict_to_cp2k_input(inp_dict)
-
-            calc = CP2K(command=self.command,
-                        inp=inp,
-                        label=label,
-                        force_eval_method=None,
-                        print_level=None,
-                        stress_tensor=None,
-                        basis_set=None,
-                        pseudo_potential=None,
-                        basis_set_file=None,
-                        potential_file=None,
-                        cutoff=None,
-                        max_scf=None,
-                        xc=None,
-                        uks=None,
-                        charge=None,
-                        poisson_solver=None)
-            atoms.calc = calc
-            logging.info("{:=^50}".format(" Start: CP2K calculation "))
-            atoms.get_potential_energy()
-            logging.info("{:=^50}".format(" End: CP2K calculation "))
-
-        os.chdir(root_dir)
-
-    def _bash_cp2k_calculator(self, work_dir, ignore_finished_tag):
-        root_dir = os.getcwd()
-        os.chdir(work_dir)
-
-        if (ignore_finished_tag == True) or (os.path.exists("finished_tag")
-                                             == False):
-            logging.info("{:=^50}".format(" Start: CP2K calculation "))
-            logging.info("Path: %s" % os.path.abspath(work_dir))
-            os.system(self.command)
-            try:
-                output = Cp2kOutput("output.out")
-                with open("finished_tag", 'w') as f:
-                    pass
-            except:
-                sys.exit("CP2K task is not finished!")
-            logging.info("{:=^50}".format(" End: CP2K calculation "))
-
-        os.chdir(root_dir)
+    def _dft_calculate(self, work_dir, ignore_finished_tag):
+        flag = os.path.join(work_dir, "finished_tag")
+        if (ignore_finished_tag == True) or (os.path.exists(flag) == False):
+            Cp2kCalculator(work_dir=work_dir).run(type="bash",
+                                                  command=self.command)
 
 
 class IterElecEps(ElecEps):
     def __init__(self,
                  atoms: Atoms = None,
                  work_dir: str = None,
-                 v_zero: float = None,
-                 v_ref: float = 0,
-                 v_seq: list or np.ndarray = None,
                  data_fmt: str = "pkl") -> None:
-        super().__init__(atoms, work_dir, v_zero, v_ref, v_seq, data_fmt)
+        Eps.__init__(self, work_dir, data_fmt)
+
+        if atoms is None:
+            atoms = io.read(os.path.join(work_dir, "pbc/coord.xyz"))
+        self.atoms = atoms
+        assert atoms.cell is not None
+
         self._setup("pbc")
 
     def pbc_preset(self, fp_params={}, dname="pbc", calculate=False, **kwargs):
@@ -781,7 +725,7 @@ class IterElecEps(ElecEps):
         logging.info(
             "{:=^50}".format(" End: set up files for PBC calculation "))
         # pbc: DFT calculation
-        self._bash_cp2k_calculator(self.work_subdir, ignore_finished_tag)
+        self._dft_calculate(self.work_subdir, ignore_finished_tag)
         # pbc: calculate ref water MO
         logging.info("{:=^50}".format(" Start: analyse PBC data "))
         self.pbc_calculate()
@@ -804,7 +748,7 @@ class IterElecEps(ElecEps):
             dname = "ref_%s" % suffix
             self.work_subdir = os.path.join(self.work_dir, dname)
             # ref: DFT calculation
-            self._bash_cp2k_calculator(self.work_subdir, ignore_finished_tag)
+            self._dft_calculate(self.work_subdir, ignore_finished_tag)
             # ref: calculate dipole moment
             logging.info("{:=^50}".format(" Start: analyse %s data " % dname))
             tmp_params = self.wf_configs.get("ref_calculate", {})
@@ -822,8 +766,7 @@ class IterElecEps(ElecEps):
                 tmp_params = self.wf_configs.get("search_preset", {})
                 self.search_preset(n_iter=n_loop, calculate=True, **tmp_params)
                 # search: DFT calculation
-                self._bash_cp2k_calculator(self.work_subdir,
-                                           ignore_finished_tag)
+                self._dft_calculate(self.work_subdir, ignore_finished_tag)
                 self.search_calculate()
                 logging.info("Convergence [V]: %f" % self.convergence)
                 logging.info("{:=^50}".format(" End: search %s iter.%06d " %
@@ -846,8 +789,7 @@ class IterElecEps(ElecEps):
             # eps_cal: DFT calculation
             for task in self.v_tasks:
                 self.work_subdir = os.path.join(self.work_dir, task)
-                self._bash_cp2k_calculator(self.work_subdir,
-                                           ignore_finished_tag)
+                self._dft_calculate(self.work_subdir, ignore_finished_tag)
             tmp_params = self.wf_configs.get("calculate", {})
             self.calculate(pos_vac=0.75 * L_VAC,
                            save_fname="eps_data_%s" % self.suffix,
@@ -963,3 +905,98 @@ class IterElecEps(ElecEps):
         self.ref_hi_info["z_ave"] = np.sort(z)[-N_SURF:].mean()
         logging.info("Position of metal surface: %.3f [A]" %
                      self.ref_hi_info["z_ave"])
+
+    def make_plots(self, out=None, sigma=0.0):
+        if not os.path.exists(os.path.join(self.work_dir, "figures")):
+            os.makedirs(os.path.join(self.work_dir, "figures"))
+        if out is None:
+            out = [["hartree", "rho_pol"], ["efield", "inveps"]]
+
+        fnames = glob.glob(os.path.join(self.work_dir, "*.%s" % self.data_fmt))
+        for data_fname in fnames:
+            if not "task_info" in data_fname:
+                if "lo" in os.path.basename(data_fname):
+                    v_seq = load_dict(
+                        os.path.join(self.work_dir, "task_info.%s" %
+                                     self.data_fmt))["lo"]["v_seq"]
+                else:
+                    v_seq = load_dict(
+                        os.path.join(self.work_dir, "task_info.%s" %
+                                     self.data_fmt))["hi"]["v_seq"]
+
+                print(v_seq)
+
+                # read data
+                data_dict = load_dict(data_fname)[sigma]
+                fig, axs = self._make_plots(out,
+                                            data_dict,
+                                            scale=(np.min(v_seq),
+                                                   np.max(v_seq)))
+                figure_name = os.path.splitext(os.path.basename(data_fname))[0]
+                fig.savefig(os.path.join(self.work_dir, "figures",
+                                         "%s.png" % figure_name),
+                            bbox_inches='tight')
+
+    def _make_plots(self, out, data_dict, scale):
+        """
+        - Hartree
+        - rho_pol
+        - E-field
+        - polarization
+        - inveps
+        - lin_test
+        """
+        
+        ylabels_dict = {
+            "hartree": r"$V_H$ [Hartree]",
+            "rho_pol": r"$\rho_{pol}$ [e/bohr$^3$]",
+            "efield": r"$\Delta E_z$ [V/A]",
+            "polarization": r"$\Delta P$ [a.u.]",
+            "inveps": r"$\varepsilon_e^{-1}$",
+            "lin_test": r"$\sigma(\varepsilon_e^{-1})$"
+        }
+        v_primes = list(data_dict.keys())
+        v_primes.sort()
+        # TODO: add case for one row/col!
+        shape = np.shape(out)
+        nrows = shape[0]
+        ncols = shape[1]
+        fig, axs = plt.subplots(nrows=nrows,
+                                ncols=ncols,
+                                figsize=[ncols * 5, nrows * 3],
+                                dpi=300)
+        xlabel = r"$z$ [A]"
+
+        for ii in range(nrows):
+            for jj in range(ncols):
+                ax = axs[ii][jj]
+                kw = out[ii][jj]
+                ylabel = ylabels_dict[kw]
+                xs = []
+                ys = []
+                for v_prime in v_primes:
+                    xs.append(data_dict[v_prime][kw][0])
+                    ys.append(data_dict[v_prime][kw][1])
+                plot.ax_colormap_lines(ax,
+                                       xs,
+                                       ys,
+                                       labels=v_primes,
+                                       scale=scale,
+                                       colormap="RdBu")
+                plot.ax_setlabel(ax, xlabel, ylabel)
+
+                ax.axhline(y=0., color="gray", ls="--")
+                ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
+
+        # color map
+        cb_ax = fig.add_axes([.95, 0.15, .035, .7])
+        cm = copy.copy(plt.get_cmap("RdBu"))
+        norm = mpl.colors.Normalize(vmin=scale[0], vmax=scale[1])
+        im = mpl.cm.ScalarMappable(norm=norm, cmap=cm)
+        fig.colorbar(im,
+                     cax=cb_ax,
+                     orientation='vertical',
+                     ticks=np.linspace(scale[0], scale[1], 5))
+
+        fig.subplots_adjust(wspace=0.25, hspace=0.25)
+        return fig, axs
