@@ -427,7 +427,10 @@ class ElecEps(Eps):
                                        colormap="RdBu")
                 plot.ax_setlabel(ax, xlabel, ylabel)
 
-                ax.axhline(y=0., color="gray", ls="--")
+                ax.axhline(y=0., color="gray")
+                ax.axvline(x=L_VAC, color="gray")
+                ax.axvline(x=np.max(xs[0]) - L_VAC, color="gray")
+                ax.axvline(x=np.max(xs[0]) - L_VAC - L_WAT, color="gray")
                 ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
 
         # color map
@@ -439,6 +442,7 @@ class ElecEps(Eps):
                      cax=cb_ax,
                      orientation='vertical',
                      ticks=np.linspace(scale[0], scale[1], 5))
+        cb_ax.set_title("E-field [V/A]", fontsize="medium", y=1.1)
 
         fig.subplots_adjust(wspace=0.35, hspace=0.35)
         return fig, axs
