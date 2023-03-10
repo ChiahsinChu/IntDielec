@@ -206,7 +206,6 @@ class ElecEps(Eps):
             if (not v in old_v):
                 calculate_delta_flag = True
                 old_v.append(v)
-                old_v_conv.append(v)
 
                 dname = os.path.join(self.work_dir, task)
                 # hartree cube
@@ -232,6 +231,7 @@ class ElecEps(Eps):
                 output = cube.get_ave_cube(**kwargs)
                 rho.append(-output[1])
                 if sigma > 0:
+                    old_v_conv.append(v)
                     rho_conv.append(-output[2])
                     # self.rho_conv = -np.array(rho_conv)
                 # TODO: water PDOS
