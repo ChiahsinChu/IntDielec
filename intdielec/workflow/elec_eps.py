@@ -462,10 +462,12 @@ class IterElecEps(ElecEps):
             atoms = io.read(os.path.join(work_dir, "pbc/coord.xyz"))
         self.atoms = atoms
         assert atoms.cell is not None
-        
-        self.v_ref = 0.
 
         self._setup("pbc")
+
+        self.v_ref = 0.
+        self.v_cubes = []
+        self.e_cubes = []
 
     def pbc_preset(self, fp_params={}, dname="pbc", calculate=False, **kwargs):
         kwargs.update({"dip_cor": False})
@@ -948,7 +950,7 @@ class IterElecEps(ElecEps):
         - inveps
         - lin_test
         """
-        
+
         ylabels_dict = {
             "hartree": r"$V_H$ [Hartree]",
             "rho_pol": r"$\rho_{pol}$ [e/bohr$^3$]",
