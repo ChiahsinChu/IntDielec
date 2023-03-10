@@ -2,8 +2,6 @@ import copy
 import glob
 import logging
 import os
-import pickle
-import sys
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -18,7 +16,7 @@ from ..io.cp2k import (Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput,
 from ..utils.config import check_water
 from ..utils.math import *
 from ..utils.unit import *
-from ..utils.utils import update_dict, load_dict, save_dict
+from ..utils.utils import load_dict, save_dict, update_dict
 from . import Eps
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
@@ -32,8 +30,6 @@ SEARCH_CONVERGENCE = 1e-1
 V_GUESS_BOUND = [-(L_WAT + EPS_WAT * L_VAC * 2), L_WAT + EPS_WAT * L_VAC * 2]
 
 plot.use_style("pub")
-
-# TODO: plot for IterElecEps
 
 
 class ElecEps(Eps):
@@ -436,7 +432,7 @@ class ElecEps(Eps):
                                        ys,
                                        labels=labels,
                                        scale=scale,
-                                       colormap="RdBu")
+                                       colormap="coolwarm")
                 plot.ax_setlabel(ax, xlabel, ylabel)
 
                 ax.axhline(y=0., color="gray")
@@ -447,7 +443,7 @@ class ElecEps(Eps):
 
         # color map
         cb_ax = fig.add_axes([.95, 0.15, .035, .7])
-        cm = copy.copy(plt.get_cmap("RdBu"))
+        cm = copy.copy(plt.get_cmap("coolwarm"))
         norm = mpl.colors.Normalize(vmin=scale[0], vmax=scale[1])
         im = mpl.cm.ScalarMappable(norm=norm, cmap=cm)
         fig.colorbar(im,
@@ -969,7 +965,7 @@ class IterElecEps(ElecEps):
                            **tmp_params)
             logging.info("{:=^50}".format(" End: eps calculation "))
 
-        save_dict(data_dict, "task_info.json")
+        save_dict(data_dict, os.path.join(self.work_dir, "task_info.json"))
 
     def _convert(self, inverse: bool = False):
         cell = self.pbc_atoms.get_cell()
