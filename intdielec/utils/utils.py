@@ -1,5 +1,8 @@
+import csv
 import json
 import os
+import pickle
+import h5py
 
 
 def iterdict(input_dict, out_list, loop_idx):
@@ -113,17 +116,72 @@ def update_dict(old_d, update_d):
             old_d[k] = update_d[k]
 
 
-def write_json(input_dict, fname):
+def symlink(src, _dst):
+    dst = os.path.abspath(_dst)
+    os.symlink(src, dst)
+
+
+def save_dict(d, fname, format=None):
+    if format is None:
+        format = os.path.splitext(fname)[1][1:]
+    try:
+        getattr(__name__, "save_dict_%s" % format)(d, fname)
+    except:
+        raise AttributeError("Unknown format %s" % format)
+
+
+def save_dict_json(d, fname):
     with open(fname, "w") as f:
-        json.dump(input_dict, f, indent=4)
+        json.dump(d, f, indent=4)
 
 
-def read_json(fname):
+def save_dict_csv(d, fname):
+    with open(fname, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=d.keys())
+        writer.writeheader()
+        writer.writerow(d)
+
+
+def save_dict_pkl(d, fname):
+    with open(fname, "wb") as f:
+        pickle.dump(d, f)
+
+
+def save_dict_hdf5(d, fname):
+    with h5py.File(fname, "a") as f:
+        n = len(f)
+        dts = f.create_group("%02d" % n)
+        for k, v in d.items():
+            dts.create_dataset(k, data=v)
+
+
+def load_dict(fname, format=None):
+    if format is None:
+        format = os.path.splitext(fname)[1][1:]
+    try:
+        return getattr(__name__, "load_dict_%s" % format)(fname)
+    except:
+        raise AttributeError("Unknown format %s" % format)
+
+
+def load_dict_json(fname):
     with open(fname, "r") as f:
         d = json.load(f)
     return d
 
 
-def symlink(src, _dst):
-    dst = os.path.abspath(_dst)
-    os.symlink(src, dst)
+def load_dict_csv(fname):
+    with open(fname, "r") as f:
+        data = csv.reader(f)
+        d = {rows[0]: rows[1] for rows in data}
+    return d
+
+
+def load_dict_pkl(fname):
+    with open(fname, "rb") as f:
+        d = pickle.load(f)
+    return d
+
+
+def load_dict_hdf5(fname):
+    return {}

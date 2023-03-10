@@ -5,7 +5,7 @@ import pickle
 
 import h5py
 
-from ..utils.utils import read_json
+from ..utils.utils import load_dict, save_dict
 
 
 class Eps:
@@ -22,7 +22,7 @@ class Eps:
     def workflow(self, configs: str = "param.json", default_command=None):
         logging.info("{:=^50}".format(" Start: eps Calculation "))
 
-        self.wf_configs = read_json(configs)
+        self.wf_configs = load_dict(configs)
         # set env variables
         load_module = self.wf_configs.get("load_module", [])
         command = ""
@@ -36,45 +36,17 @@ class Eps:
         # command += " && touch finished_tag"
         self.command = command
 
-    def _load_data(self):
-        fname = os.path.join(self.work_dir, "eps_data.%s" % self.data_fmt)
+    def _load_data(self, fname="eps_data"):
+        fname = os.path.join(self.work_dir, "%s.%s" % (fname, self.data_fmt))
         if os.path.exists(fname):
-            getattr(self, "_load_data_%s" % self.data_fmt)(fname)
+            self.results = load_dict(fname=fname)
         else:
             self.results = {}
 
-    def _load_data_csv(self, fname):
-        with open(fname, "r") as f:
-            data = csv.reader(f)
-            self.results = {rows[0]: rows[1] for rows in data}
-
-    def _load_data_pkl(self, fname):
-        with open(fname, "rb") as f:
-            self.results = pickle.load(f)
-
-    def _load_data_hdf5(self, fname):
-        self.results = {}
-
     def _save_data(self, fname="eps_data"):
         fname = os.path.join(self.work_dir, "%s.%s" % (fname, self.data_fmt))
-        getattr(self, "_save_data_%s" % self.data_fmt)(fname)
-
-    def _save_data_csv(self, fname):
-        with open(fname, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=self.results.keys())
-            writer.writeheader()
-            writer.writerow(self.results)
-
-    def _save_data_pkl(self, fname):
-        with open(fname, "wb") as f:
-            pickle.dump(self.results, f)
-
-    def _save_data_hdf5(self, fname):
-        with h5py.File(fname, "a") as f:
-            n = len(f)
-            dts = f.create_group("%02d" % n)
-            for k, v in self.results.items():
-                dts.create_dataset(k, data=v)
+        # getattr(self, "_save_data_%s" % self.data_fmt)(fname)
+        save_dict(d=self.results, fname=fname)
 
 
 # class CP2K(_CP2K):

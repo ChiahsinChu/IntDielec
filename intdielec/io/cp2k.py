@@ -10,7 +10,7 @@ from .. import CONFIGS
 from ..exts.cp2kdata.cp2kdata.pdos import Cp2kPdos as _Cp2kPdos
 from ..exts.cp2kdata.cp2kdata.pdos import gaussian_filter1d
 from ..utils.unit import *
-from ..utils.utils import iterdict, update_dict, write_json
+from ..utils.utils import iterdict, update_dict, save_dict_json
 from .template import cp2k_default_input
 
 
@@ -120,7 +120,7 @@ class Cp2kInput():
             f.write(str)
 
         if save_dict:
-            write_json(self.input_dict, os.path.join(output_dir, "input.json"))
+            save_dict_json(self.input_dict, os.path.join(output_dir, "input.json"))
 
     def set_project(self, project_name: str):
         update_d = {"GLOBAL": {"PROJECT": project_name}}
