@@ -420,15 +420,20 @@ class ElecEps(Eps):
                 ax = axs[ii][jj]
                 kw = out[ii][jj]
                 ylabel = ylabels_dict[kw]
-                xs = []
-                ys = []
-                for v_prime in v_primes:
-                    xs.append(data_dict[v_prime][kw][0])
-                    ys.append(data_dict[v_prime][kw][1])
+
+                ys = data_dict[kw]
+                n_d = len(ys)
+                if len(data_dict["v"]) == n_d:
+                    labels = data_dict["v"]
+                    xs = np.tile(data_dict["v_grid"], (n_d, 1))
+                else:
+                    labels = data_dict["v_prime"]
+                    xs = np.tile(data_dict["v_prime_grid"], (n_d, 1))
+
                 plot.ax_colormap_lines(ax,
                                        xs,
                                        ys,
-                                       labels=v_primes,
+                                       labels=labels,
                                        scale=scale,
                                        colormap="RdBu")
                 plot.ax_setlabel(ax, xlabel, ylabel)
