@@ -852,7 +852,7 @@ class IterElecEps(ElecEps):
                            save_fname="eps_data_%s" % self.suffix,
                            **tmp_params)
             logging.info("{:=^50}".format(" End: eps calculation "))
-            
+
         with open(os.path.join(self.work_dir, "task_info.pkl"), "wb") as f:
             pickle.dump(data_dict, f)
 
