@@ -462,6 +462,8 @@ class IterElecEps(ElecEps):
             atoms = io.read(os.path.join(work_dir, "pbc/coord.xyz"))
         self.atoms = atoms
         assert atoms.cell is not None
+        
+        self.v_ref = 0.
 
         self._setup("pbc")
 
