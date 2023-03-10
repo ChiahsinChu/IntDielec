@@ -191,11 +191,21 @@ class ElecEps(Eps):
         sigma = kwargs.get("gaussian_sigma", 0.0)
         update_dict(self.results, {0.0: {}})
         old_v = self.results[0.0].get("v", [])
+        if not isinstance(old_v, list):
+            old_v = old_v.tolist()
         efield = self.results[0.0].get("efield", [])
+        if not isinstance(efield, list):
+            efield = efield.tolist()
         hartree = self.results[0.0].get("hartree", [])
+        if not isinstance(hartree, list):
+            hartree = hartree.tolist()
         efield_vac = self.results[0.0].get("efield_vac", [])
+        if not isinstance(efield_vac, list):
+            efield_vac = efield_vac.tolist()
         rho = self.results[0.0].get("rho", [])
-        mo = self.results[0.0].get("mo", [])
+        if not isinstance(rho, list):
+            rho = rho.tolist()
+        # mo = self.results[0.0].get("mo", [])
 
         if sigma > 0:
             update_dict(self.results, {sigma: {}})
@@ -204,7 +214,7 @@ class ElecEps(Eps):
 
         calculate_delta_flag = False
         for v, task in zip(self.v_seq, self.v_tasks):
-            if (not v in old_v):
+            if not False in (np.abs(v - np.array(old_v)) > 1e-2):
                 calculate_delta_flag = True
                 old_v.append(v)
                 efield.append(v / self.atoms.cell[2][2])
