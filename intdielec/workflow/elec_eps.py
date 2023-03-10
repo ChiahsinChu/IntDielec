@@ -851,10 +851,10 @@ class IterElecEps(ElecEps):
             self.calculate(pos_vac=0.75 * L_VAC,
                            save_fname="eps_data_%s" % self.suffix,
                            **tmp_params)
-            # TODO: add staticmethod for data saving
-            with open(os.path.join(self.work_dir, "task_info.pkl"), "wb") as f:
-                pickle.dump(data_dict, f)
             logging.info("{:=^50}".format(" End: eps calculation "))
+            
+        with open(os.path.join(self.work_dir, "task_info.pkl"), "wb") as f:
+            pickle.dump(data_dict, f)
 
     def _convert(self, inverse: bool = False):
         cell = self.pbc_atoms.get_cell()
