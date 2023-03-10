@@ -421,13 +421,15 @@ class ElecEps(Eps):
                 ylabel = ylabels_dict[kw]
 
                 ys = data_dict[kw]
-                n_d = len(ys)
-                if len(data_dict["v"]) == n_d:
+                shape = np.shape(ys)
+                if len(data_dict["v"]) == shape[0]:
                     labels = data_dict["v"]
-                    xs = np.tile(data_dict["v_grid"], (n_d, 1))
                 else:
                     labels = data_dict["v_prime"]
-                    xs = np.tile(data_dict["v_prime_grid"], (n_d, 1))
+                if len(data_dict["v_grid"]) == shape[1]:
+                    xs = np.tile(data_dict["v_grid"], (shape[1], 1))
+                else:
+                    xs = np.tile(data_dict["v_prime_grid"], (shape[1], 1))
 
                 plot.ax_colormap_lines(ax,
                                        xs,
