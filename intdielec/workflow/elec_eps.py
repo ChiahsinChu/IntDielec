@@ -264,7 +264,7 @@ class ElecEps(Eps):
         data_dict = self.results[sigma]
         data_dict["v_prime"] = (np.array(data_dict["v"])[1:] +
                                 np.array(data_dict["v"])[:-1]) / 2
-        data_dict["rho_pol"] = np.diff(data_dict["rho"], axis=-1)
+        data_dict["rho_pol"] = np.diff(data_dict["rho"], axis=0)
         data_dict["delta_efield_vac"] = np.diff(data_dict["efield_vac"],
                                                 axis=0)
         x, y = self._calculate_efield(data_dict["v_grid"],
