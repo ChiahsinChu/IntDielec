@@ -961,6 +961,7 @@ class IterElecEps(ElecEps):
             for task in self.v_tasks:
                 self.work_subdir = os.path.join(self.work_dir, task)
                 self._dft_calculate(self.work_subdir, ignore_finished_tag)
+            self._load_data(fname="eps_data_%s" % self.suffix)
             tmp_params = self.wf_configs.get("calculate", {})
             self.calculate(pos_vac=0.75 * L_VAC,
                            save_fname="eps_data_%s" % self.suffix,
