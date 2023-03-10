@@ -189,7 +189,7 @@ class ElecEps(Eps):
             - [x] std_inveps
         """
         sigma = kwargs.get("gaussian_sigma", 0.0)
-        update_dict(self.results[0.0], {})
+        update_dict(self.results, {0.0: {}})
         old_v = self.results[0.0].get("v", [])
         hartree = self.results[0.0].get("hartree", [])
         efield_vac = self.results[0.0].get("efield_vac", [])
@@ -197,7 +197,7 @@ class ElecEps(Eps):
         mo = self.results[0.0].get("mo", [])
 
         if sigma > 0:
-            update_dict(self.results[sigma], {})
+            update_dict(self.results, {sigma: {}})
             old_v_conv = self.results[sigma].get("v", [])
             rho_conv = self.results[sigma].get("rho", [])
 
