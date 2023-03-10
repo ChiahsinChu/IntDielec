@@ -5,6 +5,7 @@ font.sans-serif: DejaVu Sans
 font.weight: normal
 font.size : 15.
 axes.labelsize: large
+axes.formatter.limits: -1, 2
 xtick.labelsize: large
 ytick.labelsize: large
 legend.fontsize: large
