@@ -559,7 +559,7 @@ class ElecEps(Eps):
         x, _y = get_int_array(x, delta_rho_e)
         # E-field [V/A]
         y = _y / (AU_TO_ANG)**3 / _EPSILON
-        return x, (y + delta_efield_zero)
+        return x, (y + delta_efield_zero.reshape(-1, 1))
 
     @staticmethod
     def _calculate_polarization(x, delta_rho_e):
@@ -573,7 +573,8 @@ class ElecEps(Eps):
         x, _y = get_int_array(x, delta_rho_e)
         # E-field [V/A]
         y = _y / (AU_TO_ANG)**3 / _EPSILON
-        return (y + delta_efield_zero) / delta_efield_zero
+        return (y + delta_efield_zero.reshape(
+            -1, 1)) / delta_efield_zero.reshape(-1, 1)
 
     # def _calculate_results(self, out_dict, x_in, delta_rho_e,
     #                        delta_efield_zero):
