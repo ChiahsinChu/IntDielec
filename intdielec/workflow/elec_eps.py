@@ -784,12 +784,12 @@ class IterElecEps(ElecEps):
                                  (n_loop + 1))
                     break
 
-            data_dict[suffix]["v_cor"] = self.search_history[-1][0]
-            data_dict[suffix]["v_seq"] = self.v_seq
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
             tmp_params = self.wf_configs.get("preset", {})
             self.preset(calculate=True, **tmp_params)
+            data_dict[suffix]["v_cor"] = self.search_history[-1][0]
+            data_dict[suffix]["v_seq"] = self.v_seq
             # eps_cal: DFT calculation
             for task in self.v_tasks:
                 self.work_subdir = os.path.join(self.work_dir, task)
