@@ -18,7 +18,7 @@ from ..io.cp2k import (Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput,
 from ..utils.config import check_water
 from ..utils.math import *
 from ..utils.unit import *
-from ..utils.utils import update_dict, load_dict
+from ..utils.utils import update_dict, load_dict, save_dict
 from . import Eps
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
@@ -191,6 +191,7 @@ class ElecEps(Eps):
         sigma = kwargs.get("gaussian_sigma", 0.0)
         update_dict(self.results, {0.0: {}})
         old_v = self.results[0.0].get("v", [])
+        efield = self.results[0.0].get("efield", [])
         hartree = self.results[0.0].get("hartree", [])
         efield_vac = self.results[0.0].get("efield_vac", [])
         rho = self.results[0.0].get("rho", [])
@@ -206,6 +207,7 @@ class ElecEps(Eps):
             if (not v in old_v):
                 calculate_delta_flag = True
                 old_v.append(v)
+                efield.append(v / self.atoms.cell[2][2])
 
                 dname = os.path.join(self.work_dir, task)
                 # hartree cube
@@ -239,11 +241,12 @@ class ElecEps(Eps):
         # update data
         sort_ids = np.argsort(old_v)
         self.results[0.0]["v"] = np.sort(old_v)
+        self.results[0.0]["efield"] = np.array(efield)[sort_ids]
         self.results[0.0]["v_grid"] = output[0]
         self.results[0.0]["hartree"] = np.array(hartree)[sort_ids]
         self.results[0.0]["efield_vac"] = np.array(efield_vac)[sort_ids]
         self.results[0.0]["rho"] = np.array(rho)[sort_ids]
-        self.results[0.0]["mo"] = np.array(mo)[sort_ids]
+        # self.results[0.0]["mo"] = np.array(mo)[sort_ids]
         if sigma > 0:
             sort_ids = np.argsort(old_v_conv)
             self.results[sigma]["v"] = np.sort(old_v_conv)
@@ -267,9 +270,9 @@ class ElecEps(Eps):
         x, y = self._calculate_efield(data_dict["v_grid"],
                                       data_dict["rho_pol"],
                                       data_dict["delta_efield_vac"])
-        data_dict["efield"] = y
+        data_dict["delta_efield"] = y
         data_dict["v_prime_grid"] = x
-        data_dict["polarization"] = self._calculate_polarization(
+        data_dict["delta_pol"] = self._calculate_polarization(
             data_dict["v_grid"], data_dict["rho_pol"])
         data_dict["inveps"] = self._calculate_inveps(
             data_dict["v_grid"], data_dict["rho_pol"],
@@ -354,26 +357,19 @@ class ElecEps(Eps):
         if not os.path.exists(os.path.join(self.work_dir, "figures")):
             os.makedirs(os.path.join(self.work_dir, "figures"))
         if out is None:
-            out = [["hartree", "rho_pol"], ["efield", "inveps"]]
+            out = [["hartree", "rho_pol"], ["delta_efield", "inveps"]]
 
         fnames = glob.glob(os.path.join(self.work_dir, "*.%s" % self.data_fmt))
         for data_fname in fnames:
             if not "task_info" in data_fname:
-                if "lo" in os.path.basename(data_fname):
-                    v_seq = load_dict(
-                        os.path.join(self.work_dir, "task_info.%s" %
-                                     self.data_fmt))["lo"]["efield"]
-                else:
-                    v_seq = load_dict(
-                        os.path.join(self.work_dir, "task_info.%s" %
-                                     self.data_fmt))["hi"]["efield"]
-
                 # read data
                 data_dict = load_dict(data_fname)[sigma]
+
                 fig, axs = self._make_plots(out,
                                             data_dict,
-                                            scale=(np.min(v_seq),
-                                                   np.max(v_seq)))
+                                            scale=(np.min(data_dict["efield"]),
+                                                   np.max(
+                                                       data_dict["efield"])))
                 figure_name = os.path.splitext(os.path.basename(data_fname))[0]
                 fig.savefig(os.path.join(self.work_dir, "figures",
                                          "%s.png" % figure_name),
@@ -392,8 +388,8 @@ class ElecEps(Eps):
         ylabels_dict = {
             "hartree": r"$V_H$ [Hartree]",
             "rho_pol": r"$\rho_{pol}$ [e/bohr$^3$]",
-            "efield": r"$\Delta E_z$ [V/A]",
-            "polarization": r"$\Delta P$ [e/bohr$^2$]",
+            "delta_efield": r"$\Delta E_z$ [V/A]",
+            "delta_pol": r"$\Delta P$ [e/bohr$^2$]",
             "inveps": r"$\varepsilon_e^{-1}$",
             "lin_test": r"$\sigma(\varepsilon_e^{-1})$"
         }
@@ -943,8 +939,8 @@ class IterElecEps(ElecEps):
             tmp_params = self.wf_configs.get("preset", {})
             self.preset(calculate=True, **tmp_params)
             data_dict[suffix]["v_cor"] = self.search_history[-1][0]
-            data_dict[suffix]["v_seq"] = self.v_seq
-            data_dict[suffix]["efield"] = self.v_seq / self.atoms.cell[2][2]
+            # data_dict[suffix]["v_seq"] = self.v_seq
+            # data_dict[suffix]["efield"] = self.v_seq / self.atoms.cell[2][2]
             # eps_cal: DFT calculation
             for task in self.v_tasks:
                 self.work_subdir = os.path.join(self.work_dir, task)
@@ -955,8 +951,7 @@ class IterElecEps(ElecEps):
                            **tmp_params)
             logging.info("{:=^50}".format(" End: eps calculation "))
 
-        with open(os.path.join(self.work_dir, "task_info.pkl"), "wb") as f:
-            pickle.dump(data_dict, f)
+        save_dict(data_dict, "task_info.json")
 
     def _convert(self, inverse: bool = False):
         cell = self.pbc_atoms.get_cell()
@@ -1074,21 +1069,14 @@ class IterElecEps(ElecEps):
         fnames = glob.glob(os.path.join(self.work_dir, "*.%s" % self.data_fmt))
         for data_fname in fnames:
             if not "task_info" in data_fname:
-                if "lo" in os.path.basename(data_fname):
-                    v_seq = load_dict(
-                        os.path.join(self.work_dir, "task_info.%s" %
-                                     self.data_fmt))["lo"]["efield"]
-                else:
-                    v_seq = load_dict(
-                        os.path.join(self.work_dir, "task_info.%s" %
-                                     self.data_fmt))["hi"]["efield"]
-
                 # read data
                 data_dict = load_dict(data_fname)[sigma]
+
                 fig, axs = self._make_plots(out,
                                             data_dict,
-                                            scale=(np.min(v_seq),
-                                                   np.max(v_seq)))
+                                            scale=(np.min(data_dict["efield"]),
+                                                   np.max(
+                                                       data_dict["efield"])))
                 figure_name = os.path.splitext(os.path.basename(data_fname))[0]
                 fig.savefig(os.path.join(self.work_dir, "figures",
                                          "%s.png" % figure_name),
