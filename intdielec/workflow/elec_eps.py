@@ -1082,7 +1082,7 @@ class IterElecEps(ElecEps):
         if not os.path.exists(os.path.join(self.work_dir, "figures")):
             os.makedirs(os.path.join(self.work_dir, "figures"))
         if out is None:
-            out = [["hartree", "rho_pol"], ["efield", "inveps"]]
+            out = [["hartree", "rho_pol"], ["delta_efield", "inveps"]]
 
         fnames = glob.glob(os.path.join(self.work_dir, "*.%s" % self.data_fmt))
         for data_fname in fnames:
