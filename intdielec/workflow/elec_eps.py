@@ -34,6 +34,7 @@ use_style("pub")
 
 # TODO: plot for IterElecEps
 
+
 class ElecEps(Eps):
     def __init__(
         self,
@@ -851,8 +852,8 @@ class IterElecEps(ElecEps):
                            save_fname="eps_data_%s" % self.suffix,
                            **tmp_params)
             # TODO: add staticmethod for data saving
-            with open(os.path.join(self.work_dir, "task_info.pkl"), "rb") as f:
-                data_dict = pickle.load(f)
+            with open(os.path.join(self.work_dir, "task_info.pkl"), "wb") as f:
+                pickle.dump(data_dict, f)
             logging.info("{:=^50}".format(" End: eps calculation "))
 
     def _convert(self, inverse: bool = False):
