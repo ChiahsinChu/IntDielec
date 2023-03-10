@@ -248,24 +248,23 @@ class ElecEps(Eps):
                     # self.rho_conv = -np.array(rho_conv)
                 # TODO: water PDOS
 
-        # update data
-        sort_ids = np.argsort(old_v)
-        self.results[0.0]["v"] = np.sort(old_v)
-        self.results[0.0]["efield"] = np.array(efield)[sort_ids]
-        self.results[0.0]["v_grid"] = output[0]
-        self.results[0.0]["hartree"] = np.array(hartree)[sort_ids]
-        self.results[0.0]["efield_vac"] = np.array(efield_vac)[sort_ids]
-        self.results[0.0]["rho"] = np.array(rho)[sort_ids]
-        # self.results[0.0]["mo"] = np.array(mo)[sort_ids]
-        if sigma > 0:
-            sort_ids = np.argsort(old_v_conv)
-            self.results[sigma]["v"] = np.sort(old_v_conv)
-            self.results[sigma]["rho"] = np.array(rho_conv)[sort_ids]
-            self.results[sigma]["efield_vac"] = np.array(efield_vac)[sort_ids]
-
         if calculate_delta_flag:
+            # update data
+            sort_ids = np.argsort(old_v)
+            self.results[0.0]["v"] = np.sort(old_v)
+            self.results[0.0]["efield"] = np.array(efield)[sort_ids]
+            self.results[0.0]["v_grid"] = output[0]
+            self.results[0.0]["hartree"] = np.array(hartree)[sort_ids]
+            self.results[0.0]["efield_vac"] = np.array(efield_vac)[sort_ids]
+            self.results[0.0]["rho"] = np.array(rho)[sort_ids]
+            # self.results[0.0]["mo"] = np.array(mo)[sort_ids]
             self.calculate_delta(0.0)
-            if sigma > 0.:
+            if sigma > 0:
+                sort_ids = np.argsort(old_v_conv)
+                self.results[sigma]["v"] = np.sort(old_v_conv)
+                self.results[sigma]["rho"] = np.array(rho_conv)[sort_ids]
+                self.results[sigma]["efield_vac"] = np.array(
+                    efield_vac)[sort_ids]
                 self.calculate_delta(sigma)
 
         self._save_data(save_fname)
