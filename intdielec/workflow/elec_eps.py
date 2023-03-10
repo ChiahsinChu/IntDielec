@@ -172,57 +172,109 @@ class ElecEps(Eps):
                        save_dict=calculate)
 
     def calculate(self, pos_vac, save_fname="eps_data", **kwargs):
+        """
+        If v does not exist or overwrite is True, then read the data
+        - sigma 
+            - [x] v
+            - [x] hartree
+            - [x] rho
+            - [x] efield_vac
+            - [ ] mo
+
+            - [x] v_prime
+            - [x] rho_pol
+            - [x] efield
+            - [x] polarization
+            - [x] inveps
+            - [x] std_inveps
+        """
         sigma = kwargs.get("gaussian_sigma", 0.0)
+        update_dict(self.results[0.0], {})
+        old_v = self.results[0.0].get("v", [])
+        hartree = self.results[0.0].get("hartree", [])
+        efield_vac = self.results[0.0].get("efield_vac", [])
+        rho = self.results[0.0].get("rho", [])
+        mo = self.results[0.0].get("mo", [])
 
-        efield_zero = []
-        rho_e = []
-        rho_e_conv = []
-        for task in self.v_tasks:
-            dname = os.path.join(self.work_dir, task)
-            # hartree cube
-            fname = glob.glob(os.path.join(dname, "*hartree*.cube"))
-            assert len(fname) == 1
-            cube = Cp2kHartreeCube(fname[0])
-            output = cube.get_ave_cube(**kwargs)
-            self.v_cubes.append(cube)
-            efield_zero.append(self._calculate_efield_zero(cube, pos_vac))
-            # eden cube
-            try:
-                fname = glob.glob(os.path.join(dname, "*TOTAL_DENSITY*.cube"))
+        if sigma > 0:
+            update_dict(self.results[sigma], {})
+            old_v_conv = self.results[sigma].get("v", [])
+            rho_conv = self.results[sigma].get("rho", [])
+
+        calculate_delta_flag = False
+        for v, task in zip(self.v_seq, self.v_tasks):
+            if (not v in old_v):
+                calculate_delta_flag = True
+                old_v.append(v)
+                old_v_conv.append(v)
+
+                dname = os.path.join(self.work_dir, task)
+                # hartree cube
+                fname = glob.glob(os.path.join(dname, "*hartree*.cube"))
                 assert len(fname) == 1
-                cube = Cp2kCube(fname[0])
-            except:
-                fname = glob.glob(
-                    os.path.join(dname, "*ELECTRON_DENSITY*.cube"))
-                assert len(fname) == 1
-                cube = Cp2kCube(fname[0])
-            output = cube.get_ave_cube(**kwargs)
-            self.e_cubes.append(cube)
-            rho_e.append(output[1])
-            rho_e_conv.append(output[2])
+                cube = Cp2kHartreeCube(fname[0])
+                output = cube.get_ave_cube(**kwargs)
+                hartree.append(output[1])
+                # efield in the vac
+                efield_vac.append(
+                    self._calculate_efield_zero(output[0], output[1], pos_vac))
+                # eden cube
+                try:
+                    fname = glob.glob(
+                        os.path.join(dname, "*TOTAL_DENSITY*.cube"))
+                    assert len(fname) == 1
+                    cube = Cp2kCube(fname[0])
+                except:
+                    fname = glob.glob(
+                        os.path.join(dname, "*ELECTRON_DENSITY*.cube"))
+                    assert len(fname) == 1
+                    cube = Cp2kCube(fname[0])
+                output = cube.get_ave_cube(**kwargs)
+                rho.append(-output[1])
+                if sigma > 0:
+                    rho_conv.append(-output[2])
+                    # self.rho_conv = -np.array(rho_conv)
+                # TODO: water PDOS
 
-            self.efield_zero = np.array(efield_zero)
-            self.delta_efield_zero = np.diff(efield_zero, axis=0)
-            self.rho_e = -np.array(rho_e)
-            self.delta_rho_e = np.diff(self.rho_e, axis=0)
-            self.rho_e_conv = -np.array(rho_e_conv)
-            self.delta_rho_e_conv = np.diff(self.rho_e_conv, axis=0)
+        # update data
+        sort_ids = np.argsort(old_v)
+        self.results[0.0]["v"] = np.sort(old_v)
+        self.results[0.0]["v_grid"] = output[0]
+        self.results[0.0]["hartree"] = np.array(hartree)[sort_ids]
+        self.results[0.0]["efield_vac"] = np.array(efield_vac)[sort_ids]
+        self.results[0.0]["rho"] = np.array(rho)[sort_ids]
+        self.results[0.0]["mo"] = np.array(mo)[sort_ids]
+        if sigma > 0:
+            sort_ids = np.argsort(old_v_conv)
+            self.results[sigma]["v"] = np.sort(old_v_conv)
+            self.results[sigma]["rho"] = np.array(rho_conv)[sort_ids]
+            self.results[sigma]["efield_vac"] = np.array(efield_vac)[sort_ids]
 
-        self.results.update({0.0: {}})
-        if sigma > 0.0:
-            self.results.update({sigma: {}})
-        for ii, v_prime in enumerate((self.v_seq[1:] + self.v_seq[:-1]) / 2):
-            # print(v_prime)
-            self.results[0.0].update({v_prime: {}})
-            self._calculate_results(self.results[0.0][v_prime], output[0],
-                                    self.delta_rho_e[ii],
-                                    self.delta_efield_zero[ii])
-            if sigma > 0.0:
-                self.results[sigma].update({v_prime: {}})
-                self._calculate_results(self.results[sigma][v_prime],
-                                        output[0], self.delta_rho_e_conv[ii],
-                                        self.delta_efield_zero[ii])
+        if calculate_delta_flag:
+            self.calculate_delta(0.0)
+            if sigma > 0.:
+                self.calculate_delta(sigma)
+
         self._save_data(save_fname)
+
+    def calculate_delta(self, sigma):
+        data_dict = self.results[sigma]
+        data_dict["v_prime"] = (np.array(data_dict["v"])[1:] +
+                                np.array(data_dict["v"])[:-1]) / 2
+        data_dict["rho_pol"] = np.diff(data_dict["rho"][:, 1], axis=0)
+        data_dict["delta_efield_vac"] = np.diff(data_dict["efield_vac"],
+                                                axis=0)
+        x, y = self._calculate_efield(data_dict["v_grid"],
+                                      data_dict["rho_pol"],
+                                      data_dict["delta_efield_vac"])
+        data_dict["efield"] = y
+        data_dict["v_prime_grid"] = x
+        data_dict["polarization"] = self._calculate_polarization(
+            data_dict["v_grid"], data_dict["rho_pol"])
+        data_dict["inveps"] = self._calculate_inveps(
+            data_dict["v_grid"], data_dict["rho_pol"],
+            data_dict["delta_efield_vac"])
+        data_dict["lin_test"] = np.std(data_dict["inveps"], axis=0)
 
     def plot(self, sigma=0.0, fname="eps_cal.png"):
         fig, axs = plt.subplots(nrows=2, ncols=2, figsize=[12, 8], dpi=300)
@@ -296,6 +348,99 @@ class ElecEps(Eps):
             fig.savefig(os.path.join(self.work_dir, fname),
                         bbox_inches='tight')
 
+        return fig, axs
+
+    def make_plots(self, out=None, sigma=0.0):
+        if not os.path.exists(os.path.join(self.work_dir, "figures")):
+            os.makedirs(os.path.join(self.work_dir, "figures"))
+        if out is None:
+            out = [["hartree", "rho_pol"], ["efield", "inveps"]]
+
+        fnames = glob.glob(os.path.join(self.work_dir, "*.%s" % self.data_fmt))
+        for data_fname in fnames:
+            if not "task_info" in data_fname:
+                if "lo" in os.path.basename(data_fname):
+                    v_seq = load_dict(
+                        os.path.join(self.work_dir, "task_info.%s" %
+                                     self.data_fmt))["lo"]["efield"]
+                else:
+                    v_seq = load_dict(
+                        os.path.join(self.work_dir, "task_info.%s" %
+                                     self.data_fmt))["hi"]["efield"]
+
+                # read data
+                data_dict = load_dict(data_fname)[sigma]
+                fig, axs = self._make_plots(out,
+                                            data_dict,
+                                            scale=(np.min(v_seq),
+                                                   np.max(v_seq)))
+                figure_name = os.path.splitext(os.path.basename(data_fname))[0]
+                fig.savefig(os.path.join(self.work_dir, "figures",
+                                         "%s.png" % figure_name),
+                            bbox_inches='tight')
+
+    def _make_plots(self, out, data_dict, scale):
+        """
+        - Hartree
+        - rho_pol
+        - E-field
+        - polarization
+        - inveps
+        - lin_test
+        """
+
+        ylabels_dict = {
+            "hartree": r"$V_H$ [Hartree]",
+            "rho_pol": r"$\rho_{pol}$ [e/bohr$^3$]",
+            "efield": r"$\Delta E_z$ [V/A]",
+            "polarization": r"$\Delta P$ [e/bohr$^2$]",
+            "inveps": r"$\varepsilon_e^{-1}$",
+            "lin_test": r"$\sigma(\varepsilon_e^{-1})$"
+        }
+        v_primes = list(data_dict.keys())
+        v_primes.sort()
+        # TODO: add case for one row/col!
+        shape = np.shape(out)
+        nrows = shape[0]
+        ncols = shape[1]
+        fig, axs = plt.subplots(nrows=nrows,
+                                ncols=ncols,
+                                figsize=[ncols * 5, nrows * 3],
+                                dpi=300)
+        xlabel = r"$z$ [A]"
+
+        for ii in range(nrows):
+            for jj in range(ncols):
+                ax = axs[ii][jj]
+                kw = out[ii][jj]
+                ylabel = ylabels_dict[kw]
+                xs = []
+                ys = []
+                for v_prime in v_primes:
+                    xs.append(data_dict[v_prime][kw][0])
+                    ys.append(data_dict[v_prime][kw][1])
+                plot.ax_colormap_lines(ax,
+                                       xs,
+                                       ys,
+                                       labels=v_primes,
+                                       scale=scale,
+                                       colormap="RdBu")
+                plot.ax_setlabel(ax, xlabel, ylabel)
+
+                ax.axhline(y=0., color="gray", ls="--")
+                ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
+
+        # color map
+        cb_ax = fig.add_axes([.95, 0.15, .035, .7])
+        cm = copy.copy(plt.get_cmap("RdBu"))
+        norm = mpl.colors.Normalize(vmin=scale[0], vmax=scale[1])
+        im = mpl.cm.ScalarMappable(norm=norm, cmap=cm)
+        fig.colorbar(im,
+                     cax=cb_ax,
+                     orientation='vertical',
+                     ticks=np.linspace(scale[0], scale[1], 5))
+
+        fig.subplots_adjust(wspace=0.35, hspace=0.35)
         return fig, axs
 
     def lin_test(self, sigma=0.0, fname="eps_lin_test.png"):
@@ -403,46 +548,51 @@ class ElecEps(Eps):
                     self.v_tasks.append("_%.1f" % -v)
 
     @staticmethod
-    def _calculate_efield_zero(cube, pos_vac):
+    def _calculate_efield_zero(x_ori, y_ori, pos_vac):
         # E-field [V/A]
-        x, y = get_dev(cube.ave_grid, cube.ave_cube_data)
+        x, y = get_dev(x_ori, y_ori)
         vac_id = np.argmin(np.abs(x - pos_vac))
         return y[vac_id]
 
     @staticmethod
-    def _calculate_polarization(x, delta_rho_e):
-        x, _y = get_int(x, delta_rho_e)
-        # transfer the Angstrom in integration to Bohr
-        y = -_y / AU_TO_ANG
-        return x, y
-
-    @staticmethod
     def _calculate_efield(x, delta_rho_e, delta_efield_zero):
-        x, _y = get_int(x, delta_rho_e)
+        x, _y = get_int_array(x, delta_rho_e)
         # E-field [V/A]
         y = _y / (AU_TO_ANG)**3 / _EPSILON
         return x, (y + delta_efield_zero)
 
     @staticmethod
+    def _calculate_polarization(x, delta_rho_e):
+        x, _y = get_int_array(x, delta_rho_e)
+        # transfer the Angstrom in integration to Bohr
+        y = -_y / AU_TO_ANG
+        return y
+
+    @staticmethod
     def _calculate_inveps(x, delta_rho_e, delta_efield_zero):
-        x, _y = get_int(x, delta_rho_e)
+        x, _y = get_int_array(x, delta_rho_e)
         # E-field [V/A]
         y = _y / (AU_TO_ANG)**3 / _EPSILON
-        return x, (y + delta_efield_zero) / delta_efield_zero
+        return (y + delta_efield_zero) / delta_efield_zero
 
-    def _calculate_results(self, out_dict, x_in, delta_rho_e,
-                           delta_efield_zero):
-        # delta_rho
-        out_dict["rho_pol"] = (x_in, delta_rho_e)
-        # E-field
-        x, y = self._calculate_efield(x_in, delta_rho_e, delta_efield_zero)
-        out_dict["efield"] = (x, y)
-        # polarization
-        x, y = self._calculate_polarization(x_in, delta_rho_e)
-        out_dict["polarization"] = (x, y)
-        # inveps
-        x, y = self._calculate_inveps(x_in, delta_rho_e, delta_efield_zero)
-        out_dict["inveps"] = (x, y)
+    # def _calculate_results(self, out_dict, x_in, delta_rho_e,
+    #                        delta_efield_zero):
+    #     # TODO: hartree
+    #     out_dict["hartree"] = (x_in, delta_rho_e)
+    #     # delta_rho
+    #     out_dict["rho_pol"] = (x_in, delta_rho_e)
+    #     # E-field
+    #     x, y = self._calculate_efield(x_in, delta_rho_e, delta_efield_zero)
+    #     out_dict["efield"] = (x, y)
+    #     # polarization
+    #     x, y = self._calculate_polarization(x_in, delta_rho_e)
+    #     out_dict["polarization"] = (x, y)
+    #     # inveps
+    #     x, y = self._calculate_inveps(x_in, delta_rho_e, delta_efield_zero)
+    #     out_dict["inveps"] = (x, y)
+    #     # TODO: lin_test
+
+    #     # TODO: water pdos
 
     def _dft_calculate(self, work_dir, ignore_finished_tag):
         flag = os.path.join(work_dir, "finished_tag")
@@ -790,6 +940,7 @@ class IterElecEps(ElecEps):
             self.preset(calculate=True, **tmp_params)
             data_dict[suffix]["v_cor"] = self.search_history[-1][0]
             data_dict[suffix]["v_seq"] = self.v_seq
+            data_dict[suffix]["efield"] = self.v_seq / self.atoms.cell[2][2]
             # eps_cal: DFT calculation
             for task in self.v_tasks:
                 self.work_subdir = os.path.join(self.work_dir, task)
@@ -922,13 +1073,11 @@ class IterElecEps(ElecEps):
                 if "lo" in os.path.basename(data_fname):
                     v_seq = load_dict(
                         os.path.join(self.work_dir, "task_info.%s" %
-                                     self.data_fmt))["lo"]["v_seq"]
+                                     self.data_fmt))["lo"]["efield"]
                 else:
                     v_seq = load_dict(
                         os.path.join(self.work_dir, "task_info.%s" %
-                                     self.data_fmt))["hi"]["v_seq"]
-
-                print(v_seq)
+                                     self.data_fmt))["hi"]["efield"]
 
                 # read data
                 data_dict = load_dict(data_fname)[sigma]
@@ -940,67 +1089,3 @@ class IterElecEps(ElecEps):
                 fig.savefig(os.path.join(self.work_dir, "figures",
                                          "%s.png" % figure_name),
                             bbox_inches='tight')
-
-    def _make_plots(self, out, data_dict, scale):
-        """
-        - Hartree
-        - rho_pol
-        - E-field
-        - polarization
-        - inveps
-        - lin_test
-        """
-
-        ylabels_dict = {
-            "hartree": r"$V_H$ [Hartree]",
-            "rho_pol": r"$\rho_{pol}$ [e/bohr$^3$]",
-            "efield": r"$\Delta E_z$ [V/A]",
-            "polarization": r"$\Delta P$ [a.u.]",
-            "inveps": r"$\varepsilon_e^{-1}$",
-            "lin_test": r"$\sigma(\varepsilon_e^{-1})$"
-        }
-        v_primes = list(data_dict.keys())
-        v_primes.sort()
-        # TODO: add case for one row/col!
-        shape = np.shape(out)
-        nrows = shape[0]
-        ncols = shape[1]
-        fig, axs = plt.subplots(nrows=nrows,
-                                ncols=ncols,
-                                figsize=[ncols * 5, nrows * 3],
-                                dpi=300)
-        xlabel = r"$z$ [A]"
-
-        for ii in range(nrows):
-            for jj in range(ncols):
-                ax = axs[ii][jj]
-                kw = out[ii][jj]
-                ylabel = ylabels_dict[kw]
-                xs = []
-                ys = []
-                for v_prime in v_primes:
-                    xs.append(data_dict[v_prime][kw][0])
-                    ys.append(data_dict[v_prime][kw][1])
-                plot.ax_colormap_lines(ax,
-                                       xs,
-                                       ys,
-                                       labels=v_primes,
-                                       scale=scale,
-                                       colormap="RdBu")
-                plot.ax_setlabel(ax, xlabel, ylabel)
-
-                ax.axhline(y=0., color="gray", ls="--")
-                ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
-
-        # color map
-        cb_ax = fig.add_axes([.95, 0.15, .035, .7])
-        cm = copy.copy(plt.get_cmap("RdBu"))
-        norm = mpl.colors.Normalize(vmin=scale[0], vmax=scale[1])
-        im = mpl.cm.ScalarMappable(norm=norm, cmap=cm)
-        fig.colorbar(im,
-                     cax=cb_ax,
-                     orientation='vertical',
-                     ticks=np.linspace(scale[0], scale[1], 5))
-
-        fig.subplots_adjust(wspace=0.25, hspace=0.25)
-        return fig, axs

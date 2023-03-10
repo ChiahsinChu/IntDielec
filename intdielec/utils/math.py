@@ -27,6 +27,15 @@ def get_int(x, y):
     return x, np.cumsum(ave_y * delta_x)
 
 
+def get_int_array(x, ys):
+    x = np.array(x)
+    ys = np.array(ys)
+    ave_y = (ys[:, 1:] + ys[:, :-1]) / 2
+    delta_x = np.diff(x)
+    x = (x[1:] + x[:-1]) / 2
+    return x, np.cumsum(ave_y * delta_x.reshape(1, -1), axis=-1)
+
+
 def get_cum_ave(data):
     cum_sum = data.cumsum()
     cum_ave = cum_sum / (np.arange(len(data)) + 1)
