@@ -828,14 +828,15 @@ class IterElecEps(ElecEps):
                 logging.info("Convergence [V]: %f" % self.convergence)
                 logging.info("{:=^50}".format(" End: search %s iter.%06d " %
                                               (suffix, n_loop)))
-                if np.abs(self.convergence) <= convergence:
-                    logging.info("Finish searching in %d step(s)." %
-                                 (n_loop + 1))
-                    break
                 np.save(
                     os.path.join(self.work_dir,
                                  "search_history_%s.npy" % self.suffix),
                     self.search_history)
+                if np.abs(self.convergence) <= convergence:
+                    logging.info("Finish searching in %d step(s)." %
+                                 (n_loop + 1))
+                    break
+
             data_dict[suffix]["v_cor"] = self.search_history[-1][0]
             data_dict[suffix]["v_seq"] = self.v_seq
             logging.info("{:=^50}".format(" Start: eps calculation "))
