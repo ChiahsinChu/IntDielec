@@ -752,7 +752,9 @@ class IterElecEps(ElecEps):
         logging.debug("V_guess (1): %f" % v_guess)
 
         # dielectrics
-        slope = (EPS_WAT * L_VAC * 2 + L_WAT) / (EPS_WAT * L_VAC + L_WAT_PDOS)
+        # slope = (EPS_WAT * L_VAC * 2 + L_WAT) / (EPS_WAT * L_VAC + L_WAT_PDOS)
+        # emprical values
+        slope = 0.5
         ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
         test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
         ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
@@ -809,8 +811,13 @@ class IterElecEps(ElecEps):
             # else:
             #     data = dataset[id_argmin - 1:id_argmin + 2]
             result = stats.linregress(x=self.search_history[:, 0],
-                                      y=self.search_history[:, 1])
-        return -result.intercept / result.slope
+                                      y=self.search_history[:, 1],
+                                      alternative="less")
+            if np.abs(result.slope) < 0.1:
+                v_guess = self.search_history[-1, 0] + 5.
+            else:
+                v_guess = -result.intercept / max(result.slope, -10.)
+        return v_guess
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
         dname = "search_%s.%06d" % (self.suffix, n_iter)
@@ -871,12 +878,32 @@ class IterElecEps(ElecEps):
             "wfn_restart":
             os.path.join(self.work_dir, dnames[-1], "cp2k-RESTART.wfn")
         })
+
+        update_dict(fp_params,
+                    self._water_pdos_input(n_wat=self.info_dict["n_wat"]))
+
         super().preset(
             pos_dielec=[L_VAC / 2.,
                         self.atoms.get_cell()[2][2] - L_VAC / 2.],
             fp_params=fp_params,
             calculate=calculate,
             **kwargs)
+
+    def calculate(self, **kwargs):
+        super().calculate(pos_vac=0.75 * L_VAC,
+                          save_fname="eps_data_%s" % self.suffix,
+                          **kwargs)
+        for dname in self.v_tasks:
+            fname = os.path.join(self.work_dir, dname, "data.npy")
+            if not os.path.exists(fname):
+                n_wat = self.info_dict["n_wat"]
+                z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
+                                                2] - self.info_dict["z_ave"]
+                sort_ids = np.argsort(z_wat)
+                cbm, vbm = self._water_mo_output(n_wat)
+
+                np.save(os.path.join(self.work_subdir, "data.npy"),
+                        [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
 
     def workflow(self,
                  configs: str = "param.json",
@@ -960,9 +987,7 @@ class IterElecEps(ElecEps):
                 self._dft_calculate(self.work_subdir, ignore_finished_tag)
             self._load_data(fname="eps_data_%s" % self.suffix)
             tmp_params = self.wf_configs.get("calculate", {})
-            self.calculate(pos_vac=0.75 * L_VAC,
-                           save_fname="eps_data_%s" % self.suffix,
-                           **tmp_params)
+            self.calculate(**tmp_params)
             logging.info("{:=^50}".format(" End: eps calculation "))
 
         save_dict(data_dict, os.path.join(self.work_dir, "task_info.json"))
