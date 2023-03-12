@@ -3,6 +3,7 @@ import json
 import os
 import pickle
 import h5py
+import numpy as np
 
 
 def iterdict(input_dict, out_list, loop_idx):
@@ -186,3 +187,10 @@ def load_dict_pkl(fname):
 
 def load_dict_hdf5(fname):
     return {}
+
+
+def get_efields(DeltaV, l: list, eps: list):
+    r_field = 1. / np.array(eps)
+    _delta_v = np.sum(np.array(l) * r_field)
+    v_coeff = DeltaV / _delta_v
+    return r_field * v_coeff
