@@ -704,8 +704,7 @@ class IterElecEps(ElecEps):
         self.v_seq = [self._guess()]
 
     def _guess(self, type="linear", **kwargs):
-        v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
-        logging.info("V_guess: %f" % v_guess)
+        logging.info("V_guess [V]: %f" % self.v_guess)
         # logging.debug("working directory: %s" % self.work_subdir)
         ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
         test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
@@ -715,17 +714,18 @@ class IterElecEps(ElecEps):
             self.convergence -= ref_data[-1][:ref_id].mean()
         else:
             self.convergence -= ref_data[-1][-ref_id:].mean()
-
+        logging.info("Convergence [V]: %f" % self.convergence)
         try:
-            self.search_history = np.append(self.search_history,
-                                            np.array(
-                                                [[v_guess, self.convergence]]),
-                                            axis=0)
+            self.search_history = np.append(
+                self.search_history,
+                np.array([[self.v_guess, self.convergence]]),
+                axis=0)
         except:
             self.search_history = np.append(
-                self.search_history, np.array([v_guess, self.convergence]))
+                self.search_history, np.array([self.v_guess,
+                                               self.convergence]))
             self.search_history = self.search_history.reshape(-1, 2)
-        return v_guess
+        return getattr(self, "_guess_%s" % type)(**kwargs)
 
     def _guess_simple(self):
         z = self.atoms.get_positions()[:, 2]
@@ -898,7 +898,7 @@ class IterElecEps(ElecEps):
             if not os.path.exists(fname):
                 n_wat = self.info_dict["n_wat"]
                 z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
-                                                2] - self.info_dict["z_ave"]
+                                                   2] - self.info_dict["z_ave"]
                 sort_ids = np.argsort(z_wat)
                 cbm, vbm = self._water_mo_output(n_wat)
 
@@ -936,6 +936,7 @@ class IterElecEps(ElecEps):
         data_dict = {}
         for suffix in ["lo", "hi"]:
             self.suffix = suffix
+            self.v_guess = 0.
             self.search_history = np.array([])
             data_dict[suffix] = {}
 
@@ -953,6 +954,7 @@ class IterElecEps(ElecEps):
             convergence = self.wf_configs.get("convergence",
                                               SEARCH_CONVERGENCE)
             max_loop = self.wf_configs.get("max_loop", MAX_LOOP)
+            search_flag = False
             for n_loop in range(max_loop):
                 # search
                 logging.info("{:=^50}".format(" Start: search %s iter.%06d " %
@@ -962,7 +964,7 @@ class IterElecEps(ElecEps):
                 # search: DFT calculation
                 self._dft_calculate(self.work_subdir, ignore_finished_tag)
                 self.search_calculate()
-                logging.info("Convergence [V]: %f" % self.convergence)
+                # logging.info("Convergence [V]: %f" % self.convergence)
                 logging.info("{:=^50}".format(" End: search %s iter.%06d " %
                                               (suffix, n_loop)))
                 np.save(
@@ -970,9 +972,12 @@ class IterElecEps(ElecEps):
                                  "search_history_%s.npy" % self.suffix),
                     self.search_history)
                 if np.abs(self.convergence) <= convergence:
+                    search_flag = True
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
                     break
+            if search_flag == False:
+                logging.warn("Cannot find converged Delta_V.")
 
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
