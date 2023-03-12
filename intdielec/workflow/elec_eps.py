@@ -725,7 +725,8 @@ class IterElecEps(ElecEps):
                 self.search_history, np.array([self.v_guess,
                                                self.convergence]))
             self.search_history = self.search_history.reshape(-1, 2)
-        return getattr(self, "_guess_%s" % type)(**kwargs)
+        self.v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
+        return self.v_guess
 
     def _guess_simple(self):
         z = self.atoms.get_positions()[:, 2]
