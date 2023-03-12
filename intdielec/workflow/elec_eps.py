@@ -863,7 +863,7 @@ class IterElecEps(ElecEps):
         v_end = kwargs.pop("v_end", 0.05 * (L_WAT + EPS_WAT * L_VAC * 2))
         n_step = kwargs.pop("n_step", 3)
         self.v_seq = np.linspace(v_start, v_end, n_step)
-        self.v_seq += self.search_history[-1][0]
+        self.v_seq += self.v_guess
 
         self.v_tasks = []
         for ii, v in enumerate(self.v_seq):
@@ -909,7 +909,7 @@ class IterElecEps(ElecEps):
     def workflow(self,
                  configs: str = "param.json",
                  ignore_finished_tag: bool = False):
-        default_command = "mpiexec.hydra cp2k.popt input.inp > output.out"
+        default_command = "mpiexec.hydra cp2k.popt"
         Eps.workflow(self, configs, default_command)
 
         # pbc: preset
@@ -977,7 +977,11 @@ class IterElecEps(ElecEps):
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
                     break
-            if search_flag == False:
+            if search_flag:
+                self.v_guess = self.search_history[-1, 0]
+            else:
+                self.v_guess = self.search_history[
+                    np.argmin(np.abs(self.search_history[:, 1])), 0]
                 logging.warn("Cannot find converged Delta_V.")
 
             logging.info("{:=^50}".format(" Start: eps calculation "))
