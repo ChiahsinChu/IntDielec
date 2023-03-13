@@ -189,7 +189,7 @@ class ElecEps(Eps):
             - [x] hartree
             - [x] rho
             - [x] efield_vac
-            - [ ] mo
+            - [x] mo
 
             - [x] v_prime
             - [x] rho_pol
@@ -256,7 +256,17 @@ class ElecEps(Eps):
                     old_v_conv.append(v)
                     rho_conv.append(-output[2])
                     # self.rho_conv = -np.array(rho_conv)
-                # TODO: water PDOS
+
+                fname = os.path.join(dname, "data.npy")
+                if not os.path.exists(fname):
+                    n_wat = self.info["n_wat"]
+                    z_wat = self.atoms.get_positions()[self.info["O_mask"],
+                                                       2] - self.info["z_ave"]
+                    sort_ids = np.argsort(z_wat)
+                    cbm, vbm = self._water_mo_output(dname, n_wat)
+
+                    np.save(os.path.join(dname, "data.npy"),
+                            [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
 
         if calculate_delta_flag:
             # update data
@@ -336,7 +346,8 @@ class ElecEps(Eps):
             "delta_efield": r"$\Delta E_z$ [V/A]",
             "delta_pol": r"$\Delta P$ [e/bohr$^2$]",
             "inveps": r"$\varepsilon_e^{-1}$",
-            "lin_test": r"$\sigma(\varepsilon_e^{-1})$"
+            "lin_test": r"$\sigma(\varepsilon_e^{-1})$",
+            "pdos": r"$E-E_F$ [eV]"
         }
         v_primes = list(data_dict.keys())
         v_primes.sort()
@@ -348,38 +359,48 @@ class ElecEps(Eps):
                                 ncols=ncols,
                                 figsize=[ncols * 5, nrows * 3],
                                 dpi=300)
-        xlabel = r"$z$ [A]"
+        axs = np.reshape(axs, [nrows, ncols])
 
+        xlabel = r"$z$ [A]"
         for ii in range(nrows):
             for jj in range(ncols):
                 ax = axs[ii][jj]
                 kw = out[ii][jj]
                 ylabel = ylabels_dict[kw]
 
-                ys = data_dict[kw]
-                shape = np.shape(ys)
-                if len(data_dict["v"]) == shape[0]:
-                    labels = data_dict["efield"]
+                if kw == "pdos":
+                    self._make_plots_pdos(ax, data_dict, scale)
+                    plot.ax_setlabel(ax, xlabel, ylabel)
+                    ax.axhline(y=0., color="gray")
+                    ax.axvline(x=L_VAC, color="gray")
+                    ax.axvline(x=np.max(xs[0]) - L_VAC, color="gray")
+                    ax.axvline(x=np.max(xs[0]) - L_VAC - L_WAT, color="gray")
+                    ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
                 else:
-                    labels = np.diff(data_dict["efield"], axis=0)
-                if len(data_dict["v_grid"]) == shape[1]:
-                    xs = np.tile(data_dict["v_grid"], (shape[1], 1))
-                else:
-                    xs = np.tile(data_dict["v_prime_grid"], (shape[1], 1))
+                    ys = data_dict[kw]
+                    shape = np.shape(ys)
+                    if len(data_dict["v"]) == shape[0]:
+                        labels = data_dict["efield"]
+                    else:
+                        labels = np.diff(data_dict["efield"], axis=0)
+                    if len(data_dict["v_grid"]) == shape[1]:
+                        xs = np.tile(data_dict["v_grid"], (shape[1], 1))
+                    else:
+                        xs = np.tile(data_dict["v_prime_grid"], (shape[1], 1))
 
-                plot.ax_colormap_lines(ax,
-                                       xs,
-                                       ys,
-                                       labels=labels,
-                                       scale=scale,
-                                       colormap="coolwarm")
-                plot.ax_setlabel(ax, xlabel, ylabel)
+                    plot.ax_colormap_lines(ax,
+                                           xs,
+                                           ys,
+                                           labels=labels,
+                                           scale=scale,
+                                           colormap="coolwarm")
+                    plot.ax_setlabel(ax, xlabel, ylabel)
 
-                ax.axhline(y=0., color="gray")
-                ax.axvline(x=L_VAC, color="gray")
-                ax.axvline(x=np.max(xs[0]) - L_VAC, color="gray")
-                ax.axvline(x=np.max(xs[0]) - L_VAC - L_WAT, color="gray")
-                ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
+                    ax.axhline(y=0., color="gray")
+                    ax.axvline(x=L_VAC, color="gray")
+                    ax.axvline(x=np.max(xs[0]) - L_VAC, color="gray")
+                    ax.axvline(x=np.max(xs[0]) - L_VAC - L_WAT, color="gray")
+                    ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
 
         # color map
         cb_ax = fig.add_axes([.95, 0.15, .035, .7])
@@ -394,6 +415,27 @@ class ElecEps(Eps):
 
         fig.subplots_adjust(wspace=0.35, hspace=0.35)
         return fig, axs
+
+    def _make_plots_pdos(ax, data_dict, labels, scale):
+        ys = data_dict["pdos"]
+        xs = np.tile(data_dict["pdos_grid"], (len(ys), 1))
+        plot.ax_colormap_lines(ax,
+                               xs,
+                               ys,
+                               labels=labels,
+                               scale=scale,
+                               colormap="coolwarm")
+        ax.plot(data_dict["ref_pdos_grid"],
+                data_dict["ref_pdos"],
+                color="black",
+                label="ref")
+        try:
+            ax.plot(data_dict["pbc_pdos_grid"],
+                    data_dict["pbc_pdos"],
+                    color="gray",
+                    label="pbc")
+        except:
+            pass
 
     def plot(self, sigma=0.0, fname="eps_cal.png"):
         """
@@ -606,25 +648,6 @@ class ElecEps(Eps):
         return (y + delta_efield_zero.reshape(
             -1, 1)) / delta_efield_zero.reshape(-1, 1)
 
-    # def _calculate_results(self, out_dict, x_in, delta_rho_e,
-    #                        delta_efield_zero):
-    #     # TODO: hartree
-    #     out_dict["hartree"] = (x_in, delta_rho_e)
-    #     # delta_rho
-    #     out_dict["rho_pol"] = (x_in, delta_rho_e)
-    #     # E-field
-    #     x, y = self._calculate_efield(x_in, delta_rho_e, delta_efield_zero)
-    #     out_dict["efield"] = (x, y)
-    #     # polarization
-    #     x, y = self._calculate_polarization(x_in, delta_rho_e)
-    #     out_dict["polarization"] = (x, y)
-    #     # inveps
-    #     x, y = self._calculate_inveps(x_in, delta_rho_e, delta_efield_zero)
-    #     out_dict["inveps"] = (x, y)
-    #     # TODO: lin_test
-
-    #     # TODO: water pdos
-
     def _dft_calculate(self, work_dir, ignore_finished_tag):
         flag = os.path.join(work_dir, "finished_tag")
         if (ignore_finished_tag == True) or (os.path.exists(flag) == False):
@@ -640,6 +663,17 @@ class ElecEps(Eps):
             update_d["FORCE_EVAL"]["DFT"]["PRINT"]["PDOS"]["LDOS"].append(
                 {"LIST": "%d..%d" % (id_start, id_end)})
         return update_d
+
+    @staticmethod
+    def _water_mo_output(work_dir, n_wat):
+        cbm = []
+        vbm = []
+        for ii in range(n_wat):
+            fname = os.path.join(work_dir, "cp2k-list%d-1.pdos" % (ii + 1))
+            task = Cp2kPdos(fname)
+            cbm.append(task.cbm)
+            vbm.append(task.vbm)
+        return np.array(cbm), np.array(vbm)
 
     def _setup(self):
         self.info = {}
@@ -706,7 +740,7 @@ class IterElecEps(ElecEps):
 
         sort_ids = np.argsort(z_wat)
 
-        cbm, vbm = self._water_mo_output(n_wat)
+        cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
 
         np.save(os.path.join(self.work_subdir, "data.npy"), [
             z_wat_vs_lo[sort_ids], z_wat_vs_hi[sort_ids], cbm[sort_ids],
@@ -735,17 +769,17 @@ class IterElecEps(ElecEps):
 
     def ref_calculate(self, vac_region=None):
         dname = "ref_%s" % self.suffix
-        self.info_dict = getattr(self, "%s_info" % dname)
+        self.info = getattr(self, "%s_info" % dname)
         self.work_subdir = os.path.join(self.work_dir, dname)
         self.atoms = getattr(self, "%s_atoms" % dname)
         super().ref_calculate(vac_region=vac_region, dname=dname)
-        self.info_dict["v_zero"] = self.v_zero
+        self.info["v_zero"] = self.v_zero
         if not os.path.exists(os.path.join(self.work_subdir, "data.npy")):
-            n_wat = self.info_dict["n_wat"]
-            z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
-                                               2] - self.info_dict["z_ave"]
+            n_wat = self.info["n_wat"]
+            z_wat = self.atoms.get_positions()[self.info["O_mask"],
+                                               2] - self.info["z_ave"]
             sort_ids = np.argsort(z_wat)
-            cbm, vbm = self._water_mo_output(n_wat)
+            cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
 
             np.save(os.path.join(self.work_subdir, "data.npy"),
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
@@ -778,8 +812,8 @@ class IterElecEps(ElecEps):
 
     def _guess_simple(self):
         z = self.atoms.get_positions()[:, 2]
-        mask_coord = (z >= (self.info_dict["z_ave"] + L_WAT_PDOS))
-        mask = self.info_dict["O_mask"] * mask_coord
+        mask_coord = (z >= (self.info["z_ave"] + L_WAT_PDOS))
+        mask = self.info["O_mask"] * mask_coord
         sel_water_ids = np.arange(len(self.atoms))[mask] // 3
         n_e = 0.
         for ii in sel_water_ids:
@@ -890,7 +924,7 @@ class IterElecEps(ElecEps):
             })
 
         update_dict(fp_params,
-                    self._water_pdos_input(n_wat=self.info_dict["n_wat"]))
+                    self._water_pdos_input(n_wat=self.info["n_wat"]))
         super().preset(
             pos_dielec=[L_VAC / 2.,
                         self.atoms.get_cell()[2][2] - L_VAC / 2.],
@@ -900,11 +934,11 @@ class IterElecEps(ElecEps):
 
     def search_calculate(self):
         if not os.path.exists(os.path.join(self.work_subdir, "data.npy")):
-            n_wat = self.info_dict["n_wat"]
-            z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
-                                               2] - self.info_dict["z_ave"]
+            n_wat = self.info["n_wat"]
+            z_wat = self.atoms.get_positions()[self.info["O_mask"],
+                                               2] - self.info["z_ave"]
             sort_ids = np.argsort(z_wat)
-            cbm, vbm = self._water_mo_output(n_wat)
+            cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
 
             np.save(os.path.join(self.work_subdir, "data.npy"),
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
@@ -934,7 +968,7 @@ class IterElecEps(ElecEps):
         })
 
         update_dict(fp_params,
-                    self._water_pdos_input(n_wat=self.info_dict["n_wat"]))
+                    self._water_pdos_input(n_wat=self.info["n_wat"]))
 
         super().preset(
             pos_dielec=[L_VAC / 2.,
@@ -950,11 +984,11 @@ class IterElecEps(ElecEps):
         for dname in self.v_tasks:
             fname = os.path.join(self.work_dir, dname, "data.npy")
             if not os.path.exists(fname):
-                n_wat = self.info_dict["n_wat"]
-                z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
-                                                   2] - self.info_dict["z_ave"]
+                n_wat = self.info["n_wat"]
+                z_wat = self.atoms.get_positions()[self.info["O_mask"],
+                                                   2] - self.info["z_ave"]
                 sort_ids = np.argsort(z_wat)
-                cbm, vbm = self._water_mo_output(n_wat)
+                cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
 
                 np.save(os.path.join(self.work_subdir, "data.npy"),
                         [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
@@ -1096,17 +1130,6 @@ class IterElecEps(ElecEps):
         check_water(new_atoms)
 
         return new_atoms
-
-    def _water_mo_output(self, n_wat):
-        cbm = []
-        vbm = []
-        for ii in range(n_wat):
-            fname = os.path.join(self.work_subdir,
-                                 "cp2k-list%d-1.pdos" % (ii + 1))
-            task = Cp2kPdos(fname)
-            cbm.append(task.cbm)
-            vbm.append(task.vbm)
-        return np.array(cbm), np.array(vbm)
 
     def _setup(self, type: str):
         setattr(IterElecEps, "%s_atoms" % type, self.atoms.copy())
