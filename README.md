@@ -104,7 +104,7 @@ python run.py 1>eps_cal.stdout 2>eps_cal.stderr
       "pos_dielec": [5, 55]
     },
     "calculate": {
-      "pos_vac": 8
+      "pos_vac": 7
     }
   }
   ```

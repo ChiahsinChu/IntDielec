@@ -56,9 +56,8 @@ class ElecEps(Eps):
         self.v_cubes = []
         self.e_cubes = []
 
-        self._setup()
-
         logging.info("Number of atoms: %d" % len(atoms))
+        self._setup()
 
     def ref_preset(self, fp_params={}, dname="ref", calculate=False, **kwargs):
         """
@@ -96,16 +95,15 @@ class ElecEps(Eps):
             output = cube.get_ave_cube()
             DeltaV = cube.potdrop
         self.set_v_zero(DeltaV)
+        logging.info("Potential drop for zero E-field: %f [V]" % DeltaV)
 
     def preset(self, pos_dielec, fp_params={}, calculate=False, **kwargs):
-        wfn_restart = os.path.join(self.work_dir, "ref", "cp2k-RESTART.wfn")
         update_d = {
             "dip_cor": False,
             "hartree": True,
             "eden": True,
             "totden": True,
-            "extended_fft_lengths": True,
-            "wfn_restart": wfn_restart
+            "extended_fft_lengths": True
         }
         update_dict(kwargs, update_d)
 
@@ -167,6 +165,12 @@ class ElecEps(Eps):
             dname = os.path.join(self.work_dir, task)
             if not os.path.exists(dname):
                 os.makedirs(dname)
+            if not os.path.exists(os.path.join(dname, "cp2k-RESTART.wfn")):
+                wfn_restart = os.path.join(self.work_dir, "ref",
+                                           "cp2k-RESTART.wfn")
+                kwargs.update({"wfn_restart": wfn_restart})
+            else:
+                kwargs.update({"wfn_restart": None})
 
             task = Cp2kInput(self.atoms, **kwargs)
             fp_params["FORCE_EVAL"]["DFT"]["POISSON"]["IMPLICIT"][
@@ -734,9 +738,7 @@ class IterElecEps(ElecEps):
         self.work_subdir = os.path.join(self.work_dir, dname)
         self.atoms = getattr(self, "%s_atoms" % dname)
         super().ref_calculate(vac_region=vac_region, dname=dname)
-        # setattr(IterElecEps, "v_zero_%s" % suffix, self.v_zero)
         self.info_dict["v_zero"] = self.v_zero
-        logging.debug("V_zero: %f" % self.v_zero)
         if not os.path.exists(os.path.join(self.work_subdir, "data.npy")):
             n_wat = self.info_dict["n_wat"]
             z_wat = self.atoms.get_positions()[self.info_dict["O_mask"],
@@ -780,7 +782,6 @@ class IterElecEps(ElecEps):
         sel_water_ids = np.arange(len(self.atoms))[mask] // 3
         n_e = 0.
         for ii in sel_water_ids:
-            # logging.debug("selected water index: %d" % ii)
             fname = os.path.join(self.work_subdir,
                                  "cp2k-list%d-1.pdos" % (ii + 1))
             pdos = Cp2kPdos(fname)
@@ -871,16 +872,19 @@ class IterElecEps(ElecEps):
         self.work_subdir = os.path.join(self.work_dir, dname)
         self.v_tasks = [dname]
 
-        # set restart wfn for DFT initial guess
-        if n_iter > 0:
-            wfn_dname = "search_%s.%06d" % (self.suffix, (n_iter - 1))
+        if not os.path.exists(
+                os.path.join(self.work_subdir, "cp2k-RESTART.wfn")):
+            # set restart wfn for DFT initial guess
+            if n_iter > 0:
+                wfn_dname = "search_%s.%06d" % (self.suffix, (n_iter - 1))
+            else:
+                wfn_dname = "ref_%s" % self.suffix
+            wfn_restart = os.path.join(self.work_dir, wfn_dname,
+                                       "cp2k-RESTART.wfn")
+            kwargs.update({"wfn_restart": wfn_restart})
         else:
-            wfn_dname = "ref_%s" % self.suffix
-        wfn_restart = os.path.join(self.work_dir, wfn_dname,
-                                   "cp2k-RESTART.wfn")
+            kwargs.update({"wfn_restart": None})
 
-        # TODO: change the eps_scf
-        kwargs.update({"eps_scf": 1e-2, "wfn_restart": wfn_restart})
         update_dict(fp_params,
                     self._water_pdos_input(n_wat=self.info_dict["n_wat"]))
         super().preset(
