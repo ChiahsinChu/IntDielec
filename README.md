@@ -80,6 +80,35 @@ module load cp2k/9.1
 python run.py 1>eps_cal.stdout 2>eps_cal.stderr
 ```
 
+> Environment variables can be loaded either in the bash or in the json.
+
+- `ElecEps`
+
+  ```python
+  import numpy as np
+  from intdielec.workflow.elec_eps import ElecEps
+
+  task = ElecEps(work_dir="eps_cal")
+  task.set_v_seq(np.linspace(-1.0, 1.0, 3))
+  task.workflow(configs="param.json")
+  task.make_plots()
+  ```
+
+  Example for `param.json`:
+
+  ```json
+  {
+    "load_module": [],
+    "command": "mpiexec.hydra cp2k.popt",
+    "preset": {
+      "pos_dielec": [5, 55]
+    },
+    "calculate": {
+      "pos_vac": 8
+    }
+  }
+  ```
+
 - `IterElecEps`
 
   Example for python code to run the workflow:
@@ -113,8 +142,6 @@ python run.py 1>eps_cal.stdout 2>eps_cal.stderr
     }
   }
   ```
-
-  > Environment variables can be loaded either in the bash or in the json.
 
 ## Developer guide
 
