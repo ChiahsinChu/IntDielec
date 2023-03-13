@@ -56,6 +56,8 @@ class ElecEps(Eps):
         self.v_cubes = []
         self.e_cubes = []
 
+        self._setup()
+
         logging.info("Number of atoms: %d" % len(atoms))
 
     def ref_preset(self, fp_params={}, dname="ref", calculate=False, **kwargs):
@@ -68,6 +70,9 @@ class ElecEps(Eps):
             "extended_fft_lengths": True,
         }
         update_dict(kwargs, update_d)
+
+        update_dict(fp_params,
+                    self._water_pdos_input(n_wat=self.info["n_wat"]))
 
         dname = os.path.join(self.work_dir, dname)
         if not os.path.exists(dname):
@@ -93,12 +98,14 @@ class ElecEps(Eps):
         self.set_v_zero(DeltaV)
 
     def preset(self, pos_dielec, fp_params={}, calculate=False, **kwargs):
+        wfn_restart = os.path.join(self.work_dir, "ref", "cp2k-RESTART.wfn")
         update_d = {
             "dip_cor": False,
             "hartree": True,
             "eden": True,
             "totden": True,
             "extended_fft_lengths": True,
+            "wfn_restart": wfn_restart
         }
         update_dict(kwargs, update_d)
 
@@ -153,6 +160,8 @@ class ElecEps(Eps):
             }
         }
         update_dict(fp_params, update_d)
+        update_dict(fp_params,
+                    self._water_pdos_input(n_wat=self.info["n_wat"]))
 
         for v, task in zip(self.v_seq, self.v_tasks):
             dname = os.path.join(self.work_dir, task)
@@ -284,80 +293,6 @@ class ElecEps(Eps):
             data_dict["delta_efield_vac"])
         data_dict["lin_test"] = np.std(data_dict["inveps"], axis=0)
 
-    def plot(self, sigma=0.0, fname="eps_cal.png"):
-        fig, axs = plt.subplots(nrows=2, ncols=2, figsize=[12, 8], dpi=300)
-        xlabel = r"$z$ [A]"
-
-        data_dict = self.results[sigma]
-        v_primes = list(data_dict.keys())
-        v_primes.sort()
-
-        for ii, v_prime in enumerate(v_primes):
-            # delta_rho
-            axs[0][0].plot(data_dict[v_prime]["rho_pol"][0],
-                           data_dict[v_prime]["rho_pol"][1],
-                           color=plt.get_cmap('GnBu')(1 / (len(v_primes) + 1) *
-                                                      (ii + 1)))
-            # polarization
-            axs[0][1].plot(data_dict[v_prime]["polarization"][0],
-                           data_dict[v_prime]["polarization"][1],
-                           color=plt.get_cmap('GnBu')(1 / (len(v_primes) + 1) *
-                                                      (ii + 1)))
-            # E-field
-            axs[1][0].plot(data_dict[v_prime]["efield"][0],
-                           data_dict[v_prime]["efield"][1],
-                           color=plt.get_cmap('GnBu')(1 / (len(v_primes) + 1) *
-                                                      (ii + 1)))
-            # inveps
-            axs[1][1].plot(data_dict[v_prime]["inveps"][0],
-                           data_dict[v_prime]["inveps"][1],
-                           color=plt.get_cmap('GnBu')(1 / (len(v_primes) + 1) *
-                                                      (ii + 1)))
-
-        ylabel = r"$\rho_{pol}$ [a.u.]"
-        axs[0][0].set_xlim(data_dict[v_prime]["rho_pol"][0].min(),
-                           data_dict[v_prime]["rho_pol"][0].max())
-        plot.ax_setlabel(axs[0][0], xlabel, ylabel)
-        axs[0][0].axhline(y=0., ls="--", color="gray")
-
-        ylabel = r"$\Delta P$ [a.u.]"
-        axs[0][1].set_xlim(data_dict[v_prime]["polarization"][0].min(),
-                           data_dict[v_prime]["polarization"][0].max())
-        plot.ax_setlabel(axs[0][1], xlabel, ylabel)
-        axs[0][1].axhline(y=0., ls="--", color="gray")
-
-        ylabel = r"$\Delta E_z$ [V/A]"
-        axs[1][0].set_xlim(data_dict[v_prime]["efield"][0].min(),
-                           data_dict[v_prime]["efield"][0].max())
-        plot.ax_setlabel(axs[1][0], xlabel, ylabel)
-        axs[1][0].axhline(y=0., ls="--", color="gray")
-
-        # ylabel = r"$\varepsilon_e^{-1}=\frac{\Delta E_z}{\Delta E_{z,vac}}$"
-        ylabel = r"$\varepsilon_e^{-1}$"
-        axs[1][1].set_xlim(data_dict[v_prime]["inveps"][0].min(),
-                           data_dict[v_prime]["inveps"][0].max())
-        plot.ax_setlabel(axs[1][1], xlabel, ylabel)
-        axs[1][1].axhline(y=0., ls="--", color="gray")
-        axs[1][1].axhline(y=1., ls="--", color="gray")
-
-        # color map
-        cb_ax = fig.add_axes([.95, 0.15, .035, .7])
-        cm = copy.copy(plt.get_cmap('GnBu'))
-        norm = mpl.colors.Normalize(vmin=v_primes[0], vmax=v_primes[-1])
-        im = mpl.cm.ScalarMappable(norm=norm, cmap=cm)
-        fig.colorbar(im,
-                     cax=cb_ax,
-                     orientation='vertical',
-                     ticks=np.linspace(v_primes[0], v_primes[-1], 5))
-
-        fig.subplots_adjust(wspace=0.25, hspace=0.25)
-
-        if fname:
-            fig.savefig(os.path.join(self.work_dir, fname),
-                        bbox_inches='tight')
-
-        return fig, axs
-
     def make_plots(self, out=None, sigma=0.0):
         if not os.path.exists(os.path.join(self.work_dir, "figures")):
             os.makedirs(os.path.join(self.work_dir, "figures"))
@@ -455,7 +390,87 @@ class ElecEps(Eps):
         fig.subplots_adjust(wspace=0.35, hspace=0.35)
         return fig, axs
 
+    def plot(self, sigma=0.0, fname="eps_cal.png"):
+        """
+        deprecated
+        """
+        fig, axs = plt.subplots(nrows=2, ncols=2, figsize=[12, 8], dpi=300)
+        xlabel = r"$z$ [A]"
+
+        data_dict = self.results[sigma]
+        v_primes = list(data_dict.keys())
+        v_primes.sort()
+
+        for ii, v_prime in enumerate(v_primes):
+            # delta_rho
+            axs[0][0].plot(data_dict[v_prime]["rho_pol"][0],
+                           data_dict[v_prime]["rho_pol"][1],
+                           color=plt.get_cmap('GnBu')(1 / (len(v_primes) + 1) *
+                                                      (ii + 1)))
+            # polarization
+            axs[0][1].plot(data_dict[v_prime]["polarization"][0],
+                           data_dict[v_prime]["polarization"][1],
+                           color=plt.get_cmap('GnBu')(1 / (len(v_primes) + 1) *
+                                                      (ii + 1)))
+            # E-field
+            axs[1][0].plot(data_dict[v_prime]["efield"][0],
+                           data_dict[v_prime]["efield"][1],
+                           color=plt.get_cmap('GnBu')(1 / (len(v_primes) + 1) *
+                                                      (ii + 1)))
+            # inveps
+            axs[1][1].plot(data_dict[v_prime]["inveps"][0],
+                           data_dict[v_prime]["inveps"][1],
+                           color=plt.get_cmap('GnBu')(1 / (len(v_primes) + 1) *
+                                                      (ii + 1)))
+
+        ylabel = r"$\rho_{pol}$ [a.u.]"
+        axs[0][0].set_xlim(data_dict[v_prime]["rho_pol"][0].min(),
+                           data_dict[v_prime]["rho_pol"][0].max())
+        plot.ax_setlabel(axs[0][0], xlabel, ylabel)
+        axs[0][0].axhline(y=0., ls="--", color="gray")
+
+        ylabel = r"$\Delta P$ [a.u.]"
+        axs[0][1].set_xlim(data_dict[v_prime]["polarization"][0].min(),
+                           data_dict[v_prime]["polarization"][0].max())
+        plot.ax_setlabel(axs[0][1], xlabel, ylabel)
+        axs[0][1].axhline(y=0., ls="--", color="gray")
+
+        ylabel = r"$\Delta E_z$ [V/A]"
+        axs[1][0].set_xlim(data_dict[v_prime]["efield"][0].min(),
+                           data_dict[v_prime]["efield"][0].max())
+        plot.ax_setlabel(axs[1][0], xlabel, ylabel)
+        axs[1][0].axhline(y=0., ls="--", color="gray")
+
+        # ylabel = r"$\varepsilon_e^{-1}=\frac{\Delta E_z}{\Delta E_{z,vac}}$"
+        ylabel = r"$\varepsilon_e^{-1}$"
+        axs[1][1].set_xlim(data_dict[v_prime]["inveps"][0].min(),
+                           data_dict[v_prime]["inveps"][0].max())
+        plot.ax_setlabel(axs[1][1], xlabel, ylabel)
+        axs[1][1].axhline(y=0., ls="--", color="gray")
+        axs[1][1].axhline(y=1., ls="--", color="gray")
+
+        # color map
+        cb_ax = fig.add_axes([.95, 0.15, .035, .7])
+        cm = copy.copy(plt.get_cmap('GnBu'))
+        norm = mpl.colors.Normalize(vmin=v_primes[0], vmax=v_primes[-1])
+        im = mpl.cm.ScalarMappable(norm=norm, cmap=cm)
+        fig.colorbar(im,
+                     cax=cb_ax,
+                     orientation='vertical',
+                     ticks=np.linspace(v_primes[0], v_primes[-1], 5))
+
+        fig.subplots_adjust(wspace=0.25, hspace=0.25)
+
+        if fname:
+            fig.savefig(os.path.join(self.work_dir, fname),
+                        bbox_inches='tight')
+
+        return fig, axs
+
     def lin_test(self, sigma=0.0, fname="eps_lin_test.png"):
+        """
+        deprecated
+        """
         data = self.results[sigma]
         inveps_data = []
         for v in data.values():
@@ -499,7 +514,7 @@ class ElecEps(Eps):
         }
         ```
         """
-        default_command = "mpiexec.hydra cp2k.popt input.inp > output.out"
+        default_command = "mpiexec.hydra cp2k.popt"
         super().workflow(configs, default_command)
 
         # ref: preset
@@ -513,8 +528,6 @@ class ElecEps(Eps):
         # ref: DFT calculation
         self._dft_calculate(os.path.join(self.work_dir, "ref"),
                             ignore_finished_tag)
-        # self._ase_cp2k_calculator(os.path.join(self.work_dir, "ref"),
-        #                           ignore_finished_tag)
 
         # ref: calculate dipole moment
         logging.info(
@@ -612,6 +625,38 @@ class ElecEps(Eps):
         if (ignore_finished_tag == True) or (os.path.exists(flag) == False):
             Cp2kCalculator(work_dir=work_dir).run(type="bash",
                                                   command=self.command)
+
+    @staticmethod
+    def _water_pdos_input(n_wat):
+        update_d = {"FORCE_EVAL": {"DFT": {"PRINT": {"PDOS": {"LDOS": []}}}}}
+        for ii in range(n_wat):
+            id_start = ii * 3 + 1
+            id_end = (ii + 1) * 3
+            update_d["FORCE_EVAL"]["DFT"]["PRINT"]["PDOS"]["LDOS"].append(
+                {"LIST": "%d..%d" % (id_start, id_end)})
+        return update_d
+
+    def _setup(self):
+        self.info = {}
+
+        info_dict = self.info
+        atoms = self.atoms
+
+        info_dict["atype"] = np.array(atoms.get_chemical_symbols())
+
+        info_dict["O_mask"] = (info_dict["atype"] == "O")
+        info_dict["H_mask"] = (info_dict["atype"] == "H")
+        info_dict["water_mask"] = info_dict["O_mask"] + info_dict["H_mask"]
+        info_dict["metal_mask"] = ~info_dict["water_mask"]
+        info_dict["n_wat"] = len(
+            info_dict["atype"][info_dict["water_mask"]]) // 3
+
+        logging.info("Number of water molecules: %d" % info_dict["n_wat"])
+
+        z = self.ref_lo_atoms.get_positions()[info_dict["metal_mask"], 2]
+        info_dict["z_ave"] = np.sort(z)[-N_SURF:].mean()
+        logging.info("Position of metal surface: %.3f [A]" %
+                     info_dict["z_ave"])
 
 
 class IterElecEps(ElecEps):
@@ -1001,6 +1046,7 @@ class IterElecEps(ElecEps):
             logging.info("{:=^50}".format(" End: eps calculation "))
 
         save_dict(data_dict, os.path.join(self.work_dir, "task_info.json"))
+        self.make_plots()
 
     def _convert(self, inverse: bool = False):
         cell = self.pbc_atoms.get_cell()
@@ -1042,16 +1088,6 @@ class IterElecEps(ElecEps):
         check_water(new_atoms)
 
         return new_atoms
-
-    @staticmethod
-    def _water_pdos_input(n_wat):
-        update_d = {"FORCE_EVAL": {"DFT": {"PRINT": {"PDOS": {"LDOS": []}}}}}
-        for ii in range(n_wat):
-            id_start = ii * 3 + 1
-            id_end = (ii + 1) * 3
-            update_d["FORCE_EVAL"]["DFT"]["PRINT"]["PDOS"]["LDOS"].append(
-                {"LIST": "%d..%d" % (id_start, id_end)})
-        return update_d
 
     def _water_mo_output(self, n_wat):
         cbm = []
