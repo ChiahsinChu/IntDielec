@@ -351,7 +351,6 @@ class ElecEps(Eps):
         }
         v_primes = list(data_dict.keys())
         v_primes.sort()
-        # TODO: add case for one row/col!
         shape = np.shape(out)
         nrows = shape[0]
         ncols = shape[1]
@@ -382,7 +381,8 @@ class ElecEps(Eps):
                     if len(data_dict["v"]) == shape[0]:
                         labels = data_dict["efield"]
                     else:
-                        labels = np.diff(data_dict["efield"], axis=0)
+                        labels = (np.array(data_dict["efield"])[1:] +
+                                  np.array(data_dict["efield"])[:-1]) / 2.
                     if len(data_dict["v_grid"]) == shape[1]:
                         xs = np.tile(data_dict["v_grid"], (shape[1], 1))
                     else:
