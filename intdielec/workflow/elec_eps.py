@@ -87,7 +87,7 @@ class ElecEps(Eps):
             fname = glob.glob(os.path.join(dname, "output*"))
             assert len(fname) == 1
             output = Cp2kOutput(fname[0])
-            DeltaV = output.potdrop[0]
+            DeltaV = -output.potdrop[0]
         except:
             assert (vac_region is not None)
             fname = glob.glob(os.path.join(dname, "*hartree*.cube"))
