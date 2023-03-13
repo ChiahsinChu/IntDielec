@@ -653,7 +653,7 @@ class ElecEps(Eps):
 
         logging.info("Number of water molecules: %d" % info_dict["n_wat"])
 
-        z = self.ref_lo_atoms.get_positions()[info_dict["metal_mask"], 2]
+        z = atoms.get_positions()[info_dict["metal_mask"], 2]
         info_dict["z_ave"] = np.sort(z)[-N_SURF:].mean()
         logging.info("Position of metal surface: %.3f [A]" %
                      info_dict["z_ave"])
