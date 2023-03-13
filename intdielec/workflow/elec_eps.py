@@ -170,7 +170,8 @@ class ElecEps(Eps):
                                            "cp2k-RESTART.wfn")
                 kwargs.update({"wfn_restart": wfn_restart})
             else:
-                kwargs.update({"wfn_restart": None})
+                kwargs.update(
+                    {"wfn_restart": os.path.join(dname, "cp2k-RESTART.wfn")})
 
             task = Cp2kInput(self.atoms, **kwargs)
             fp_params["FORCE_EVAL"]["DFT"]["POISSON"]["IMPLICIT"][
@@ -883,7 +884,10 @@ class IterElecEps(ElecEps):
                                        "cp2k-RESTART.wfn")
             kwargs.update({"wfn_restart": wfn_restart})
         else:
-            kwargs.update({"wfn_restart": None})
+            kwargs.update({
+                "wfn_restart":
+                os.path.join(self.work_subdir, "cp2k-RESTART.wfn")
+            })
 
         update_dict(fp_params,
                     self._water_pdos_input(n_wat=self.info_dict["n_wat"]))
