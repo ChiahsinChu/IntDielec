@@ -715,6 +715,7 @@ class IterElecEps(ElecEps):
             atoms = io.read(os.path.join(work_dir, "pbc/coord.xyz"))
         self.atoms = atoms
         assert atoms.cell is not None
+        logging.info("Number of atoms: %d" % len(atoms))
 
         self._setup("pbc")
 
@@ -755,9 +756,9 @@ class IterElecEps(ElecEps):
 
         cube = Cp2kHartreeCube(
             os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
-        self.pbc_hartree = cube.get_ave_cube()
+        pbc_hartree = cube.get_ave_cube()
         cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
-        self.pbc_hartree[1] -= cp2k_out.fermi
+        self.pbc_hartree = [pbc_hartree[0], pbc_hartree[1] - cp2k_out.fermi]
 
     def ref_preset(self, fp_params={}, calculate=False, **kwargs):
         # lower surface
@@ -866,19 +867,18 @@ class IterElecEps(ElecEps):
             os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
         _test_hartree = cube.get_ave_cube()
         cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
-        _test_hartree[1] -= cp2k_out.fermi
 
         grids = np.arange(0, L_WAT_PDOS, 0.1)
+
+        fp = _test_hartree[1] - cp2k_out.fermi
+        xp = _test_hartree[0] - self.info["z_ave"]
+        test_hartree = np.interp(grids, xp, fp).mean()
 
         fp = self.pbc_hartree[1]
         xp = self.pbc_hartree[0] - self.pbc_info["z_%s" % self.suffix]
         if self.suffix == "hi":
             xp = -xp
         ref_hartree = np.interp(grids, xp, fp).mean()
-
-        fp = _test_hartree[1]
-        xp = _test_hartree[0] - self.info["z_ave"]
-        test_hartree = np.interp(grids, xp, fp).mean()
 
         delta_v = test_hartree - ref_hartree
         v_guess += delta_v * SLOPE
