@@ -172,8 +172,12 @@ class ElecEps(Eps):
             if not os.path.exists(dname):
                 os.makedirs(dname)
             if not os.path.exists(os.path.join(dname, "cp2k-RESTART.wfn")):
-                wfn_restart = os.path.join(self.work_dir, "ref",
-                                           "cp2k-RESTART.wfn")
+                if hasattr(self, "suffix"):
+                    wfn_restart = os.path.join(self.work_dir, "ref_%s" % self.suffix,
+                                            "cp2k-RESTART.wfn")
+                else:
+                    wfn_restart = os.path.join(self.work_dir, "ref",
+                                            "cp2k-RESTART.wfn") 
                 kwargs.update({"wfn_restart": wfn_restart})
             else:
                 kwargs.update(
