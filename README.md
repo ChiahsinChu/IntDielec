@@ -9,7 +9,7 @@
 ## Installation
 
 ```bash
-git clone --recursive https://github.com/ChiahsinChu/IntDielec.git ./IntDielec
+git clone --recursive https://github.com/ChiahsinChu/IntDielec.git .
 cd IntDielec
 pip install .
 ```

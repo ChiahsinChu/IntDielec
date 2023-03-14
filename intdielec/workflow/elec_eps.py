@@ -935,12 +935,8 @@ class IterElecEps(ElecEps):
             # else:
             #     data = dataset[id_argmin - 1:id_argmin + 2]
             result = stats.linregress(x=self.search_history[:, 0],
-                                      y=self.search_history[:, 1],
-                                      alternative="less")
-            if np.abs(result.slope) < 0.1:
-                v_guess = self.search_history[-1, 0] + 5.
-            else:
-                v_guess = -result.intercept / max(result.slope, -10.)
+                                      y=self.search_history[:, 1])
+            v_guess = -result.intercept / result.slope
         return v_guess
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
