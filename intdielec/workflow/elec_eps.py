@@ -804,7 +804,7 @@ class IterElecEps(ElecEps):
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
 
-    def _guess(self, type="linear", **kwargs):
+    def _guess(self, type="ols_cut", **kwargs):
         logging.info("V_guess [V]: %f" % self.v_guess)
 
         # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
@@ -893,25 +893,27 @@ class IterElecEps(ElecEps):
         # logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
 
-    def _guess_linear(self):
+    def _guess_ols(self):
         if len(self.search_history) < 2:
             return self._guess_simple()
         else:
-            # dataset = self.search_history[np.argsort(self.search_history[:,
-            #                                                              0])]
-            # id_argmin = np.argmin(np.abs(dataset[:, 1]))
-            # if id_argmin == 0:
-            #     # left endpoint
-            #     data = dataset[:id_argmin + 2]
-            # elif id_argmin == (len(dataset) - 1):
-            #     # right endpoint
-            #     data = dataset[id_argmin - 1:]
-            # else:
-            #     data = dataset[id_argmin - 1:id_argmin + 2]
             result = stats.linregress(x=self.search_history[:, 0],
                                       y=self.search_history[:, 1])
             v_guess = -result.intercept / result.slope
         return v_guess
+
+    def _guess_ols_cut(self, nstep=4):
+        if len(self.search_history) < 2:
+            return self._guess_simple()
+        else:
+            l_cut = min(len(self.search_history), nstep)
+            result = stats.linregress(x=self.search_history[-l_cut:, 0],
+                                      y=self.search_history[-l_cut:, 1])
+            v_guess = -result.intercept / result.slope
+        return v_guess
+
+    def _guess_wls(self):
+        pass
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
         dname = "search_%s.%06d" % (self.suffix, n_iter)
