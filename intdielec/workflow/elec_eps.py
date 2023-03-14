@@ -800,15 +800,33 @@ class IterElecEps(ElecEps):
 
     def _guess(self, type="linear", **kwargs):
         logging.info("V_guess [V]: %f" % self.v_guess)
-        # logging.debug("working directory: %s" % self.work_subdir)
-        ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
-        test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
-        ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
-        self.convergence = test_data[-1][:ref_id].mean()
-        if self.suffix == "lo":
-            self.convergence -= ref_data[-1][:ref_id].mean()
-        else:
-            self.convergence -= ref_data[-1][-ref_id:].mean()
+
+        # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
+        # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
+        # ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
+        # self.convergence = test_data[-1][:ref_id].mean()
+        # if self.suffix == "lo":
+        #     self.convergence -= ref_data[-1][:ref_id].mean()
+        # else:
+        #     self.convergence -= ref_data[-1][-ref_id:].mean()
+
+        cube = Cp2kHartreeCube(
+            os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
+        _test_hartree = cube.get_ave_cube()
+        cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
+
+        grids = np.arange(0, L_WAT_PDOS, 0.1)
+
+        fp = _test_hartree[1] - cp2k_out.fermi
+        xp = _test_hartree[0] - self.info["z_ave"]
+        test_hartree = np.interp(grids, xp, fp).mean()
+
+        fp = self.pbc_hartree[1]
+        xp = self.pbc_hartree[0] - self.pbc_info["z_%s" % self.suffix]
+        if self.suffix == "hi":
+            xp = -xp
+        ref_hartree = np.interp(grids, xp, fp).mean()
+        self.convergence = test_hartree - ref_hartree
         logging.info("Convergence [V]: %f" % self.convergence)
         try:
             self.search_history = np.append(
@@ -863,25 +881,7 @@ class IterElecEps(ElecEps):
         # delta_v = test_homo - ref_homo
         # v_guess += delta_v * slope
 
-        cube = Cp2kHartreeCube(
-            os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
-        _test_hartree = cube.get_ave_cube()
-        cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
-
-        grids = np.arange(0, L_WAT_PDOS, 0.1)
-
-        fp = _test_hartree[1] - cp2k_out.fermi
-        xp = _test_hartree[0] - self.info["z_ave"]
-        test_hartree = np.interp(grids, xp, fp).mean()
-
-        fp = self.pbc_hartree[1]
-        xp = self.pbc_hartree[0] - self.pbc_info["z_%s" % self.suffix]
-        if self.suffix == "hi":
-            xp = -xp
-        ref_hartree = np.interp(grids, xp, fp).mean()
-
-        delta_v = test_hartree - ref_hartree
-        v_guess += delta_v * SLOPE
+        v_guess += self.convergence * SLOPE
         # efield = get_efields(1.0, l=[L_VAC, L_INT, L_WAT-L_INT, L_VAC], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
         logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
