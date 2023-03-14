@@ -16,18 +16,24 @@ from ..io.cp2k import (Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput,
 from ..utils.config import check_water
 from ..utils.math import *
 from ..utils.unit import *
-from ..utils.utils import load_dict, save_dict, update_dict
+from ..utils.utils import load_dict, save_dict, update_dict, get_efields
 from . import Eps
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 N_SURF = 16
-L_WAT = 15.
+
 L_VAC = 10.
+L_INT = 5.
+L_WAT = 15.
+EPS_VAC = 1.
+EPS_INT = 4.
 EPS_WAT = 2.
+
 L_WAT_PDOS = 10.
 MAX_LOOP = 10
 SEARCH_CONVERGENCE = 1e-1
 V_GUESS_BOUND = [-(L_WAT + EPS_WAT * L_VAC * 2), L_WAT + EPS_WAT * L_VAC * 2]
+SLOPE = 1. / 0.0765
 
 plot.use_style("pub")
 
@@ -717,7 +723,7 @@ class IterElecEps(ElecEps):
         self.e_cubes = []
 
     def pbc_preset(self, fp_params={}, dname="pbc", calculate=False, **kwargs):
-        kwargs.update({"dip_cor": False})
+        kwargs.update({"dip_cor": False, "hartree": True})
 
         n_wat = self.pbc_info["n_wat"]
         update_d = self._water_pdos_input(n_wat=n_wat)
@@ -746,6 +752,12 @@ class IterElecEps(ElecEps):
             z_wat_vs_lo[sort_ids], z_wat_vs_hi[sort_ids], cbm[sort_ids],
             vbm[sort_ids]
         ])
+
+        cube = Cp2kHartreeCube(
+            os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
+        self.pbc_hartree = cube.get_ave_cube()
+        cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
+        self.pbc_hartree[1] -= cp2k_out.fermi
 
     def ref_preset(self, fp_params={}, calculate=False, **kwargs):
         # lower surface
@@ -811,6 +823,7 @@ class IterElecEps(ElecEps):
         return self.v_guess
 
     def _guess_simple(self):
+        # TODO: check the pdos of "not work"
         z = self.atoms.get_positions()[:, 2]
         mask_coord = (z >= (self.info["z_ave"] + L_WAT_PDOS))
         mask = self.info["O_mask"] * mask_coord
@@ -834,48 +847,70 @@ class IterElecEps(ElecEps):
         logging.debug("V_guess (1): %f" % v_guess)
 
         # dielectrics
-        # slope = (EPS_WAT * L_VAC * 2 + L_WAT) / (EPS_WAT * L_VAC + L_WAT_PDOS)
-        # emprical values
-        slope = 0.5
-        ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
-        test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
-        ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
-        logging.debug("ref_id: %d" % ref_id)
-        test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
-        if self.suffix == "lo":
-            ref_homo = ref_data[-1][(ref_id - 4):(ref_id + 1)].mean()
-        else:
-            ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
-        delta_v = test_homo - ref_homo
-        v_guess += delta_v * slope
+        # # slope = (EPS_WAT * L_VAC * 2 + L_WAT) / (EPS_WAT * L_VAC + L_WAT_PDOS)
+        # # emprical values
+        # slope = 0.5
+        # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
+        # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
+        # ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
+        # logging.debug("ref_id: %d" % ref_id)
+        # test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
+        # if self.suffix == "lo":
+        #     ref_homo = ref_data[-1][(ref_id - 4):(ref_id + 1)].mean()
+        # else:
+        #     ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
+        # delta_v = test_homo - ref_homo
+        # v_guess += delta_v * slope
+
+        cube = Cp2kHartreeCube(
+            os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
+        _test_hartree = cube.get_ave_cube()
+        cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
+        _test_hartree[1] -= cp2k_out.fermi
+
+        grids = np.arange(0, L_WAT_PDOS, 0.1)
+
+        fp = self.pbc_hartree[1]
+        xp = self.pbc_hartree[0] - self.pbc_info["z_%s" % self.suffix]
+        if self.suffix == "hi":
+            xp = -xp
+        ref_hartree = np.interp(grids, xp, fp).mean()
+
+        fp = _test_hartree[1]
+        xp = _test_hartree[0] - self.info["z_ave"]
+        test_hartree = np.interp(grids, xp, fp).mean()
+
+        delta_v = test_hartree - ref_hartree
+        v_guess += delta_v * SLOPE
+        # efield = get_efields(1.0, l=[L_VAC, L_INT, L_WAT-L_INT, L_VAC], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
         logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
 
-    def _guess_optimize(self, n_step=2):
-        if len(self.search_history) < n_step:
-            return self._guess_simple()
-        else:
+    # def _guess_optimize(self, n_step=2):
+    #     if len(self.search_history) < n_step:
+    #         return self._guess_simple()
+    #     else:
 
-            def func(x):
-                y = np.interp([x],
-                              xp=self.search_history[:, 0],
-                              fp=self.search_history[:, 1])
-                return y[0]
+    #         def func(x):
+    #             y = np.interp([x],
+    #                           xp=self.search_history[:, 0],
+    #                           fp=self.search_history[:, 1])
+    #             return y[0]
 
-            id_argmin = np.argmin(np.abs(self.search_history[:, 1]))
-            x0 = self.search_history[:, 0][id_argmin]
-            v_guess = optimize.fsolve(func=func,
-                                      x0=x0,
-                                      xtol=SEARCH_CONVERGENCE)[0]
+    #         id_argmin = np.argmin(np.abs(self.search_history[:, 1]))
+    #         x0 = self.search_history[:, 0][id_argmin]
+    #         v_guess = optimize.fsolve(func=func,
+    #                                   x0=x0,
+    #                                   xtol=SEARCH_CONVERGENCE)[0]
 
-            # avoid trapping
-            if np.abs(x0 - v_guess) < 1e-3:
-                coeff = np.random.uniform() * 0.1 + 0.1
-                v_guess += (coeff * self.search_history[:, 1][id_argmin] /
-                            np.abs(self.search_history[:, 1][id_argmin]))
-            # avoid the guess goes mad...
-            v_guess = min(max(v_guess, V_GUESS_BOUND[0]), V_GUESS_BOUND[1])
-            return v_guess
+    #         # avoid trapping
+    #         if np.abs(x0 - v_guess) < 1e-3:
+    #             coeff = np.random.uniform() * 0.1 + 0.1
+    #             v_guess += (coeff * self.search_history[:, 1][id_argmin] /
+    #                         np.abs(self.search_history[:, 1][id_argmin]))
+    #         # avoid the guess goes mad...
+    #         v_guess = min(max(v_guess, V_GUESS_BOUND[0]), V_GUESS_BOUND[1])
+    #         return v_guess
 
     def _guess_linear(self):
         if len(self.search_history) < 2:
