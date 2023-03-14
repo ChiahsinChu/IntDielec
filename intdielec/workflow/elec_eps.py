@@ -7,7 +7,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from ase import Atoms, io
-from scipy import optimize, stats
+from scipy import stats
 
 from .. import plot
 from ..calculator.cp2k import Cp2kCalculator
@@ -31,8 +31,7 @@ EPS_WAT = 2.
 
 L_WAT_PDOS = 10.
 MAX_LOOP = 10
-SEARCH_CONVERGENCE = 1e-1
-V_GUESS_BOUND = [-(L_WAT + EPS_WAT * L_VAC * 2), L_WAT + EPS_WAT * L_VAC * 2]
+SEARCH_CONVERGENCE = 1e-2
 SLOPE = 1. / 0.0765
 
 plot.use_style("pub")
@@ -769,8 +768,9 @@ class IterElecEps(ElecEps):
         # lower surface
         self.atoms = self._convert()
         self._setup("ref_lo")
-        update_dict(fp_params,
-                    self._water_pdos_input(n_wat=self.ref_lo_info["n_wat"]))
+        self.info = self.ref_lo_info
+        # update_dict(fp_params,
+        #             self._water_pdos_input(n_wat=self.ref_lo_info["n_wat"]))
         super().ref_preset(fp_params=fp_params,
                            dname="ref_lo",
                            calculate=calculate,
@@ -778,8 +778,9 @@ class IterElecEps(ElecEps):
         # upper surface
         self.atoms = self._convert(inverse=True)
         self._setup("ref_hi")
-        update_dict(fp_params,
-                    self._water_pdos_input(n_wat=self.ref_hi_info["n_wat"]))
+        self.info = self.ref_hi_info
+        # update_dict(fp_params,
+        #             self._water_pdos_input(n_wat=self.ref_hi_info["n_wat"]))
         super().ref_preset(fp_params=fp_params,
                            dname="ref_hi",
                            calculate=calculate,
@@ -849,28 +850,27 @@ class IterElecEps(ElecEps):
         return self.v_guess
 
     def _guess_simple(self):
-        # TODO: check the pdos of "not work"
-        z = self.atoms.get_positions()[:, 2]
-        mask_coord = (z >= (self.info["z_ave"] + L_WAT_PDOS))
-        mask = self.info["O_mask"] * mask_coord
-        sel_water_ids = np.arange(len(self.atoms))[mask] // 3
-        n_e = 0.
-        for ii in sel_water_ids:
-            fname = os.path.join(self.work_subdir,
-                                 "cp2k-list%d-1.pdos" % (ii + 1))
-            pdos = Cp2kPdos(fname)
-            e = pdos.energies - pdos.fermi
-            mask = ((e - 0.1) * (e + 0.1) < 0.)
-            raw_dos = pdos._get_raw_dos("total")
-            occupation = pdos.occupation
-            n_e += (raw_dos[mask] * (2.0 - occupation[mask])).sum()
-        logging.debug("number of electron at wat/vac interface: %f" % n_e)
+        # z = self.atoms.get_positions()[:, 2]
+        # mask_coord = (z >= (self.info["z_ave"] + L_WAT_PDOS))
+        # mask = self.info["O_mask"] * mask_coord
+        # sel_water_ids = np.arange(len(self.atoms))[mask] // 3
+        # n_e = 0.
+        # for ii in sel_water_ids:
+        #     fname = os.path.join(self.work_subdir,
+        #                          "cp2k-list%d-1.pdos" % (ii + 1))
+        #     pdos = Cp2kPdos(fname)
+        #     e = pdos.energies - pdos.fermi
+        #     mask = ((e - 0.1) * (e + 0.1) < 0.)
+        #     raw_dos = pdos._get_raw_dos("total")
+        #     occupation = pdos.occupation
+        #     n_e += (raw_dos[mask] * (2.0 - occupation[mask])).sum()
+        # logging.debug("number of electron at wat/vac interface: %f" % n_e)
 
-        cross_area = np.linalg.norm(
-            np.cross(self.atoms.cell[0], self.atoms.cell[1]))
-        logging.debug("cross area: %f" % cross_area)
-        v_guess = 2 * L_VAC * (n_e / cross_area / _EPSILON)
-        logging.debug("V_guess (1): %f" % v_guess)
+        # cross_area = np.linalg.norm(
+        #     np.cross(self.atoms.cell[0], self.atoms.cell[1]))
+        # logging.debug("cross area: %f" % cross_area)
+        # v_guess = 2 * L_VAC * (n_e / cross_area / _EPSILON)
+        # logging.debug("V_guess (1): %f" % v_guess)
 
         # dielectrics
         # # slope = (EPS_WAT * L_VAC * 2 + L_WAT) / (EPS_WAT * L_VAC + L_WAT_PDOS)
@@ -888,36 +888,10 @@ class IterElecEps(ElecEps):
         # delta_v = test_homo - ref_homo
         # v_guess += delta_v * slope
 
-        v_guess += self.convergence * SLOPE
+        v_guess = self.convergence * SLOPE
         # efield = get_efields(1.0, l=[L_VAC, L_INT, L_WAT-L_INT, L_VAC], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
-        logging.debug("V_guess (2): %f" % v_guess)
+        # logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
-
-    # def _guess_optimize(self, n_step=2):
-    #     if len(self.search_history) < n_step:
-    #         return self._guess_simple()
-    #     else:
-
-    #         def func(x):
-    #             y = np.interp([x],
-    #                           xp=self.search_history[:, 0],
-    #                           fp=self.search_history[:, 1])
-    #             return y[0]
-
-    #         id_argmin = np.argmin(np.abs(self.search_history[:, 1]))
-    #         x0 = self.search_history[:, 0][id_argmin]
-    #         v_guess = optimize.fsolve(func=func,
-    #                                   x0=x0,
-    #                                   xtol=SEARCH_CONVERGENCE)[0]
-
-    #         # avoid trapping
-    #         if np.abs(x0 - v_guess) < 1e-3:
-    #             coeff = np.random.uniform() * 0.1 + 0.1
-    #             v_guess += (coeff * self.search_history[:, 1][id_argmin] /
-    #                         np.abs(self.search_history[:, 1][id_argmin]))
-    #         # avoid the guess goes mad...
-    #         v_guess = min(max(v_guess, V_GUESS_BOUND[0]), V_GUESS_BOUND[1])
-    #         return v_guess
 
     def _guess_linear(self):
         if len(self.search_history) < 2:
