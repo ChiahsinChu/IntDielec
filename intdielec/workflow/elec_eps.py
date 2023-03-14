@@ -173,11 +173,12 @@ class ElecEps(Eps):
                 os.makedirs(dname)
             if not os.path.exists(os.path.join(dname, "cp2k-RESTART.wfn")):
                 if hasattr(self, "suffix"):
-                    wfn_restart = os.path.join(self.work_dir, "ref_%s" % self.suffix,
-                                            "cp2k-RESTART.wfn")
+                    wfn_restart = os.path.join(self.work_dir,
+                                               "ref_%s" % self.suffix,
+                                               "cp2k-RESTART.wfn")
                 else:
                     wfn_restart = os.path.join(self.work_dir, "ref",
-                                            "cp2k-RESTART.wfn") 
+                                               "cp2k-RESTART.wfn")
                 kwargs.update({"wfn_restart": wfn_restart})
             else:
                 kwargs.update(
@@ -829,6 +830,8 @@ class IterElecEps(ElecEps):
         xp = self.pbc_hartree[0] - self.pbc_info["z_%s" % self.suffix]
         if self.suffix == "hi":
             xp = -xp
+            xp = np.sort(xp)
+            fp = fp[np.argsort(xp)]
         ref_hartree = np.interp(grids, xp, fp).mean()
         self.convergence = test_hartree - ref_hartree
         logging.info("Convergence [V]: %f" % self.convergence)
