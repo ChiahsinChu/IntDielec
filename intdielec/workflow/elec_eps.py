@@ -1185,6 +1185,8 @@ class IterElecEps(ElecEps):
         getattr(self, "_%s_setup" % type)()
 
     def _pbc_setup(self):
+        self.info = self.pbc_info
+
         z = self.pbc_atoms.get_positions()[:, 2]
         mask_z = (z < self.pbc_atoms.get_cell()[2][2] / 2.)
         mask = mask_z * self.pbc_info["metal_mask"]
