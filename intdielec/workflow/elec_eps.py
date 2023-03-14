@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from ase import Atoms, io
 from scipy import stats
+import statsmodels.api as sm
 
 from .. import plot
 from ..calculator.cp2k import Cp2kCalculator
@@ -804,7 +805,7 @@ class IterElecEps(ElecEps):
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
 
-    def _guess(self, type="ols_cut", **kwargs):
+    def _guess(self, type="wls", **kwargs):
         logging.info("V_guess [V]: %f" % self.v_guess)
 
         # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
@@ -913,7 +914,28 @@ class IterElecEps(ElecEps):
         return v_guess
 
     def _guess_wls(self):
-        pass
+        if len(self.search_history) < 2:
+            return self._guess_simple()
+        else:
+            #fit linear regression model
+            X = self.search_history[:, 0]
+            y = self.search_history[:, 1]
+            X = sm.add_constant(x)
+            wt = np.exp(-np.array(y)**2 / 0.1)
+            fit_wls = sm.WLS(y, X, weights=wt).fit()
+            return -fit_wls.params[0] / fit_wls.params[1]
+
+    def _guess_wls_cut(self, nstep=4):
+        if len(self.search_history) < 2:
+            return self._guess_simple()
+        else:
+            l_cut = min(len(self.search_history), nstep)
+            X = self.search_history[-l_cut:, 0]
+            y = self.search_history[-l_cut:, 1]
+            X = sm.add_constant(x)
+            wt = np.exp(-np.array(y)**2 / 0.1)
+            fit_wls = sm.WLS(y, X, weights=wt).fit()
+            return -fit_wls.params[0] / fit_wls.params[1]
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
         dname = "search_%s.%06d" % (self.suffix, n_iter)
