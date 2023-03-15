@@ -1112,8 +1112,10 @@ class IterElecEps(ElecEps):
             tmp_params = self.wf_configs.get("preset", {})
             self.preset(calculate=True, **tmp_params)
             data_dict[suffix]["v_cor"] = self.search_history[-1][0]
-            # data_dict[suffix]["v_seq"] = self.v_seq
-            # data_dict[suffix]["efield"] = self.v_seq / self.atoms.cell[2][2]
+            data_dict[suffix]["z_ave"] = self.info["z_ave"]
+            data_dict[suffix]["v_seq"] = self.v_seq.tolist()
+            data_dict[suffix]["efield"] = (np.array(
+                self.v_seq) / self.atoms.cell[2][2]).tolist()
             # eps_cal: DFT calculation
             for task in self.v_tasks:
                 self.work_subdir = os.path.join(self.work_dir, task)
@@ -1123,6 +1125,10 @@ class IterElecEps(ElecEps):
             self.calculate(**tmp_params)
             logging.info("{:=^50}".format(" End: eps calculation "))
 
+        data_dict["pbc"] = {
+            "z_lo": self.pbc_info["z_lo"],
+            "z_hi": self.pbc_info["z_hi"]
+        }
         save_dict(data_dict, os.path.join(self.work_dir, "task_info.json"))
         self.make_plots()
 
