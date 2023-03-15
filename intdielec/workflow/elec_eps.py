@@ -21,15 +21,14 @@ from ..utils.utils import load_dict, save_dict, update_dict, get_efields
 from . import Eps
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
-N_SURF = 16
-
-L_VAC = 10.
-L_INT = 5.
-L_WAT = 15.
 EPS_VAC = 1.
 EPS_INT = 4.
 EPS_WAT = 2.
 
+N_SURF = 16
+L_VAC = 10.
+L_INT = 5.
+L_WAT = 15.
 L_WAT_PDOS = 10.
 MAX_LOOP = 10
 SEARCH_CONVERGENCE = 1e-2
@@ -810,7 +809,7 @@ class IterElecEps(ElecEps):
 
         # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
         # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
-        # ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
+        # ref_id = np.argmin(np.abs(test_data[0] - self.l_wat_pdos))
         # self.convergence = test_data[-1][:ref_id].mean()
         # if self.suffix == "lo":
         #     self.convergence -= ref_data[-1][:ref_id].mean()
@@ -822,7 +821,7 @@ class IterElecEps(ElecEps):
         _test_hartree = cube.get_ave_cube()
         cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
 
-        grids = np.arange(0, L_WAT_PDOS, 0.1)
+        grids = np.arange(0, self.l_wat_pdos, 0.1)
 
         fp = _test_hartree[1] - cp2k_out.fermi
         xp = _test_hartree[0] - self.info["z_ave"]
@@ -850,12 +849,13 @@ class IterElecEps(ElecEps):
 
         guess_method = self.wf_configs.get("guess_method", "ols_cut")
         guess_setup = self.wf_configs.get("guess_setup", {})
+        self.guess_slope = guess_setup.pop("slope", SLOPE)
         self.v_guess = getattr(self, "_guess_%s" % guess_method)(**guess_setup)
         return self.v_guess
 
     def _guess_simple(self):
         # z = self.atoms.get_positions()[:, 2]
-        # mask_coord = (z >= (self.info["z_ave"] + L_WAT_PDOS))
+        # mask_coord = (z >= (self.info["z_ave"] + self.l_wat_pdos))
         # mask = self.info["O_mask"] * mask_coord
         # sel_water_ids = np.arange(len(self.atoms))[mask] // 3
         # n_e = 0.
@@ -873,16 +873,16 @@ class IterElecEps(ElecEps):
         # cross_area = np.linalg.norm(
         #     np.cross(self.atoms.cell[0], self.atoms.cell[1]))
         # logging.debug("cross area: %f" % cross_area)
-        # v_guess = 2 * L_VAC * (n_e / cross_area / _EPSILON)
+        # v_guess = 2 * self.l_vac * (n_e / cross_area / _EPSILON)
         # logging.debug("V_guess (1): %f" % v_guess)
 
         # dielectrics
-        # # slope = (EPS_WAT * L_VAC * 2 + L_WAT) / (EPS_WAT * L_VAC + L_WAT_PDOS)
+        # # slope = (EPS_WAT * self.l_vac * 2 + self.l_wat) / (EPS_WAT * self.l_vac + self.l_wat_pdos)
         # # emprical values
         # slope = 0.5
         # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
         # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
-        # ref_id = np.argmin(np.abs(test_data[0] - L_WAT_PDOS))
+        # ref_id = np.argmin(np.abs(test_data[0] - self.l_wat_pdos))
         # logging.debug("ref_id: %d" % ref_id)
         # test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
         # if self.suffix == "lo":
@@ -891,9 +891,8 @@ class IterElecEps(ElecEps):
         #     ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
         # delta_v = test_homo - ref_homo
         # v_guess += delta_v * slope
-
-        v_guess = self.convergence * SLOPE
-        # efield = get_efields(1.0, l=[L_VAC, L_INT, L_WAT-L_INT, L_VAC], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
+        v_guess = self.convergence * self.guess_slope
+        # efield = get_efields(1.0, l=[self.l_vac, L_INT, self.l_wat-L_INT, self.l_vac], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
         # logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
 
@@ -965,8 +964,8 @@ class IterElecEps(ElecEps):
         update_dict(fp_params,
                     self._water_pdos_input(n_wat=self.info["n_wat"]))
         super().preset(
-            pos_dielec=[L_VAC / 2.,
-                        self.atoms.get_cell()[2][2] - L_VAC / 2.],
+            pos_dielec=[self.l_vac / 2.,
+                        self.atoms.get_cell()[2][2] - self.l_vac / 2.],
             fp_params=fp_params,
             calculate=calculate,
             **kwargs)
@@ -985,8 +984,8 @@ class IterElecEps(ElecEps):
         self.v_seq = [self._guess()]
 
     def preset(self, fp_params={}, calculate=False, **kwargs):
-        v_start = kwargs.pop("v_start", -0.05 * (L_WAT + EPS_WAT * L_VAC * 2))
-        v_end = kwargs.pop("v_end", 0.05 * (L_WAT + EPS_WAT * L_VAC * 2))
+        v_start = kwargs.pop("v_start", -0.05 * (self.l_wat + EPS_WAT * self.l_vac * 2))
+        v_end = kwargs.pop("v_end", 0.05 * (self.l_wat + EPS_WAT * self.l_vac * 2))
         n_step = kwargs.pop("n_step", 3)
         self.v_seq = np.linspace(v_start, v_end, n_step)
         self.v_seq += self.v_guess
@@ -1010,14 +1009,14 @@ class IterElecEps(ElecEps):
                     self._water_pdos_input(n_wat=self.info["n_wat"]))
 
         super().preset(
-            pos_dielec=[L_VAC / 2.,
-                        self.atoms.get_cell()[2][2] - L_VAC / 2.],
+            pos_dielec=[self.l_vac / 2.,
+                        self.atoms.get_cell()[2][2] - self.l_vac / 2.],
             fp_params=fp_params,
             calculate=calculate,
             **kwargs)
 
     def calculate(self, **kwargs):
-        super().calculate(pos_vac=0.75 * L_VAC,
+        super().calculate(pos_vac=0.75 * self.l_vac,
                           save_fname="eps_data_%s" % self.suffix,
                           **kwargs)
         for dname in self.v_tasks:
@@ -1037,6 +1036,11 @@ class IterElecEps(ElecEps):
                  ignore_finished_tag: bool = False):
         default_command = "mpiexec.hydra cp2k.popt"
         Eps.workflow(self, configs, default_command)
+
+        self.l_wat = self.wf_configs.get("l_wat", L_WAT)
+        self.l_wat_pdos = self.wf_configs.get("l_wat_pdos", L_WAT_PDOS)
+        self.l_vac = self.wf_configs.get("l_vac", L_VAC)
+        self.n_surf = self.wf_configs.get("n_surf", N_SURF)
 
         # pbc: preset
         logging.info(
@@ -1139,7 +1143,7 @@ class IterElecEps(ElecEps):
         cell = self.pbc_atoms.get_cell()
         new_cell = self.pbc_atoms.get_cell()
         # add vac layer in both boundary of the cell
-        new_cell[2][2] += 2 * L_VAC
+        new_cell[2][2] += 2 * self.l_vac
         coords = self.pbc_atoms.get_positions()
         if inverse:
             coords[:, 2] = cell[2][2] - coords[:, 2]
@@ -1159,7 +1163,7 @@ class IterElecEps(ElecEps):
 
         # logging.info("Position of metal surface: %.3f [A]" % z_ave)
         mask_atype = self.pbc_info["O_mask"]
-        mask_z = (coords[:, 2] <= (z_ave + L_WAT))
+        mask_z = (coords[:, 2] <= (z_ave + self.l_wat))
         mask = mask_atype * mask_z
         ids_O = np.arange(len(self.pbc_atoms))[mask]
         ids_Pt = np.arange(len(self.pbc_atoms))[self.pbc_info["metal_mask"]]
