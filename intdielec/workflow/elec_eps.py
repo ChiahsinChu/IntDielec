@@ -831,8 +831,8 @@ class IterElecEps(ElecEps):
         xp = self.pbc_hartree[0] - self.pbc_info["z_%s" % self.suffix]
         if self.suffix == "hi":
             xp = -xp
-            xp = np.sort(xp)
             fp = fp[np.argsort(xp)]
+            xp = np.sort(xp)
         ref_hartree = np.interp(grids, xp, fp).mean()
         self.convergence = test_hartree - ref_hartree
         logging.info("Convergence [V]: %f" % self.convergence)
@@ -963,12 +963,13 @@ class IterElecEps(ElecEps):
 
         update_dict(fp_params,
                     self._water_pdos_input(n_wat=self.info["n_wat"]))
-        super().preset(
-            pos_dielec=[self.l_vac / 2.,
-                        self.atoms.get_cell()[2][2] - self.l_vac / 2.],
-            fp_params=fp_params,
-            calculate=calculate,
-            **kwargs)
+        super().preset(pos_dielec=[
+            self.l_vac / 2.,
+            self.atoms.get_cell()[2][2] - self.l_vac / 2.
+        ],
+                       fp_params=fp_params,
+                       calculate=calculate,
+                       **kwargs)
 
     def search_calculate(self):
         if not os.path.exists(os.path.join(self.work_subdir, "data.npy")):
@@ -984,8 +985,10 @@ class IterElecEps(ElecEps):
         self.v_seq = [self._guess()]
 
     def preset(self, fp_params={}, calculate=False, **kwargs):
-        v_start = kwargs.pop("v_start", -0.05 * (self.l_wat + EPS_WAT * self.l_vac * 2))
-        v_end = kwargs.pop("v_end", 0.05 * (self.l_wat + EPS_WAT * self.l_vac * 2))
+        v_start = kwargs.pop("v_start",
+                             -0.05 * (self.l_wat + EPS_WAT * self.l_vac * 2))
+        v_end = kwargs.pop("v_end",
+                           0.05 * (self.l_wat + EPS_WAT * self.l_vac * 2))
         n_step = kwargs.pop("n_step", 3)
         self.v_seq = np.linspace(v_start, v_end, n_step)
         self.v_seq += self.v_guess
@@ -1008,12 +1011,13 @@ class IterElecEps(ElecEps):
         update_dict(fp_params,
                     self._water_pdos_input(n_wat=self.info["n_wat"]))
 
-        super().preset(
-            pos_dielec=[self.l_vac / 2.,
-                        self.atoms.get_cell()[2][2] - self.l_vac / 2.],
-            fp_params=fp_params,
-            calculate=calculate,
-            **kwargs)
+        super().preset(pos_dielec=[
+            self.l_vac / 2.,
+            self.atoms.get_cell()[2][2] - self.l_vac / 2.
+        ],
+                       fp_params=fp_params,
+                       calculate=calculate,
+                       **kwargs)
 
     def calculate(self, **kwargs):
         super().calculate(pos_vac=0.75 * self.l_vac,
@@ -1040,7 +1044,7 @@ class IterElecEps(ElecEps):
         self.l_wat = self.wf_configs.get("l_wat", L_WAT)
         self.l_wat_pdos = self.wf_configs.get("l_wat_pdos", L_WAT_PDOS)
         self.l_vac = self.wf_configs.get("l_vac", L_VAC)
-        self.n_surf = self.wf_configs.get("n_surf", N_SURF)
+        # self.n_surf = self.wf_configs.get("n_surf", N_SURF)
 
         # pbc: preset
         logging.info(
