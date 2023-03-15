@@ -805,7 +805,7 @@ class IterElecEps(ElecEps):
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
 
-    def _guess(self, type="wls", **kwargs):
+    def _guess(self):
         logging.info("V_guess [V]: %f" % self.v_guess)
 
         # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
@@ -847,7 +847,10 @@ class IterElecEps(ElecEps):
                 self.search_history, np.array([self.v_guess,
                                                self.convergence]))
             self.search_history = self.search_history.reshape(-1, 2)
-        self.v_guess = getattr(self, "_guess_%s" % type)(**kwargs)
+
+        guess_method = self.wf_configs.get("guess_method", "ols_cut")
+        guess_setup = self.wf_configs.get("guess_setup", {})
+        self.v_guess = getattr(self, "_guess_%s" % guess_method)(**guess_setup)
         return self.v_guess
 
     def _guess_simple(self):
@@ -1114,8 +1117,8 @@ class IterElecEps(ElecEps):
             data_dict[suffix]["v_cor"] = self.search_history[-1][0]
             data_dict[suffix]["z_ave"] = self.info["z_ave"]
             data_dict[suffix]["v_seq"] = self.v_seq.tolist()
-            data_dict[suffix]["efield"] = (np.array(
-                self.v_seq) / self.atoms.cell[2][2]).tolist()
+            data_dict[suffix]["efield"] = (np.array(self.v_seq) /
+                                           self.atoms.cell[2][2]).tolist()
             # eps_cal: DFT calculation
             for task in self.v_tasks:
                 self.work_subdir = os.path.join(self.work_dir, task)
