@@ -3,7 +3,6 @@ import glob
 import logging
 import os
 
-
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -987,9 +986,9 @@ class IterElecEps(ElecEps):
 
     def preset(self, fp_params={}, calculate=False, **kwargs):
         v_start = kwargs.pop("v_start",
-                             -0.05 * (self.l_wat + EPS_WAT * self.l_vac * 2))
+                             -0.01 * (self.l_wat + EPS_WAT * self.l_vac * 2))
         v_end = kwargs.pop("v_end",
-                           0.05 * (self.l_wat + EPS_WAT * self.l_vac * 2))
+                           0.01 * (self.l_wat + EPS_WAT * self.l_vac * 2))
         n_step = kwargs.pop("n_step", 3)
         self.v_seq = np.linspace(v_start, v_end, n_step)
         self.v_seq += self.v_guess
