@@ -1,4 +1,5 @@
 import numpy as np
+import MDAnalysis as mda
 
 
 def make_selection(
@@ -107,3 +108,20 @@ def make_selection_two(
         select[1] = "bonded (" + select[1] + ")"
 
     return select
+
+
+def xyz_writer(u, out, start=0, end=None, step=1):
+    if end is None:
+        end = u.trajectory.n_frames
+
+    if isinstance(out, str):
+        with mda.Writer(out) as W:
+            for ts in u.trajectory[start:end:step]:
+                W.write(u)
+    elif isinstance(out, list):
+        assert len(out) == len(np.arange(start, end, step))
+        for ts, fname in zip(u.trajectory[start:end:step], out):
+            f = mda.Writer(fname)
+            f.write(u)
+    else:
+        raise AttributeError("TBC")
