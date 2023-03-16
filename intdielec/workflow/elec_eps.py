@@ -3,12 +3,13 @@ import glob
 import logging
 import os
 
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import statsmodels.api as sm
 from ase import Atoms, io
 from scipy import stats
-import statsmodels.api as sm
 
 from .. import plot
 from ..calculator.cp2k import Cp2kCalculator
@@ -17,7 +18,7 @@ from ..io.cp2k import (Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput,
 from ..utils.config import check_water
 from ..utils.math import *
 from ..utils.unit import *
-from ..utils.utils import load_dict, save_dict, update_dict, get_efields
+from ..utils.utils import get_efields, load_dict, save_dict, update_dict
 from . import Eps
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
