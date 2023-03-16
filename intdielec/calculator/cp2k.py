@@ -1,12 +1,14 @@
 import logging
 import os
 import sys
-from ase import io
+from subprocess import Popen, PIPE
+import shlex
 
+from ase import io
 from ase.calculators.cp2k import CP2K
 
 from ..io.cp2k import Cp2kOutput
-from ..utils.utils import load_dict, iterdict
+from ..utils.utils import iterdict, load_dict
 
 
 class Cp2kCalculator:
@@ -21,17 +23,24 @@ class Cp2kCalculator:
         logging.info("{:=^50}".format(" End: CP2K calculation "))
         os.chdir(root_dir)
 
-    def run_bash(self, command, inp="input.inp", out="output.out"):
+    def run_bash(self, command, stdin="input.inp", stdout="output.out"):
         logging.info("Path: %s" % os.getcwd())
-        if inp is not None:
-            command += " %s " % inp
-        if out is not None:
-            command += "> %s" % out
-        else:
-            out = "output.out"
-        os.system(command=command)
+        # if stdin is not None:
+        #     command += " %s " % stdin
+        # if out is not None:
+        #     command += "> %s" % out
+        # else:
+        #     out = "output.out"
+        # os.system(command=command)
+
+        args = shlex.split(command)
+        args.append(stdin)
+        f = open("output.out", "w")
+        Popen(args, stdout=f)
+        f.close()
+
         try:
-            output = Cp2kOutput(out)
+            cp2k_out = Cp2kOutput(stdout)
             with open("finished_tag", 'w') as f:
                 pass
         except:
