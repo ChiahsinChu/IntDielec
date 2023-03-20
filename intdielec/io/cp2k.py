@@ -93,18 +93,41 @@ class Cp2kInput():
         cell_c = cell_c[1:-1]
 
         user_config = fp_params
-        cell_config = {
-            "FORCE_EVAL": {
-                "SUBSYS": {
-                    "CELL": {
-                        "A": cell_a,
-                        "B": cell_b,
-                        "C": cell_c
+        update_dict(self.input_dict, user_config)
+
+        if self.input_dict["FORCE_EVAL"].get("QMMM", None) is not None:
+            cell_config = {
+                "FORCE_EVAL": {
+                    "SUBSYS": {
+                        "CELL": {
+                            "A": cell_a,
+                            "B": cell_b,
+                            "C": cell_c
+                        }
+                    },
+                    "QMMM": {
+                        "CELL": {
+                            "A": cell_a,
+                            "B": cell_b,
+                            "C": cell_c,
+                            "PERIODIC": "XYZ"
+                        }
                     }
                 }
             }
-        }
-        update_dict(self.input_dict, user_config)
+        else:
+            cell_config = {
+                "FORCE_EVAL": {
+                    "SUBSYS": {
+                        "CELL": {
+                            "A": cell_a,
+                            "B": cell_b,
+                            "C": cell_c
+                        }
+                    }
+                }
+            }
+
         update_dict(self.input_dict, cell_config)
         #output list
         input_str = iterdict(self.input_dict, out_list=["\n"], loop_idx=0)
@@ -120,7 +143,8 @@ class Cp2kInput():
             f.write(str)
 
         if save_dict:
-            save_dict_json(self.input_dict, os.path.join(output_dir, "input.json"))
+            save_dict_json(self.input_dict,
+                           os.path.join(output_dir, "input.json"))
 
     def set_project(self, project_name: str):
         update_d = {"GLOBAL": {"PROJECT": project_name}}
