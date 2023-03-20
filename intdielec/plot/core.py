@@ -1,6 +1,4 @@
-import pstats
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import numpy as np
 from scipy import stats
 from sklearn import metrics
@@ -106,10 +104,21 @@ def plot_colormap_lines(xs, ys, legends, xlabel, ylabel, colormap='GnBu'):
     return fig, ax
 
 
-def ax_colormap_lines(ax, xs, ys, labels, scale=(0., 1.), colormap="GnBu"):
+def ax_colormap_lines(ax,
+                      xs,
+                      ys,
+                      labels,
+                      scale=(0., 1.),
+                      colormap="GnBu",
+                      **kwargs):
     cm_scales = (np.array(labels) - scale[0]) / (scale[1] - scale[0])
     for x, y, label, cm_scale in zip(xs, ys, labels, cm_scales):
-        ax.plot(x, y, color=plt.get_cmap(colormap)(cm_scale), label=label)
+        ax.plot(x,
+                y,
+                color=plt.get_cmap(colormap)(cm_scale),
+                label=label,
+                **kwargs)
+    ax.set_xlim(np.min(x), np.max(x))
 
 
 """
