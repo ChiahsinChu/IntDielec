@@ -1067,11 +1067,11 @@ class IterElecEps(ElecEps):
             # ref: DFT calculation
             self._dft_calculate(self.work_subdir, ignore_finished_tag)
             # ref: calculate dipole moment
-            logging.info("{:=^50}".format(" Start: analyse %s data " % dname))
+            logging.info("{:=^50}".format(" Start: analyse ref_%s data " % suffix))
             tmp_params = self.wf_configs.get("ref_calculate", {})
             self.ref_calculate(**tmp_params)
             data_dict[suffix]["v_zero"] = self.v_zero
-            logging.info("{:=^50}".format(" End: analyse %s data " % dname))
+            logging.info("{:=^50}".format(" End: analyse ref_%s data " % suffix))
 
             convergence = self.wf_configs.get("convergence",
                                               SEARCH_CONVERGENCE)
