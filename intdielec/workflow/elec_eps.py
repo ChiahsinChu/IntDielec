@@ -1253,3 +1253,124 @@ class IterElecEps(ElecEps):
                 fig.savefig(os.path.join(self.work_dir, "figures",
                                          "%s.png" % figure_name),
                             bbox_inches='tight')
+
+
+class QMMMIterElecEps(IterElecEps):
+    """
+    define the thickness of QM and MM water layer
+    """
+    def __init__(self,
+                 atoms: Atoms = None,
+                 work_dir: str = None,
+                 data_fmt: str = "pkl") -> None:
+        super().__init__(atoms, work_dir, data_fmt)
+
+    def preset(self, fp_params={}, calculate=False, **kwargs):
+        self.atoms = self._convert(self.l_qm_wat + self.l_mm_wat)
+
+        v_start = kwargs.pop(
+            "v_start", -0.01 * (self.l_qm_wat + EPS_WAT * self.l_vac * 2))
+        v_end = kwargs.pop("v_end",
+                           0.01 * (self.l_qm_wat + EPS_WAT * self.l_vac * 2))
+        n_step = kwargs.pop("n_step", 3)
+        self.v_seq = np.linspace(v_start, v_end, n_step)
+        self.v_seq += self.v_guess
+
+        self.v_tasks = []
+        for ii, v in enumerate(self.v_seq):
+            efield = v / self.atoms.cell[2][2]
+            self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
+            logging.info("Macroscopic E-field: %.3f [V/A] in %s" %
+                         (efield, self.v_tasks[-1]))
+
+        dnames = glob.glob(
+            os.path.join(self.work_dir, "search_%s.*" % self.suffix))
+        dnames.sort()
+        kwargs.update({
+            "wfn_restart":
+            os.path.join(self.work_dir, dnames[-1], "cp2k-RESTART.wfn")
+        })
+        update_dict(fp_params, cp2k_default_input["qmmm"])
+        update_dict(fp_params,
+                    self._water_pdos_input(n_wat=self.info["n_wat"]))
+        update_dict(fp_params, self._qmmm_input())
+
+        ElecEps.preset(self,
+                       pos_dielec=[5., self.atoms.get_cell()[2][2] - 5.],
+                       fp_params=fp_params,
+                       calculate=calculate,
+                       **kwargs)
+
+    def calculate(self, **kwargs):
+        ElecEps.calculate(self,
+                          pos_vac=0.5 * (self.l_vac - 5.0),
+                          save_fname="eps_data_%s" % self.suffix,
+                          **kwargs)
+        for dname in self.v_tasks:
+            dname = os.path.join(self.work_dir, dname)
+            fname = os.path.join(dname, "data.npy")
+            if not os.path.exists(fname):
+                n_wat = self.info["n_wat"]
+                atoms = getattr(self, "ref_%s_atoms" % self.suffix)
+                z_wat = atoms.get_positions()[self.info["O_mask"],
+                                              2] - self.info["z_ave"]
+                sort_ids = np.argsort(z_wat)
+                cbm, vbm = self._water_mo_output(dname, n_wat)
+
+                np.save(fname, [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+
+    @staticmethod
+    def _water_pdos_input(n_wat):
+        update_d = {"FORCE_EVAL": {"DFT": {"PRINT": {"PDOS": {"LDOS": []}}}}}
+        for ii in range(n_wat):
+            update_d["FORCE_EVAL"]["DFT"]["PRINT"]["PDOS"]["LDOS"].append({
+                "LIST":
+                "%d %d %d" % (ii + 1, n_wat + 2 * ii + 1, n_wat + 2 * ii + 2)
+            })
+        return update_d
+
+    def _qmmm_input(self):
+        atype = np.array(self.atoms.get_chemical_symbols())
+        z = self.atoms.get_positions()[:, 2]
+        O_ids = np.nonzero((atype == "O")
+                           & (z < (self.info["z_ave"] + self.l_qm_wat)))[0] + 1
+        # print(O_ids)
+        H_ids = np.sort(np.concatenate([O_ids + 1, O_ids + 2]))
+        # print(H_ids)
+        Pt_ids = np.nonzero(atype == "Pt")[0] + 1
+
+        update_d = {
+            "FORCE_EVAL": {
+                "SUBSYS": {
+                    "TOPOLOGY": {
+                        "GENERATE": {
+                            "ISOLATED_ATOMS": {
+                                "LIST": "1..%d" % len(self.atoms)
+                            }
+                        }
+                    }
+                },
+                "QMMM": {
+                    "QM_KIND": [{
+                        "_":
+                        "O",
+                        "MM_INDEX":
+                        "%s" %
+                        np.array2string(O_ids, max_line_width=1000)[1:-1]
+                    }, {
+                        "_":
+                        "H",
+                        "MM_INDEX":
+                        "%s" %
+                        np.array2string(H_ids, max_line_width=1000)[1:-1]
+                    }, {
+                        "_":
+                        "Pt",
+                        "MM_INDEX":
+                        "%s" %
+                        np.array2string(Pt_ids, max_line_width=1000)[1:-1]
+                    }]
+                }
+            }
+        }
+        return update_d
