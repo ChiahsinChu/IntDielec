@@ -104,7 +104,12 @@ class ElecEps(Eps):
         self.set_v_zero(DeltaV)
         logging.info("Potential drop for zero E-field: %f [V]" % DeltaV)
 
-    def preset(self, pos_dielec, fp_params={}, calculate=False, **kwargs):
+    def preset(self,
+               pos_dielec,
+               fp_params={},
+               calculate=False,
+               pdos=True,
+               **kwargs):
         update_d = {
             "dip_cor": False,
             "hartree": True,
@@ -165,8 +170,9 @@ class ElecEps(Eps):
             }
         }
         update_dict(fp_params, update_d)
-        update_dict(fp_params,
-                    self._water_pdos_input(n_wat=self.info["n_wat"]))
+        if pdos:
+            update_dict(fp_params,
+                        self._water_pdos_input(n_wat=self.info["n_wat"]))
 
         for v, task in zip(self.v_seq, self.v_tasks):
             dname = os.path.join(self.work_dir, task)
@@ -1000,8 +1006,8 @@ class IterElecEps(ElecEps):
             os.path.join(self.work_dir, dnames[-1], "cp2k-RESTART.wfn")
         })
 
-        update_dict(fp_params,
-                    self._water_pdos_input(n_wat=self.info["n_wat"]))
+        # update_dict(fp_params,
+        #             self._water_pdos_input(n_wat=self.info["n_wat"]))
 
         super().preset(pos_dielec=[5., self.atoms.get_cell()[2][2] - 5.],
                        fp_params=fp_params,
@@ -1067,11 +1073,13 @@ class IterElecEps(ElecEps):
             # ref: DFT calculation
             self._dft_calculate(self.work_subdir, ignore_finished_tag)
             # ref: calculate dipole moment
-            logging.info("{:=^50}".format(" Start: analyse ref_%s data " % suffix))
+            logging.info("{:=^50}".format(" Start: analyse ref_%s data " %
+                                          suffix))
             tmp_params = self.wf_configs.get("ref_calculate", {})
             self.ref_calculate(**tmp_params)
             data_dict[suffix]["v_zero"] = self.v_zero
-            logging.info("{:=^50}".format(" End: analyse ref_%s data " % suffix))
+            logging.info("{:=^50}".format(" End: analyse ref_%s data " %
+                                          suffix))
 
             convergence = self.wf_configs.get("convergence",
                                               SEARCH_CONVERGENCE)
@@ -1286,6 +1294,7 @@ class QMMMIterElecEps(IterElecEps):
                        pos_dielec=[5., self.atoms.get_cell()[2][2] - 5.],
                        fp_params=fp_params,
                        calculate=calculate,
+                       pdos=False,
                        **kwargs)
 
     def calculate(self, **kwargs):
