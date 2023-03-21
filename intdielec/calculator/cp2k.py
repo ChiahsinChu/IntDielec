@@ -32,9 +32,9 @@ class Cp2kCalculator:
         if stdin is not None:
             command += " %s " % stdin
         if stdout is not None:
-            command += "1> %s" % stdout
+            command += " 1> %s " % stdout
         if stderr is not None:
-            command += "2> %s" % stderr
+            command += " 2> %s " % stderr
         os.system(command=command)
 
         # args = shlex.split(command)
