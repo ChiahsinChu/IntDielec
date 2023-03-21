@@ -1133,6 +1133,8 @@ class IterElecEps(ElecEps):
     def _convert(self, l_wat):
         if self.suffix == "hi":
             inverse = True
+        else:
+            inverse = False
 
         cell = self.pbc_atoms.get_cell()
         new_cell = self.pbc_atoms.get_cell()
