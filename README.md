@@ -60,7 +60,7 @@ task.set_v_seq(np.arange(-3.5, 3.6, 0.5))
 task.preset(pos_dielec=[5., 55.])
 # submit and wait for calculation finish...
 task.calculate(pos_vac=8.0)
-fig, axs = task.plot()
+task.make_plots()
 ```
 
 methods and keywords... (TBC)
