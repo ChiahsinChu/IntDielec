@@ -23,21 +23,25 @@ class Cp2kCalculator:
         logging.info("{:=^50}".format(" End: CP2K calculation "))
         os.chdir(root_dir)
 
-    def run_bash(self, command, stdin="input.inp", stdout="output.out"):
+    def run_bash(self,
+                 command,
+                 stdin="input.inp",
+                 stdout="output.out",
+                 stderr="cp2k.stderr"):
         logging.info("Path: %s" % os.getcwd())
-        # if stdin is not None:
-        #     command += " %s " % stdin
-        # if out is not None:
-        #     command += "> %s" % out
-        # else:
-        #     out = "output.out"
-        # os.system(command=command)
+        if stdin is not None:
+            command += " %s " % stdin
+        if stdout is not None:
+            command += "1> %s" % stdout
+        if stderr is not None:
+            command += "2> %s" % stderr
+        os.system(command=command)
 
-        args = shlex.split(command)
-        args.append(stdin)
-        f = open(stdout, "w")
-        Popen(args, stdout=f)
-        f.close()
+        # args = shlex.split(command)
+        # args.append(stdin)
+        # f = open(stdout, "w")
+        # Popen(args, stdout=f)
+        # f.close()
 
         try:
             cp2k_out = Cp2kOutput(stdout)
