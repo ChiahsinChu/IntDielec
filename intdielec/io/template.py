@@ -56,7 +56,7 @@ cp2k_default_input = {
                     }
                 },
             },
-            "SUBSYS": { 
+            "SUBSYS": {
                 "TOPOLOGY": {
                     "COORD_FILE_FORMAT": "XYZ",
                     "COORD_FILE_NAME": "coord.xyz"
@@ -195,6 +195,128 @@ cp2k_restart_pbc = {
         }
     }
 }
+
+cp2k_default_input.update({
+    "qmmm": {
+        "FORCE_EVAL": {
+            "METHOD": "QMMM",
+            "STRESS_TENSOR": "ANALYTICAL",
+            "DFT": {
+                "BASIS_SET_FILE_NAME": [
+                    "BASIS_MOLOPT", "BASIS_ADMM", "BASIS_ADMM_MOLOPT",
+                    "BASIS_MOLOPT-HSE06"
+                ],
+                "POTENTIAL_FILE_NAME":
+                "GTH_POTENTIALS",
+                "MGRID": {
+                    "CUTOFF": 400,
+                    "COMMENSURATE": ".TRUE."
+                },
+                "QS": {
+                    "EPS_DEFAULT": 1.0E-13
+                },
+                "SCF": {
+                    "SCF_GUESS": "RESTART",
+                    "EPS_SCF": 1.0E-6,
+                    "MAX_SCF": 500,
+                    "ADDED_MOS": 500,
+                    "CHOLESKY": "INVERSE",
+                    "SMEAR": {
+                        "_": "ON",
+                        "METHOD": "FERMI_DIRAC",
+                        "ELECTRONIC_TEMPERATURE": 300
+                    },
+                    "DIAGONALIZATION": {
+                        "ALGORITHM": "STANDARD"
+                    },
+                    "MIXING": {
+                        "METHOD": "BROYDEN_MIXING",
+                        "ALPHA": 0.3,
+                        "BETA": 1.5,
+                        "NBUFFER": 8
+                    }
+                },
+                "XC": {
+                    "XC_FUNCTIONAL": {
+                        "_": "PBE"
+                    },
+                    "vdW_POTENTIAL": {
+                        "DISPERSION_FUNCTIONAL": "PAIR_POTENTIAL",
+                        "PAIR_POTENTIAL": {
+                            "TYPE": "DFTD3",
+                            "PARAMETER_FILE_NAME": "dftd3.dat",
+                            "REFERENCE_FUNCTIONAL": "PBE"
+                        }
+                    }
+                },
+            },
+            "MM": {
+                "FORCEFIELD": {
+                    "IGNORE_MISSING_CRITICAL_PARAMS":
+                    ".TRUE.",
+                    "DO_NONBONDED":
+                    ".FALSE.",
+                    "CHARGE": [{
+                        "ATOM": "O",
+                        "CHARGE": -0.8476
+                    }, {
+                        "ATOM": "H",
+                        "CHARGE": 0.4238
+                    }, {
+                        "ATOM": "Pt",
+                        "CHARGE": 0.0
+                    }],
+                    "SPLINE": {
+                        "EMAX_SPLINE": 1e-1
+                    }
+                },
+                "POISSON": {
+                    "EWALD": {
+                        "EWALD_TYPE": "SPME",
+                        "ALPHA": 0.4,
+                        "GMAX": 80
+                    }
+                }
+            },
+            "QMMM": {
+                "CENTER": "NEVER",
+                "ECOUPL": "GAUSS",
+                "USE_GEEP_LIB": 9,
+                "QM_KIND": []
+            },
+            "SUBSYS": {
+                "TOPOLOGY": {
+                    "COORD_FILE_FORMAT": "XYZ",
+                    "COORD_FILE_NAME": "coord.xyz"
+                },
+                "KIND": [{
+                    "_": "O",
+                    "POTENTIAL": "GTH-PBE-q6",
+                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
+                }, {
+                    "_": "H",
+                    "POTENTIAL": "GTH-PBE-q1",
+                    "BASIS_SET": "DZVP-MOLOPT-SR-GTH"
+                }, {
+                    "_": "Pt",
+                    "POTENTIAL": "GTH-PBE-q10",
+                    "BASIS_SET": "DZVP-A5-Q10-323-MOL-T1-DERIVED_SET-1"
+                }],
+            },
+            "PRINT": {
+                "FORCES": {
+                    "_": "ON"
+                },
+                "STRESS_TENSOR": {
+                    "_": "ON"
+                }
+            }
+        },
+        "GLOBAL": {
+            "PROJECT": "cp2k"
+        }
+    }
+})
 ####################################### setup in the following has not been checked #######################################
 
 # turn off smearing, etc in sgcpmd (incompatible with OT)

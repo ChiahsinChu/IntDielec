@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from subprocess import Popen, PIPE
+from subprocess import Popen
 import shlex
 
 from ase import io
@@ -35,7 +35,7 @@ class Cp2kCalculator:
 
         args = shlex.split(command)
         args.append(stdin)
-        f = open("output.out", "w")
+        f = open(stdout, "w")
         Popen(args, stdout=f)
         f.close()
 
