@@ -1279,7 +1279,7 @@ class QMMMIterElecEps(IterElecEps):
         })
         update_dict(fp_params, cp2k_default_input["qmmm"])
         update_dict(fp_params,
-                    self._water_pdos_input(n_wat=self.info["n_wat"]))
+                    self._water_pdos_input_qmmm(n_wat=self.info["n_wat"]))
         update_dict(fp_params, self._qmmm_input())
 
         ElecEps.preset(self,
@@ -1309,7 +1309,7 @@ class QMMMIterElecEps(IterElecEps):
         #         np.save(fname, [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
 
     @staticmethod
-    def _water_pdos_input(n_wat):
+    def _water_pdos_input_qmmm(n_wat):
         update_d = {"FORCE_EVAL": {"DFT": {"PRINT": {"PDOS": {"LDOS": []}}}}}
         for ii in range(n_wat):
             update_d["FORCE_EVAL"]["DFT"]["PRINT"]["PDOS"]["LDOS"].append({
