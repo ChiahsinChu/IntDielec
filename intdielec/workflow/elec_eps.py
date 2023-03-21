@@ -14,10 +14,11 @@ from .. import plot
 from ..calculator.cp2k import Cp2kCalculator
 from ..io.cp2k import (Cp2kCube, Cp2kHartreeCube, Cp2kInput, Cp2kOutput,
                        Cp2kPdos)
+from ..io.template import cp2k_default_input
 from ..utils.config import check_water
 from ..utils.math import *
 from ..utils.unit import *
-from ..utils.utils import get_efields, load_dict, save_dict, update_dict
+from ..utils.utils import load_dict, save_dict, update_dict
 from . import Eps
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
@@ -26,9 +27,10 @@ EPS_INT = 4.
 EPS_WAT = 2.
 
 N_SURF = 16
-L_VAC = 10.
+L_VAC = 15.
 L_INT = 5.
-L_WAT = 15.
+L_QM_WAT = 15.
+L_MM_WAT = 10.
 L_WAT_PDOS = 10.
 MAX_LOOP = 10
 SEARCH_CONVERGENCE = 1e-2
@@ -271,13 +273,14 @@ class ElecEps(Eps):
                     fname = os.path.join(dname, "data.npy")
                     if not os.path.exists(fname):
                         n_wat = self.info["n_wat"]
-                        z_wat = self.atoms.get_positions()[self.info["O_mask"],
-                                                        2] - self.info["z_ave"]
+                        z_wat = self.atoms.get_positions()[
+                            self.info["O_mask"], 2] - self.info["z_ave"]
                         sort_ids = np.argsort(z_wat)
                         cbm, vbm = self._water_mo_output(dname, n_wat)
 
-                        np.save(os.path.join(dname, "data.npy"),
-                                [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+                        np.save(
+                            os.path.join(dname, "data.npy"),
+                            [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
 
         if calculate_delta_flag:
             # update data
@@ -766,24 +769,12 @@ class IterElecEps(ElecEps):
         self.pbc_hartree = [pbc_hartree[0], pbc_hartree[1] - cp2k_out.fermi]
 
     def ref_preset(self, fp_params={}, calculate=False, **kwargs):
-        # lower surface
-        self.atoms = self._convert()
-        self._setup("ref_lo")
-        self.info = self.ref_lo_info
-        # update_dict(fp_params,
-        #             self._water_pdos_input(n_wat=self.ref_lo_info["n_wat"]))
+        self.work_subdir = os.path.join(self.work_dir, "ref_%s" % self.suffix)
+        self.atoms = self._convert(self.l_qm_wat)
+        self._setup("ref_%s" % self.suffix)
+        # self.info = getattr(self, "ref_%s_info" % self.suffix)
         super().ref_preset(fp_params=fp_params,
-                           dname="ref_lo",
-                           calculate=calculate,
-                           **kwargs)
-        # upper surface
-        self.atoms = self._convert(inverse=True)
-        self._setup("ref_hi")
-        self.info = self.ref_hi_info
-        # update_dict(fp_params,
-        #             self._water_pdos_input(n_wat=self.ref_hi_info["n_wat"]))
-        super().ref_preset(fp_params=fp_params,
-                           dname="ref_hi",
+                           dname="ref_%s" % self.suffix,
                            calculate=calculate,
                            **kwargs)
 
@@ -878,7 +869,7 @@ class IterElecEps(ElecEps):
         # logging.debug("V_guess (1): %f" % v_guess)
 
         # dielectrics
-        # # slope = (EPS_WAT * self.l_vac * 2 + self.l_wat) / (EPS_WAT * self.l_vac + self.l_wat_pdos)
+        # # slope = (EPS_WAT * self.l_vac * 2 + self.l_qm_wat) / (EPS_WAT * self.l_vac + self.l_wat_pdos)
         # # emprical values
         # slope = 0.5
         # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
@@ -893,7 +884,7 @@ class IterElecEps(ElecEps):
         # delta_v = test_homo - ref_homo
         # v_guess += delta_v * slope
         v_guess = self.convergence * self.guess_slope
-        # efield = get_efields(1.0, l=[self.l_vac, L_INT, self.l_wat-L_INT, self.l_vac], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
+        # efield = get_efields(1.0, l=[self.l_vac, L_INT, self.l_qm_wat-L_INT, self.l_vac], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
         # logging.debug("V_guess (2): %f" % v_guess)
         return v_guess
 
@@ -986,10 +977,10 @@ class IterElecEps(ElecEps):
         self.v_seq = [self._guess()]
 
     def preset(self, fp_params={}, calculate=False, **kwargs):
-        v_start = kwargs.pop("v_start",
-                             -0.01 * (self.l_wat + EPS_WAT * self.l_vac * 2))
+        v_start = kwargs.pop(
+            "v_start", -0.01 * (self.l_qm_wat + EPS_WAT * self.l_vac * 2))
         v_end = kwargs.pop("v_end",
-                           0.01 * (self.l_wat + EPS_WAT * self.l_vac * 2))
+                           0.01 * (self.l_qm_wat + EPS_WAT * self.l_vac * 2))
         n_step = kwargs.pop("n_step", 3)
         self.v_seq = np.linspace(v_start, v_end, n_step)
         self.v_seq += self.v_guess
@@ -1012,29 +1003,26 @@ class IterElecEps(ElecEps):
         update_dict(fp_params,
                     self._water_pdos_input(n_wat=self.info["n_wat"]))
 
-        super().preset(pos_dielec=[
-            self.l_vac / 2.,
-            self.atoms.get_cell()[2][2] - self.l_vac / 2.
-        ],
+        super().preset(pos_dielec=[5., self.atoms.get_cell()[2][2] - 5.],
                        fp_params=fp_params,
                        calculate=calculate,
                        **kwargs)
 
     def calculate(self, **kwargs):
-        super().calculate(pos_vac=0.75 * self.l_vac,
+        super().calculate(pos_vac=0.5 * (self.l_vac - 5.0),
                           save_fname="eps_data_%s" % self.suffix,
                           **kwargs)
-        for dname in self.v_tasks:
-            fname = os.path.join(self.work_dir, dname, "data.npy")
-            if not os.path.exists(fname):
-                n_wat = self.info["n_wat"]
-                z_wat = self.atoms.get_positions()[self.info["O_mask"],
-                                                   2] - self.info["z_ave"]
-                sort_ids = np.argsort(z_wat)
-                cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
+        # for dname in self.v_tasks:
+        #     dname = os.path.join(self.work_dir, dname)
+        #     fname = os.path.join(dname, "data.npy")
+        #     if not os.path.exists(fname):
+        #         n_wat = self.info["n_wat"]
+        #         z_wat = self.atoms.get_positions()[self.info["O_mask"],
+        #                                            2] - self.info["z_ave"]
+        #         sort_ids = np.argsort(z_wat)
+        #         cbm, vbm = self._water_mo_output(dname, n_wat)
 
-                np.save(os.path.join(self.work_subdir, "data.npy"),
-                        [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+        #         np.save(fname, [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
 
     def workflow(self,
                  configs: str = "param.json",
@@ -1042,9 +1030,10 @@ class IterElecEps(ElecEps):
         default_command = "mpiexec.hydra cp2k.popt"
         Eps.workflow(self, configs, default_command)
 
-        self.l_wat = self.wf_configs.get("l_wat", L_WAT)
+        self.l_qm_wat = self.wf_configs.get("l_qm_wat", L_QM_WAT)
         self.l_wat_pdos = self.wf_configs.get("l_wat_pdos", L_WAT_PDOS)
         self.l_vac = self.wf_configs.get("l_vac", L_VAC)
+        self.l_mm_wat = self.wf_configs.get("l_mm_wat", L_MM_WAT)
         # self.n_surf = self.wf_configs.get("n_surf", N_SURF)
 
         # pbc: preset
@@ -1061,14 +1050,6 @@ class IterElecEps(ElecEps):
         self.pbc_calculate()
         logging.info("{:=^50}".format(" End: analyse PBC data "))
 
-        # ref: preset
-        logging.info(
-            "{:=^50}".format(" Start: set up files for dipole correction "))
-        tmp_params = self.wf_configs.get("ref_preset", {})
-        self.ref_preset(calculate=True, **tmp_params)
-        logging.info(
-            "{:=^50}".format(" End: set up files for dipole correction "))
-
         data_dict = {}
         for suffix in ["lo", "hi"]:
             self.suffix = suffix
@@ -1076,8 +1057,13 @@ class IterElecEps(ElecEps):
             self.search_history = np.array([])
             data_dict[suffix] = {}
 
-            dname = "ref_%s" % suffix
-            self.work_subdir = os.path.join(self.work_dir, dname)
+            # ref: preset
+            logging.info("{:=^50}".format(
+                " Start: set up files for dipole correction "))
+            tmp_params = self.wf_configs.get("ref_preset", {})
+            self.ref_preset(calculate=True, **tmp_params)
+            logging.info(
+                "{:=^50}".format(" End: set up files for dipole correction "))
             # ref: DFT calculation
             self._dft_calculate(self.work_subdir, ignore_finished_tag)
             # ref: calculate dipole moment
@@ -1144,7 +1130,10 @@ class IterElecEps(ElecEps):
         save_dict(data_dict, os.path.join(self.work_dir, "task_info.json"))
         self.make_plots()
 
-    def _convert(self, inverse: bool = False):
+    def _convert(self, l_wat):
+        if self.suffix == "hi":
+            inverse = True
+
         cell = self.pbc_atoms.get_cell()
         new_cell = self.pbc_atoms.get_cell()
         # add vac layer in both boundary of the cell
@@ -1158,7 +1147,7 @@ class IterElecEps(ElecEps):
         mask = self.pbc_info["metal_mask"] * mask_z
         coords[mask, 2] -= cell[2][2]
         # shift supercell
-        z_shifted = L_VAC - coords[:, 2].min()
+        z_shifted = self.l_vac - coords[:, 2].min()
         coords[:, 2] += z_shifted
 
         if inverse:
@@ -1168,7 +1157,7 @@ class IterElecEps(ElecEps):
 
         # logging.info("Position of metal surface: %.3f [A]" % z_ave)
         mask_atype = self.pbc_info["O_mask"]
-        mask_z = (coords[:, 2] <= (z_ave + self.l_wat))
+        mask_z = (coords[:, 2] <= (z_ave + l_wat))
         mask = mask_atype * mask_z
         ids_O = np.arange(len(self.pbc_atoms))[mask]
         ids_Pt = np.arange(len(self.pbc_atoms))[self.pbc_info["metal_mask"]]
@@ -1188,18 +1177,15 @@ class IterElecEps(ElecEps):
     def _setup(self, type: str):
         setattr(IterElecEps, "%s_atoms" % type, self.atoms.copy())
         setattr(IterElecEps, "%s_info" % type, {})
-        info_dict = getattr(self, "%s_info" % type)
-        atoms = getattr(self, "%s_atoms" % type)
-        info_dict["atype"] = np.array(atoms.get_chemical_symbols())
+        self.info = getattr(self, "%s_info" % type)
+        self.info["atype"] = np.array(self.atoms.get_chemical_symbols())
+        self.info["O_mask"] = (self.info["atype"] == "O")
+        self.info["H_mask"] = (self.info["atype"] == "H")
+        self.info["water_mask"] = self.info["O_mask"] + self.info["H_mask"]
+        self.info["metal_mask"] = ~self.info["water_mask"]
+        self.info["n_wat"] = np.count_nonzero(self.info["O_mask"])
 
-        info_dict["O_mask"] = (info_dict["atype"] == "O")
-        info_dict["H_mask"] = (info_dict["atype"] == "H")
-        info_dict["water_mask"] = info_dict["O_mask"] + info_dict["H_mask"]
-        info_dict["metal_mask"] = ~info_dict["water_mask"]
-        info_dict["n_wat"] = len(
-            info_dict["atype"][info_dict["water_mask"]]) // 3
-
-        logging.info("Number of water molecules: %d" % info_dict["n_wat"])
+        logging.info("Number of water molecules: %d" % self.info["n_wat"])
 
         getattr(self, "_%s_setup" % type)()
 
@@ -1219,18 +1205,17 @@ class IterElecEps(ElecEps):
                      self.pbc_info["z_hi"])
 
     def _ref_lo_setup(self):
-        mask = self.ref_lo_info["metal_mask"]
-        z = self.ref_lo_atoms.get_positions()[mask, 2]
-        self.ref_lo_info["z_ave"] = np.sort(z)[-N_SURF:].mean()
+        self.info = getattr(self, "ref_%s_info" % self.suffix)
+        # atoms = getattr(self, "ref_%s_atoms" % self.suffix)
+
+        mask = self.info["metal_mask"]
+        z = self.atoms.get_positions()[mask, 2]
+        self.info["z_ave"] = np.sort(z)[-N_SURF:].mean()
         logging.info("Position of metal surface: %.3f [A]" %
-                     self.ref_lo_info["z_ave"])
+                     self.info["z_ave"])
 
     def _ref_hi_setup(self):
-        mask = self.ref_hi_info["metal_mask"]
-        z = self.ref_hi_atoms.get_positions()[mask, 2]
-        self.ref_hi_info["z_ave"] = np.sort(z)[-N_SURF:].mean()
-        logging.info("Position of metal surface: %.3f [A]" %
-                     self.ref_hi_info["z_ave"])
+        self._ref_lo_setup()
 
     def make_plots(self, out=None, sigma=0.0):
         if not os.path.exists(os.path.join(self.work_dir, "figures")):
@@ -1302,22 +1287,24 @@ class QMMMIterElecEps(IterElecEps):
                        **kwargs)
 
     def calculate(self, **kwargs):
+        self.atoms = getattr(self, "ref_%s_atoms" % self.suffix)
+
         ElecEps.calculate(self,
                           pos_vac=0.5 * (self.l_vac - 5.0),
                           save_fname="eps_data_%s" % self.suffix,
                           **kwargs)
-        for dname in self.v_tasks:
-            dname = os.path.join(self.work_dir, dname)
-            fname = os.path.join(dname, "data.npy")
-            if not os.path.exists(fname):
-                n_wat = self.info["n_wat"]
-                atoms = getattr(self, "ref_%s_atoms" % self.suffix)
-                z_wat = atoms.get_positions()[self.info["O_mask"],
-                                              2] - self.info["z_ave"]
-                sort_ids = np.argsort(z_wat)
-                cbm, vbm = self._water_mo_output(dname, n_wat)
+        # for dname in self.v_tasks:
+        #     dname = os.path.join(self.work_dir, dname)
+        #     fname = os.path.join(dname, "data.npy")
+        #     if not os.path.exists(fname):
+        #         n_wat = self.info["n_wat"]
+        #         atoms = getattr(self, "ref_%s_atoms" % self.suffix)
+        #         z_wat = atoms.get_positions()[self.info["O_mask"],
+        #                                       2] - self.info["z_ave"]
+        #         sort_ids = np.argsort(z_wat)
+        #         cbm, vbm = self._water_mo_output(dname, n_wat)
 
-                np.save(fname, [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+        #         np.save(fname, [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
 
     @staticmethod
     def _water_pdos_input(n_wat):
