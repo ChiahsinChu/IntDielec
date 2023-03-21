@@ -191,7 +191,7 @@ class ElecEps(Eps):
                        fp_params=fp_params,
                        save_dict=calculate)
 
-    def calculate(self, pos_vac, save_fname="eps_data", **kwargs):
+    def calculate(self, pos_vac, save_fname="eps_data", pdos=True, **kwargs):
         """
         If v does not exist or overwrite is True, then read the data
         - sigma 
@@ -267,16 +267,17 @@ class ElecEps(Eps):
                     rho_conv.append(-output[2])
                     # self.rho_conv = -np.array(rho_conv)
 
-                fname = os.path.join(dname, "data.npy")
-                if not os.path.exists(fname):
-                    n_wat = self.info["n_wat"]
-                    z_wat = self.atoms.get_positions()[self.info["O_mask"],
-                                                       2] - self.info["z_ave"]
-                    sort_ids = np.argsort(z_wat)
-                    cbm, vbm = self._water_mo_output(dname, n_wat)
+                if pdos:
+                    fname = os.path.join(dname, "data.npy")
+                    if not os.path.exists(fname):
+                        n_wat = self.info["n_wat"]
+                        z_wat = self.atoms.get_positions()[self.info["O_mask"],
+                                                        2] - self.info["z_ave"]
+                        sort_ids = np.argsort(z_wat)
+                        cbm, vbm = self._water_mo_output(dname, n_wat)
 
-                    np.save(os.path.join(dname, "data.npy"),
-                            [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+                        np.save(os.path.join(dname, "data.npy"),
+                                [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
 
         if calculate_delta_flag:
             # update data
