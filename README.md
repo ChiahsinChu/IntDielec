@@ -91,7 +91,7 @@ python run.py 1>eps_cal.stdout 2>eps_cal.stderr
   task = ElecEps(work_dir="eps_cal")
   task.set_v_seq(np.linspace(-1.0, 1.0, 3))
   task.workflow(configs="param.json")
-  task.make_plots()
+  # task.make_plots(out=["lin_test", "pdos"], figure_name_suffix="_new")
   ```
 
   Example for `param.json`:
@@ -118,7 +118,6 @@ python run.py 1>eps_cal.stdout 2>eps_cal.stderr
 
   task = IterElecEps(work_dir="eps_cal")
   task.workflow(configs="param.json")
-  task.make_plots()
   ```
 
   Example for `param.json`:
@@ -128,6 +127,40 @@ python run.py 1>eps_cal.stdout 2>eps_cal.stderr
     "load_module": [],
     "command": "mpiexec.hydra cp2k.popt",
     "max_loop": 20,
+    "pbc_preset": {
+      "eps_scf": 1e-6
+    },
+    "ref_preset": {
+      "eps_scf": 1e-4
+    },
+    "search_preset": {
+      "eps_scf": 1e-5
+    },
+    "preset": {
+      "eps_scf": 1e-6
+    }
+  }
+  ```
+
+- `QMMMIterElecEps`
+  Example for python code to run the workflow:
+
+  ```python
+  from intdielec.workflow.elec_eps import QMMMIterElecEps
+
+  task = QMMMIterElecEps(work_dir="eps_cal")
+  task.workflow(configs="param.json")
+  ```
+
+  Example for `param.json`:
+
+  ```json
+  {
+    "load_module": [],
+    "command": "mpiexec.hydra cp2k.popt",
+    "max_loop": 20,
+    "l_qm_wat": 13,
+    "l_mm_wat": 13,
     "pbc_preset": {
       "eps_scf": 1e-6
     },
