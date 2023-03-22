@@ -1467,6 +1467,7 @@ class DualIterElecEps(IterElecEps):
             self.suffix = suffix
             self.v_guess = 0.
             data_dict[suffix] = {}
+            self.search_history = np.array([])
 
             # ref: preset
             logging.info("{:=^50}".format(
@@ -1487,7 +1488,6 @@ class DualIterElecEps(IterElecEps):
                                           suffix))
 
             search_flag = False
-            self.search_history = np.array([])
             for n_loop in range(max_loop):
                 # search
                 logging.info("{:=^50}".format(" Start: search_%s.%06d " %
