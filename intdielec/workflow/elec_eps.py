@@ -212,6 +212,7 @@ class ElecEps(Eps):
             - [x] inveps
             - [x] std_inveps
         """
+        logging.info("Vaccum position for E-field reference: %.2f A" % pos_vac)
         sigma = kwargs.get("gaussian_sigma", 0.0)
         update_dict(self.results, {0.0: {}})
         old_v = self.results[0.0].get("v", [])
@@ -1009,7 +1010,7 @@ class IterElecEps(ElecEps):
                        **kwargs)
 
     def calculate(self, **kwargs):
-        super().calculate(pos_vac=0.5 * (self.l_vac - 5.0),
+        super().calculate(pos_vac=5.0 + 0.5 * (self.l_vac - 5.0),
                           save_fname="eps_data_%s" % self.suffix,
                           **kwargs)
         # for dname in self.v_tasks:
@@ -1295,7 +1296,7 @@ class QMMMIterElecEps(IterElecEps):
         self.atoms = getattr(self, "ref_%s_atoms" % self.suffix)
 
         ElecEps.calculate(self,
-                          pos_vac=0.5 * (self.l_vac - 5.0),
+                          pos_vac=5.0 + 0.5 * (self.l_vac - 5.0),
                           save_fname="eps_data_%s" % self.suffix,
                           **kwargs)
         # for dname in self.v_tasks:
