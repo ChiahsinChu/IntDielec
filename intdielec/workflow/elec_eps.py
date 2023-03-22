@@ -191,7 +191,8 @@ class ElecEps(Eps):
                         fnames.sort()
                         wfn_restart = fnames[-1]
                     else:
-                        wfn_restart = os.path.join(self.work_dir, self.v_tasks[ii-1],
+                        wfn_restart = os.path.join(self.work_dir,
+                                                   self.v_tasks[ii - 1],
                                                    "cp2k-RESTART.wfn")
                 kwargs.update({"wfn_restart": wfn_restart})
             else:
