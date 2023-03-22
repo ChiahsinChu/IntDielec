@@ -171,14 +171,28 @@ class ElecEps(Eps):
             update_dict(fp_params,
                         self._water_pdos_input(n_wat=self.info["n_wat"]))
 
-        for v, task in zip(self.v_seq, self.v_tasks):
+        for ii, v, task in zip(np.arange(len(self.v_seq)), self.v_seq,
+                               self.v_tasks):
             dname = os.path.join(self.work_dir, task)
             if not os.path.exists(dname):
                 os.makedirs(dname)
             if not os.path.exists(os.path.join(dname, "cp2k-RESTART.wfn")):
                 if not hasattr(self, "suffix"):
+                    # ElecEps
                     wfn_restart = os.path.join(self.work_dir, "ref",
                                                "cp2k-RESTART.wfn")
+                else:
+                    # IterElecEps
+                    if ii == 0:
+                        fnames = glob.glob(
+                            os.path.join(
+                                self.work_dir,
+                                "*_%s*/cp2k-RESTART.wfn" % self.suffix))
+                        fnames.sort()
+                        wfn_restart = fnames[-1]
+                    else:
+                        wfn_restart = os.path.join(self.work_dir, self.v_tasks[ii-1],
+                                                   "cp2k-RESTART.wfn")
                 kwargs.update({"wfn_restart": wfn_restart})
             else:
                 kwargs.update(
