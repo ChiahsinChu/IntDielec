@@ -323,7 +323,7 @@ class ElecEps(Eps):
             data_dict["delta_efield_vac"])
         data_dict["lin_test"] = np.std(data_dict["inveps"], axis=0)
 
-    def make_plots(self, out=None, sigma=0.0):
+    def make_plots(self, out=None, sigma=0.0, figure_name_suffix=""):
         if not os.path.exists(os.path.join(self.work_dir, "figures")):
             os.makedirs(os.path.join(self.work_dir, "figures"))
         if out is None:
@@ -341,8 +341,9 @@ class ElecEps(Eps):
                                                    np.max(
                                                        data_dict["efield"])))
                 figure_name = os.path.splitext(os.path.basename(data_fname))[0]
-                fig.savefig(os.path.join(self.work_dir, "figures",
-                                         "%s.png" % figure_name),
+                fig.savefig(os.path.join(
+                    self.work_dir, "figures",
+                    "%s%s.png" % (figure_name, figure_name_suffix)),
                             bbox_inches='tight')
 
     def _make_plots(self, out, data_dict, scale):
@@ -380,7 +381,10 @@ class ElecEps(Eps):
             for jj in range(ncols):
                 ax = axs[ii][jj]
                 kw = out[ii][jj]
-                ylabel = ylabels_dict[kw]
+                try:
+                    ylabel = ylabels_dict[kw]
+                except:
+                    raise AttributeError("Unknown keyword %s" % kw)
 
                 if kw == "pdos":
                     self._make_plots_pdos(ax, data_dict, scale)
@@ -416,7 +420,7 @@ class ElecEps(Eps):
                     # dielectric region
                     ax.axvline(x=5., color="gray")
                     ax.axvline(x=np.max(xs[0]) - 5., color="gray")
-                    
+
                     ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
 
         # color map
@@ -618,6 +622,7 @@ class ElecEps(Eps):
         self.calculate(**tmp_params)
         logging.info("{:=^50}".format(" End: analyse eps calculation "))
 
+        self.make_plots()
         logging.info("{:=^50}".format(" End: eps Calculation "))
 
     def set_v_zero(self, v_zero: float):
