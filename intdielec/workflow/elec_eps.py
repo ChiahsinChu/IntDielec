@@ -386,9 +386,10 @@ class ElecEps(Eps):
                     self._make_plots_pdos(ax, data_dict, scale)
                     plot.ax_setlabel(ax, xlabel, ylabel)
                     ax.axhline(y=0., color="gray")
-                    ax.axvline(x=L_VAC, color="gray")
-                    ax.axvline(x=np.max(xs[0]) - L_VAC, color="gray")
-                    ax.axvline(x=np.max(xs[0]) - L_VAC - L_WAT, color="gray")
+                    ax.axvline(x=self.l_vac, color="gray")
+                    ax.axvline(x=np.max(xs[0]) - self.l_vac, color="gray")
+                    ax.axvline(x=np.max(xs[0]) - self.l_vac - self.l_qm_wat,
+                               color="gray")
                     ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
                 else:
                     ys = data_dict[kw]
@@ -412,9 +413,10 @@ class ElecEps(Eps):
                     plot.ax_setlabel(ax, xlabel, ylabel)
 
                     ax.axhline(y=0., color="gray")
-                    ax.axvline(x=L_VAC, color="gray")
-                    ax.axvline(x=np.max(xs[0]) - L_VAC, color="gray")
-                    ax.axvline(x=np.max(xs[0]) - L_VAC - L_WAT, color="gray")
+                    # dielectric region
+                    ax.axvline(x=5., color="gray")
+                    ax.axvline(x=np.max(xs[0]) - 5., color="gray")
+                    
                     ax.set_xlim(np.min(xs[0]), np.max(xs[0]))
 
         # color map
