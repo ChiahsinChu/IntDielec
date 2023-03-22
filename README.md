@@ -2,6 +2,7 @@
 
 ## To do list
 
+- [ ] write class for workflow plotting
 - [ ] NNP validation code used in this work
 
 ## Introduction

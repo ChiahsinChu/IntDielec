@@ -60,9 +60,6 @@ class ElecEps(Eps):
         self.v_ref = v_ref
         self.set_v_seq(v_seq)
 
-        self.v_cubes = []
-        self.e_cubes = []
-
         logging.info("Number of atoms: %d" % len(atoms))
         self._setup()
 
@@ -212,7 +209,8 @@ class ElecEps(Eps):
             - [x] inveps
             - [x] std_inveps
         """
-        logging.info("Vaccum position for E-field reference: %.2f A" % pos_vac)
+        logging.info("Vaccum position for E-field reference: %.2f [A]" %
+                     pos_vac)
         sigma = kwargs.get("gaussian_sigma", 0.0)
         update_dict(self.results, {0.0: {}})
         old_v = self.results[0.0].get("v", [])
@@ -736,8 +734,6 @@ class IterElecEps(ElecEps):
         self._setup("pbc")
 
         self.v_ref = 0.
-        self.v_cubes = []
-        self.e_cubes = []
 
     def pbc_preset(self, fp_params={}, dname="pbc", calculate=False, **kwargs):
         kwargs.update({"dip_cor": False, "hartree": True})
@@ -803,141 +799,6 @@ class IterElecEps(ElecEps):
             np.save(os.path.join(self.work_subdir, "data.npy"),
                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
         self.v_seq = [self._guess()]
-
-    def _guess(self):
-        logging.info("V_guess [V]: %f" % self.v_guess)
-
-        # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
-        # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
-        # ref_id = np.argmin(np.abs(test_data[0] - self.l_wat_pdos))
-        # self.convergence = test_data[-1][:ref_id].mean()
-        # if self.suffix == "lo":
-        #     self.convergence -= ref_data[-1][:ref_id].mean()
-        # else:
-        #     self.convergence -= ref_data[-1][-ref_id:].mean()
-
-        cube = Cp2kHartreeCube(
-            os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
-        _test_hartree = cube.get_ave_cube()
-        cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
-
-        grids = np.arange(0, self.l_wat_pdos, 0.1)
-
-        fp = _test_hartree[1] - cp2k_out.fermi
-        xp = _test_hartree[0] - self.info["z_ave"]
-        test_hartree = np.interp(grids, xp, fp).mean()
-
-        fp = self.pbc_hartree[1]
-        xp = self.pbc_hartree[0] - self.pbc_info["z_%s" % self.suffix]
-        if self.suffix == "hi":
-            xp = -xp
-            fp = fp[np.argsort(xp)]
-            xp = np.sort(xp)
-        ref_hartree = np.interp(grids, xp, fp).mean()
-        self.convergence = test_hartree - ref_hartree
-        logging.info("Convergence [V]: %f" % self.convergence)
-        try:
-            self.search_history = np.append(
-                self.search_history,
-                np.array([[self.v_guess, self.convergence]]),
-                axis=0)
-        except:
-            self.search_history = np.append(
-                self.search_history, np.array([self.v_guess,
-                                               self.convergence]))
-            self.search_history = self.search_history.reshape(-1, 2)
-
-        guess_method = self.wf_configs.get("guess_method", "ols_cut")
-        guess_setup = self.wf_configs.get("guess_setup", {})
-        self.guess_slope = guess_setup.pop("slope", SLOPE)
-        self.v_guess = getattr(self, "_guess_%s" % guess_method)(**guess_setup)
-        return self.v_guess
-
-    def _guess_simple(self):
-        # z = self.atoms.get_positions()[:, 2]
-        # mask_coord = (z >= (self.info["z_ave"] + self.l_wat_pdos))
-        # mask = self.info["O_mask"] * mask_coord
-        # sel_water_ids = np.arange(len(self.atoms))[mask] // 3
-        # n_e = 0.
-        # for ii in sel_water_ids:
-        #     fname = os.path.join(self.work_subdir,
-        #                          "cp2k-list%d-1.pdos" % (ii + 1))
-        #     pdos = Cp2kPdos(fname)
-        #     e = pdos.energies - pdos.fermi
-        #     mask = ((e - 0.1) * (e + 0.1) < 0.)
-        #     raw_dos = pdos._get_raw_dos("total")
-        #     occupation = pdos.occupation
-        #     n_e += (raw_dos[mask] * (2.0 - occupation[mask])).sum()
-        # logging.debug("number of electron at wat/vac interface: %f" % n_e)
-
-        # cross_area = np.linalg.norm(
-        #     np.cross(self.atoms.cell[0], self.atoms.cell[1]))
-        # logging.debug("cross area: %f" % cross_area)
-        # v_guess = 2 * self.l_vac * (n_e / cross_area / _EPSILON)
-        # logging.debug("V_guess (1): %f" % v_guess)
-
-        # dielectrics
-        # # slope = (EPS_WAT * self.l_vac * 2 + self.l_qm_wat) / (EPS_WAT * self.l_vac + self.l_wat_pdos)
-        # # emprical values
-        # slope = 0.5
-        # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
-        # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
-        # ref_id = np.argmin(np.abs(test_data[0] - self.l_wat_pdos))
-        # logging.debug("ref_id: %d" % ref_id)
-        # test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
-        # if self.suffix == "lo":
-        #     ref_homo = ref_data[-1][(ref_id - 4):(ref_id + 1)].mean()
-        # else:
-        #     ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
-        # delta_v = test_homo - ref_homo
-        # v_guess += delta_v * slope
-        v_guess = self.convergence * self.guess_slope
-        # efield = get_efields(1.0, l=[self.l_vac, L_INT, self.l_qm_wat-L_INT, self.l_vac], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
-        # logging.debug("V_guess (2): %f" % v_guess)
-        return v_guess
-
-    def _guess_ols(self):
-        if len(self.search_history) < 2:
-            return self._guess_simple()
-        else:
-            result = stats.linregress(x=self.search_history[:, 0],
-                                      y=self.search_history[:, 1])
-            v_guess = -result.intercept / result.slope
-        return v_guess
-
-    def _guess_ols_cut(self, nstep=4):
-        if len(self.search_history) < 2:
-            return self._guess_simple()
-        else:
-            l_cut = min(len(self.search_history), nstep)
-            result = stats.linregress(x=self.search_history[-l_cut:, 0],
-                                      y=self.search_history[-l_cut:, 1])
-            v_guess = -result.intercept / result.slope
-        return v_guess
-
-    def _guess_wls(self):
-        if len(self.search_history) < 2:
-            return self._guess_simple()
-        else:
-            #fit linear regression model
-            X = self.search_history[:, 0]
-            y = self.search_history[:, 1]
-            X = sm.add_constant(x)
-            wt = np.exp(-np.array(y)**2 / 0.1)
-            fit_wls = sm.WLS(y, X, weights=wt).fit()
-            return -fit_wls.params[0] / fit_wls.params[1]
-
-    def _guess_wls_cut(self, nstep=4):
-        if len(self.search_history) < 2:
-            return self._guess_simple()
-        else:
-            l_cut = min(len(self.search_history), nstep)
-            X = self.search_history[-l_cut:, 0]
-            y = self.search_history[-l_cut:, 1]
-            X = sm.add_constant(x)
-            wt = np.exp(-np.array(y)**2 / 0.1)
-            fit_wls = sm.WLS(y, X, weights=wt).fit()
-            return -fit_wls.params[0] / fit_wls.params[1]
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
         dname = "search_%s.%06d" % (self.suffix, n_iter)
@@ -1008,9 +869,6 @@ class IterElecEps(ElecEps):
             os.path.join(self.work_dir, dnames[-1], "cp2k-RESTART.wfn")
         })
 
-        # update_dict(fp_params,
-        #             self._water_pdos_input(n_wat=self.info["n_wat"]))
-
         super().preset(pos_dielec=[5., self.atoms.get_cell()[2][2] - 5.],
                        fp_params=fp_params,
                        calculate=calculate,
@@ -1020,17 +878,28 @@ class IterElecEps(ElecEps):
         super().calculate(pos_vac=5.0 + 0.5 * (self.l_vac - 5.0),
                           save_fname="eps_data_%s" % self.suffix,
                           **kwargs)
-        # for dname in self.v_tasks:
-        #     dname = os.path.join(self.work_dir, dname)
-        #     fname = os.path.join(dname, "data.npy")
-        #     if not os.path.exists(fname):
-        #         n_wat = self.info["n_wat"]
-        #         z_wat = self.atoms.get_positions()[self.info["O_mask"],
-        #                                            2] - self.info["z_ave"]
-        #         sort_ids = np.argsort(z_wat)
-        #         cbm, vbm = self._water_mo_output(dname, n_wat)
 
-        #         np.save(fname, [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+    def make_plots(self, out=None, sigma=0.0):
+        if not os.path.exists(os.path.join(self.work_dir, "figures")):
+            os.makedirs(os.path.join(self.work_dir, "figures"))
+        if out is None:
+            out = [["hartree", "rho_pol"], ["delta_efield", "inveps"]]
+
+        fnames = glob.glob(os.path.join(self.work_dir, "*.%s" % self.data_fmt))
+        for data_fname in fnames:
+            if not "task_info" in data_fname:
+                # read data
+                data_dict = load_dict(data_fname)[sigma]
+
+                fig, axs = self._make_plots(out,
+                                            data_dict,
+                                            scale=(np.min(data_dict["efield"]),
+                                                   np.max(
+                                                       data_dict["efield"])))
+                figure_name = os.path.splitext(os.path.basename(data_fname))[0]
+                fig.savefig(os.path.join(self.work_dir, "figures",
+                                         "%s.png" % figure_name),
+                            bbox_inches='tight')
 
     def workflow(self,
                  configs: str = "param.json",
@@ -1229,27 +1098,140 @@ class IterElecEps(ElecEps):
     def _ref_hi_setup(self):
         self._ref_lo_setup()
 
-    def make_plots(self, out=None, sigma=0.0):
-        if not os.path.exists(os.path.join(self.work_dir, "figures")):
-            os.makedirs(os.path.join(self.work_dir, "figures"))
-        if out is None:
-            out = [["hartree", "rho_pol"], ["delta_efield", "inveps"]]
+    def _guess(self):
+        logging.info("V_guess [V]: %f" % self.v_guess)
 
-        fnames = glob.glob(os.path.join(self.work_dir, "*.%s" % self.data_fmt))
-        for data_fname in fnames:
-            if not "task_info" in data_fname:
-                # read data
-                data_dict = load_dict(data_fname)[sigma]
+        # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
+        # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
+        # ref_id = np.argmin(np.abs(test_data[0] - self.l_wat_pdos))
+        # self.convergence = test_data[-1][:ref_id].mean()
+        # if self.suffix == "lo":
+        #     self.convergence -= ref_data[-1][:ref_id].mean()
+        # else:
+        #     self.convergence -= ref_data[-1][-ref_id:].mean()
 
-                fig, axs = self._make_plots(out,
-                                            data_dict,
-                                            scale=(np.min(data_dict["efield"]),
-                                                   np.max(
-                                                       data_dict["efield"])))
-                figure_name = os.path.splitext(os.path.basename(data_fname))[0]
-                fig.savefig(os.path.join(self.work_dir, "figures",
-                                         "%s.png" % figure_name),
-                            bbox_inches='tight')
+        cube = Cp2kHartreeCube(
+            os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
+        _test_hartree = cube.get_ave_cube()
+        cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
+
+        grids = np.arange(0, self.l_wat_pdos, 0.1)
+
+        fp = _test_hartree[1] - cp2k_out.fermi
+        xp = _test_hartree[0] - self.info["z_ave"]
+        test_hartree = np.interp(grids, xp, fp).mean()
+
+        fp = self.pbc_hartree[1]
+        xp = self.pbc_hartree[0] - self.pbc_info["z_%s" % self.suffix]
+        if self.suffix == "hi":
+            xp = -xp
+            fp = fp[np.argsort(xp)]
+            xp = np.sort(xp)
+        ref_hartree = np.interp(grids, xp, fp).mean()
+        self.convergence = test_hartree - ref_hartree
+        logging.info("Convergence [V]: %f" % self.convergence)
+        try:
+            self.search_history = np.append(
+                self.search_history,
+                np.array([[self.v_guess, self.convergence]]),
+                axis=0)
+        except:
+            self.search_history = np.append(
+                self.search_history, np.array([self.v_guess,
+                                               self.convergence]))
+            self.search_history = self.search_history.reshape(-1, 2)
+
+        guess_method = self.wf_configs.get("guess_method", "ols_cut")
+        guess_setup = self.wf_configs.get("guess_setup", {})
+        self.guess_slope = guess_setup.pop("slope", SLOPE)
+        self.v_guess = getattr(self, "_guess_%s" % guess_method)(**guess_setup)
+        return self.v_guess
+
+    def _guess_simple(self):
+        # z = self.atoms.get_positions()[:, 2]
+        # mask_coord = (z >= (self.info["z_ave"] + self.l_wat_pdos))
+        # mask = self.info["O_mask"] * mask_coord
+        # sel_water_ids = np.arange(len(self.atoms))[mask] // 3
+        # n_e = 0.
+        # for ii in sel_water_ids:
+        #     fname = os.path.join(self.work_subdir,
+        #                          "cp2k-list%d-1.pdos" % (ii + 1))
+        #     pdos = Cp2kPdos(fname)
+        #     e = pdos.energies - pdos.fermi
+        #     mask = ((e - 0.1) * (e + 0.1) < 0.)
+        #     raw_dos = pdos._get_raw_dos("total")
+        #     occupation = pdos.occupation
+        #     n_e += (raw_dos[mask] * (2.0 - occupation[mask])).sum()
+        # logging.debug("number of electron at wat/vac interface: %f" % n_e)
+
+        # cross_area = np.linalg.norm(
+        #     np.cross(self.atoms.cell[0], self.atoms.cell[1]))
+        # logging.debug("cross area: %f" % cross_area)
+        # v_guess = 2 * self.l_vac * (n_e / cross_area / _EPSILON)
+        # logging.debug("V_guess (1): %f" % v_guess)
+
+        # dielectrics
+        # # slope = (EPS_WAT * self.l_vac * 2 + self.l_qm_wat) / (EPS_WAT * self.l_vac + self.l_wat_pdos)
+        # # emprical values
+        # slope = 0.5
+        # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
+        # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
+        # ref_id = np.argmin(np.abs(test_data[0] - self.l_wat_pdos))
+        # logging.debug("ref_id: %d" % ref_id)
+        # test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
+        # if self.suffix == "lo":
+        #     ref_homo = ref_data[-1][(ref_id - 4):(ref_id + 1)].mean()
+        # else:
+        #     ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
+        # delta_v = test_homo - ref_homo
+        # v_guess += delta_v * slope
+        v_guess = self.convergence * self.guess_slope
+        # efield = get_efields(1.0, l=[self.l_vac, L_INT, self.l_qm_wat-L_INT, self.l_vac], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
+        # logging.debug("V_guess (2): %f" % v_guess)
+        return v_guess
+
+    def _guess_ols(self):
+        if len(self.search_history) < 2:
+            return self._guess_simple()
+        else:
+            result = stats.linregress(x=self.search_history[:, 0],
+                                      y=self.search_history[:, 1])
+            v_guess = -result.intercept / result.slope
+        return v_guess
+
+    def _guess_ols_cut(self, nstep=4):
+        if len(self.search_history) < 2:
+            return self._guess_simple()
+        else:
+            l_cut = min(len(self.search_history), nstep)
+            result = stats.linregress(x=self.search_history[-l_cut:, 0],
+                                      y=self.search_history[-l_cut:, 1])
+            v_guess = -result.intercept / result.slope
+        return v_guess
+
+    def _guess_wls(self):
+        if len(self.search_history) < 2:
+            return self._guess_simple()
+        else:
+            #fit linear regression model
+            X = self.search_history[:, 0]
+            y = self.search_history[:, 1]
+            X = sm.add_constant(x)
+            wt = np.exp(-np.array(y)**2 / 0.1)
+            fit_wls = sm.WLS(y, X, weights=wt).fit()
+            return -fit_wls.params[0] / fit_wls.params[1]
+
+    def _guess_wls_cut(self, nstep=4):
+        if len(self.search_history) < 2:
+            return self._guess_simple()
+        else:
+            l_cut = min(len(self.search_history), nstep)
+            X = self.search_history[-l_cut:, 0]
+            y = self.search_history[-l_cut:, 1]
+            X = sm.add_constant(x)
+            wt = np.exp(-np.array(y)**2 / 0.1)
+            fit_wls = sm.WLS(y, X, weights=wt).fit()
+            return -fit_wls.params[0] / fit_wls.params[1]
 
 
 class QMMMIterElecEps(IterElecEps):
