@@ -35,7 +35,7 @@ L_WAT_PDOS = 10.
 MAX_LOOP = 10
 MAX_LOOP_EPS = 10
 SEARCH_CONVERGENCE = 1e-2
-SEARCH_CONVERGENCE_EPS = 1e-2
+SEARCH_CONVERGENCE_EPS = 5e-3
 SLOPE = 1. / 0.0765
 
 plot.use_style("pub")
@@ -1517,9 +1517,9 @@ class DualIterElecEps(IterElecEps):
 
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
-            tmp_params = self.wf_configs.get("preset", {})
-            self.preset(calculate=True, **tmp_params)
-            tmp_params = self.wf_configs.get("calculate", {})
+            preset_params = self.wf_configs.get("preset", {})
+            calculate_params = self.wf_configs.get("calculate", {})
+            self.preset(calculate=True, **preset_params)
             self._load_data(fname="eps_data_%s" % self.suffix)
             # eps_cal: DFT calculation
             for ii, task in enumerate(self.v_tasks):
@@ -1529,7 +1529,7 @@ class DualIterElecEps(IterElecEps):
                 self._dft_calculate(self.work_subdir, ignore_finished_tag)
                 logging.info("{:=^50}".format(" Start: task_%s.%06d " %
                                               (suffix, ii)))
-            self.calculate(**tmp_params)
+            self.calculate(**calculate_params)
 
             search_flag = False
             for n_loop in range(max_loop_eps):
@@ -1540,12 +1540,11 @@ class DualIterElecEps(IterElecEps):
                     break
                 logging.info("{:=^50}".format(" Start: task_%s.%06d " %
                                               (suffix, n_loop)))
-                tmp_params = self.wf_configs.get("search_eps_preset", {})
                 self.search_eps_preset(n_iter=n_loop,
                                        calculate=True,
-                                       **tmp_params)
+                                       **preset_params)
                 self._dft_calculate(self.work_subdir, ignore_finished_tag)
-                self.calculate(**tmp_params)
+                self.calculate(**calculate_params)
                 logging.info("{:=^50}".format(" End: task_%s.%06d " %
                                               (suffix, n_loop)))
             if not search_flag:
