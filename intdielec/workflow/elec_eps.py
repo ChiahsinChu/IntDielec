@@ -179,11 +179,7 @@ class ElecEps(Eps):
             if not os.path.exists(dname):
                 os.makedirs(dname)
             if not os.path.exists(os.path.join(dname, "cp2k-RESTART.wfn")):
-                if hasattr(self, "suffix"):
-                    wfn_restart = os.path.join(self.work_dir,
-                                               "ref_%s" % self.suffix,
-                                               "cp2k-RESTART.wfn")
-                else:
+                if not hasattr(self, "suffix"):
                     wfn_restart = os.path.join(self.work_dir, "ref",
                                                "cp2k-RESTART.wfn")
                 kwargs.update({"wfn_restart": wfn_restart})
@@ -199,7 +195,7 @@ class ElecEps(Eps):
                        fp_params=fp_params,
                        save_dict=calculate)
 
-    def calculate(self, pos_vac, save_fname="eps_data", pdos=True, **kwargs):
+    def calculate(self, pos_vac, save_fname="eps_data", **kwargs):
         """
         If v does not exist or overwrite is True, then read the data
         - sigma 
@@ -275,17 +271,15 @@ class ElecEps(Eps):
                     rho_conv.append(-output[2])
                     # self.rho_conv = -np.array(rho_conv)
 
-                if pdos:
-                    fname = os.path.join(dname, "data.npy")
-                    if not os.path.exists(fname):
-                        n_wat = self.info["n_wat"]
-                        z_wat = self.atoms.get_positions()[
-                            self.info["O_mask"], 2] - self.info["z_ave"]
-                        sort_ids = np.argsort(z_wat)
-                        cbm, vbm = self._water_mo_output(dname, n_wat)
+                fname = os.path.join(dname, "data.npy")
+                if not os.path.exists(fname):
+                    n_wat = self.info["n_wat"]
+                    z_wat = self.atoms.get_positions()[self.info["O_mask"],
+                                                       2] - self.info["z_ave"]
+                    sort_ids = np.argsort(z_wat)
+                    cbm, vbm = self._water_mo_output(dname, n_wat)
 
-                        np.save(
-                            os.path.join(dname, "data.npy"),
+                    np.save(os.path.join(dname, "data.npy"),
                             [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
 
         if calculate_delta_flag:
