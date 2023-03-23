@@ -110,6 +110,17 @@ python run.py 1>eps_cal.stdout 2>eps_cal.stderr
   }
   ```
 
+  If you have finished the workflow and just want to export some figures, you can use:
+
+  ```python
+  from intdielec.workflow.elec_eps import ElecEps
+
+  # calculations in `eps_cal` have been finished
+  task = ElecEps(work_dir="eps_cal")
+  task.make_plots(out=["inveps", "lin_test"], figure_name_suffix="_eps")
+  task.make_plots(out="pdos", figure_name_suffix="_pdos")
+  ```
+
 - `IterElecEps`
 
   Example for python code to run the workflow:
