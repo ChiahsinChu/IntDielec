@@ -338,11 +338,15 @@ class ElecEps(Eps):
             data_dict["delta_efield_vac"])
         data_dict["lin_test"] = np.std(data_dict["inveps"], axis=0)
 
-    def make_plots(self, out=None, sigma=0.0, figure_name_suffix=""):
+    def make_plots(self, out=None, figure_name_suffix="", sigma=0.0):
         if not os.path.exists(os.path.join(self.work_dir, "figures")):
             os.makedirs(os.path.join(self.work_dir, "figures"))
         if out is None:
             out = [["hartree", "rho_pol"], ["delta_efield", "inveps"]]
+        if isinstance(out, str):
+            out = [[out]]
+        if len(np.shape(out)) == 1:
+            out = [out]
 
         fnames = glob.glob(os.path.join(self.work_dir, "*.%s" % self.data_fmt))
         for data_fname in fnames:
