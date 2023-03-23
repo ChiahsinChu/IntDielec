@@ -896,28 +896,6 @@ class IterElecEps(ElecEps):
                           save_fname="eps_data_%s" % self.suffix,
                           **kwargs)
 
-    def make_plots(self, out=None, sigma=0.0):
-        if not os.path.exists(os.path.join(self.work_dir, "figures")):
-            os.makedirs(os.path.join(self.work_dir, "figures"))
-        if out is None:
-            out = [["hartree", "rho_pol"], ["delta_efield", "inveps"]]
-
-        fnames = glob.glob(os.path.join(self.work_dir, "*.%s" % self.data_fmt))
-        for data_fname in fnames:
-            if not "task_info" in data_fname:
-                # read data
-                data_dict = load_dict(data_fname)[sigma]
-
-                fig, axs = self._make_plots(out,
-                                            data_dict,
-                                            scale=(np.min(data_dict["efield"]),
-                                                   np.max(
-                                                       data_dict["efield"])))
-                figure_name = os.path.splitext(os.path.basename(data_fname))[0]
-                fig.savefig(os.path.join(self.work_dir, "figures",
-                                         "%s.png" % figure_name),
-                            bbox_inches='tight')
-
     def workflow(self,
                  configs: str = "param.json",
                  ignore_finished_tag: bool = False):
