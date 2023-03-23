@@ -154,6 +154,39 @@ python run.py 1>eps_cal.stdout 2>eps_cal.stderr
   }
   ```
 
+- `DualIterElecEps`
+
+  Example for python code to run the workflow:
+
+  ```python
+  from intdielec.workflow.elec_eps import DualIterElecEps
+
+  task = DualIterElecEps(work_dir="eps_cal")
+  task.workflow(configs="param.json")
+  ```
+
+  Example for `param.json`:
+
+  ```json
+  {
+    "load_module": [],
+    "command": "mpiexec.hydra cp2k.popt",
+    "max_loop": 20,
+    "pbc_preset": {
+      "eps_scf": 1e-6
+    },
+    "ref_preset": {
+      "eps_scf": 1e-4
+    },
+    "search_preset": {
+      "eps_scf": 1e-5
+    },
+    "preset": {
+      "eps_scf": 1e-6
+    }
+  }
+  ```
+
 - `QMMMIterElecEps`
   Example for python code to run the workflow:
 
