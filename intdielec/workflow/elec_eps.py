@@ -1515,7 +1515,8 @@ class DualIterElecEps(IterElecEps):
 
             search_flag = False
             for n_loop in range(max_loop_eps):
-                if np.abs(self.convergence) <= convergence_eps:
+                if np.abs(self.convergence
+                          ) <= convergence_eps and self._check_water_mos():
                     search_flag = True
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))
@@ -1531,6 +1532,11 @@ class DualIterElecEps(IterElecEps):
                                               (suffix, n_loop)))
             if not search_flag:
                 logging.warn("Inverse eps does not converge.")
+                with open(
+                        os.path.join(self.work_dir,
+                                     "warning_tag_%s" % self.suffix),
+                        'w') as f:
+                    pass
 
             data_dict[suffix]["v_cor"] = self.search_history[-1][0]
             data_dict[suffix]["z_ave"] = self.info["z_ave"]
@@ -1549,3 +1555,13 @@ class DualIterElecEps(IterElecEps):
         }
         save_dict(data_dict, os.path.join(self.work_dir, "task_info.json"))
         self.make_plots()
+
+    def _check_water_mos(self):
+        threshold = -0.1
+        data = np.load(os.path.join(self.work_subdir, "data.npy"))
+        mask = (data[0] > 6.)
+        flag = np.count_nonzero(data[-1][mask] > threshold)
+        if flag > 0:
+            return False
+        else:
+            return True
