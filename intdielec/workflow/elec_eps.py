@@ -1371,6 +1371,7 @@ class DualIterElecEps(IterElecEps):
     def preset(self, fp_params={}, calculate=False, **kwargs):
         self.step = kwargs.pop(
             "step", 0.05 * (self.l_qm_wat + EPS_WAT * self.l_vac * 2))
+        logging.info("Step width: %.2f" % self.step)
         self.v_seq = np.array([0., self.step, 2 * self.step])
         self.v_seq += self.v_guess
 
@@ -1405,7 +1406,7 @@ class DualIterElecEps(IterElecEps):
         n_iter += 3
         dname = "task_%s.%06d" % (self.suffix, n_iter)
         self.work_subdir = os.path.join(self.work_dir, dname)
-        self.v_seq = [n_iter * self.step]
+        self.v_seq = [n_iter * self.step + self.v_guess]
         self.v_tasks = [dname]
 
         ElecEps.preset(self,
