@@ -15,7 +15,8 @@ class Cp2kCalculator:
     def __init__(self, work_dir) -> None:
         self.work_dir = work_dir
 
-    def run(self, type="bash", **kwargs):
+    def run(self, type="bash", ignore_err=False, **kwargs):
+        self.ignore_err_tag = ignore_err
         root_dir = os.getcwd()
         os.chdir(self.work_dir)
         logging.info("{:=^50}".format(" Start: CP2K calculation "))
@@ -48,7 +49,10 @@ class Cp2kCalculator:
             with open("finished_tag", 'w') as f:
                 pass
         except:
-            sys.exit("CP2K calculation is not finished!")
+            if self.ignore_err_tag:
+                logging.warning("Calculation does not finish!")
+            else:
+                sys.exit("Calculation does not finish!")
 
     def run_ase(self):
         atoms = io.read("coord.xyz")
