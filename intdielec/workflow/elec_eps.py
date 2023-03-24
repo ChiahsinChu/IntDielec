@@ -257,7 +257,7 @@ class ElecEps(Eps):
             if not False in (np.abs(v - np.array(old_v)) > 1e-2):
                 calculate_delta_flag = True
                 old_v.append(v)
-                efield.append(v / self.atoms.cell[2][2])
+                efield.append(v / (self.atoms.cell[2][2] - 10.))
 
                 dname = os.path.join(self.work_dir, task)
                 # hartree cube
@@ -877,7 +877,7 @@ class IterElecEps(ElecEps):
 
         self.v_tasks = []
         for ii, v in enumerate(self.v_seq):
-            efield = v / self.atoms.cell[2][2]
+            efield = v / (self.atoms.cell[2][2] - 10.)
             self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
             logging.info("Macroscopic E-field: %.3f [V/A] in %s" %
                          (efield, self.v_tasks[-1]))
@@ -991,7 +991,7 @@ class IterElecEps(ElecEps):
             data_dict[suffix]["z_ave"] = self.info["z_ave"]
             data_dict[suffix]["v_seq"] = self.v_seq.tolist()
             data_dict[suffix]["efield"] = (np.array(self.v_seq) /
-                                           self.atoms.cell[2][2]).tolist()
+                                           (self.atoms.cell[2][2] - 10.)).tolist()
             # eps_cal: DFT calculation
             for task in self.v_tasks:
                 self.work_subdir = os.path.join(self.work_dir, task)
@@ -1256,7 +1256,7 @@ class QMMMIterElecEps(IterElecEps):
 
         self.v_tasks = []
         for ii, v in enumerate(self.v_seq):
-            efield = v / self.atoms.cell[2][2]
+            efield = v / (self.atoms.cell[2][2] - 10.)
             self.v_tasks.append("task_%s.%06d" % (self.suffix, ii))
             logging.info("Macroscopic E-field: %.3f [V/A] in %s" %
                          (efield, self.v_tasks[-1]))
