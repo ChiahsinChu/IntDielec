@@ -14,7 +14,7 @@ def ax_setlabel(ax, xlabel, ylabel, **kwargs):
     ax.set_ylabel(ylabel, **kwargs)
 
 
-def plot_rmse(x, y, xlabel, ylabel):
+def plot_rmse(x, y, xlabel, ylabel, **kwargs):
     """
     plot scatter/ref line
     return rmse
@@ -24,9 +24,9 @@ def plot_rmse(x, y, xlabel, ylabel):
 
     rmse = np.sqrt(metrics.mean_squared_error(x, y))
 
-    fig, ax = plt.subplots(figsize=[4, 4], dpi=200)
+    fig, ax = plt.subplots(figsize=[4, 4])
     ax_rmse(ax, x, y)
-    ax_setlabel(ax, xlabel, ylabel)
+    ax_setlabel(ax, xlabel, ylabel, **kwargs)
 
     return fig, ax, rmse
 

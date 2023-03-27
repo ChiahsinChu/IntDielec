@@ -2,6 +2,7 @@
 
 ## To do list
 
+- [ ] exception capture class for all calculators
 - [ ] write class for workflow plotting
 - [ ] NNP validation code used in this work
 
