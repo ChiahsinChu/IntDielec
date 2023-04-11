@@ -2,6 +2,7 @@
 
 ## To do list
 
+- [ ] benchmark of my code and MAICoS (and decide if I need to move to MAICoS!)
 - [ ] exception capture class for all calculators
 - [ ] write class for workflow plotting
 - [ ] NNP validation code used in this work

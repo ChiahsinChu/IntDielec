@@ -9,6 +9,6 @@
 	path = intdielec/exts/ase
 	url = https://gitlab.com/ChiahsinChu/ase.git
 	branch = jxzhu_dev
-[submodule "intdielec/exts/maicos"]
-	path = intdielec/exts/maicos
-	url = git@gitlab.com:ChiahsinChu/maicos.git
+[submodule "intdielec/exts/toolbox"]
+	path = intdielec/exts/toolbox
+	url = git@github.com:ChiahsinChu/toolbox.git
