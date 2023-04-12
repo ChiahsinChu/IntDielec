@@ -18,7 +18,7 @@ class InverseDielectricConstant(AnalysisBase):
         axis: int = 2,
         temperature=330,
         img_plane=0.,
-        make_whole=True,
+        make_whole=False,
         verbose=False,
     ) -> None:
         self.universe = atomgroups.universe
@@ -61,6 +61,8 @@ class InverseDielectricConstant(AnalysisBase):
         # get refs
         z_lo = np.mean(self.atoms.positions[self.surf_ids[0]][:, 2])
         z_hi = np.mean(self.atoms.positions[self.surf_ids[1]][:, 2])
+        print(z_lo, z_hi)
+
         bin_edges = np.linspace(z_lo, z_hi,
                                 int((z_hi - z_lo) / self.bin_width) + 1)
         bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
@@ -75,7 +77,8 @@ class InverseDielectricConstant(AnalysisBase):
         # m
         _m = -integrate.cumulative_trapezoid(rho, self.bins, initial=0)
         # M
-        M = np.dot(self.atoms.charges, self.atoms.positions)[self.axis]
+        M = np.dot(self.universe.atoms.charges,
+                   self.universe.atoms.positions)[self.axis]
         self.results.M += M
         self.results.M2 += (M**2)
 
