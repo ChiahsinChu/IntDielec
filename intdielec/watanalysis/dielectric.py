@@ -5,7 +5,6 @@ from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.exceptions import NoDataError
 from MDAnalysis.units import constants, convert
 
-from ..utils.unit import *
 from scipy import integrate
 
 
