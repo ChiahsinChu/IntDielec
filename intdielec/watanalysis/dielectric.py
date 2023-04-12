@@ -64,7 +64,7 @@ class InverseDielectricConstant(AnalysisBase):
         z = self._ts.positions[:, self.axis]
         z_lo = np.mean(z[self.surf_ids[0]])
         z_hi = np.mean(z[self.surf_ids[1]])
-        print(z_lo, z_hi)
+        # print(z_lo, z_hi)
 
         # M
         M = np.dot(self.universe.atoms.charges,
@@ -116,91 +116,91 @@ class InverseDielectricConstant(AnalysisBase):
         self.results.inveps = 1 - x_fluct / (const + M_fluct / self.volume)
 
 
-class ParallelInverseDielectricConstant(InverseDielectricConstant):
-    def __init__(self,
-                 atomgroups,
-                 bin_edges,
-                 surf_ids,
-                 axis: int = 2,
-                 temperature=330,
-                 img_plane=0,
-                 make_whole=False,
-                 verbose=False) -> None:
-        super().__init__(atomgroups, bin_edges, surf_ids, axis, temperature,
-                         img_plane, make_whole, verbose)
-        #parallel value initial
-        self.para = None
-        self._para_region = None
+# class ParallelInverseDielectricConstant(InverseDielectricConstant):
+#     def __init__(self,
+#                  atomgroups,
+#                  bin_edges,
+#                  surf_ids,
+#                  axis: int = 2,
+#                  temperature=330,
+#                  img_plane=0,
+#                  make_whole=False,
+#                  verbose=False) -> None:
+#         super().__init__(atomgroups, bin_edges, surf_ids, axis, temperature,
+#                          img_plane, make_whole, verbose)
+#         #parallel value initial
+#         self.para = None
+#         self._para_region = None
 
-    def _conclude(self):
-        pass
+#     def _conclude(self):
+#         pass
 
-    def _parallel_init(self, *args, **kwargs):
-        start = self._para_region.start
-        stop = self._para_region.stop
-        step = self._para_region.step
-        self._setup_frames(self._trajectory, start, stop, step)
-        self._prepare()
+#     def _parallel_init(self, *args, **kwargs):
+#         start = self._para_region.start
+#         stop = self._para_region.stop
+#         step = self._para_region.step
+#         self._setup_frames(self._trajectory, start, stop, step)
+#         self._prepare()
 
-    def _run(self, start=None, stop=None, step=None, verbose=None):
+#     def _run(self, start=None, stop=None, step=None, verbose=None):
 
-        #self._trajectory._reopen()
-        if verbose == True:
-            print(" ", end='')
-        super().run(start, stop, step, verbose)
+#         #self._trajectory._reopen()
+#         if verbose == True:
+#             print(" ", end='')
+#         super().run(start, stop, step, verbose)
 
-        if self.para:
-            block_result = self._para_block_result()
-            if block_result == None:
-                raise ValueError(
-                    "in parallel, block result has not been defined or no data output!"
-                )
-            #logger.info("block_anal finished.")
-            return block_result
+#         if self.para:
+#             block_result = self._para_block_result()
+#             if block_result == None:
+#                 raise ValueError(
+#                     "in parallel, block result has not been defined or no data output!"
+#                 )
+#             #logger.info("block_anal finished.")
+#             return block_result
 
-    def _para_block_result(self):
-        return [
-            self.results.m, self.results.mM, self.results.M, self.results.M2,
-            self.volume
-        ]
+#     def _para_block_result(self):
+#         return [
+#             self.results.m, self.results.mM, self.results.M, self.results.M2,
+#             self.volume
+#         ]
 
-    def _parallel_conclude(self, rawdata):
-        # set attributes for further analysis
-        method_attr = rawdata[-1]
-        del rawdata[-1]
-        self.start = method_attr[0]
-        self.stop = method_attr[1]
-        self.step = method_attr[2]
-        self.frames = np.arange(self.start, self.stop, self.step)
-        self.n_frames = len(self.frames)
+#     def _parallel_conclude(self, rawdata):
+#         # set attributes for further analysis
+#         method_attr = rawdata[-1]
+#         del rawdata[-1]
+#         self.start = method_attr[0]
+#         self.stop = method_attr[1]
+#         self.step = method_attr[2]
+#         self.frames = np.arange(self.start, self.stop, self.step)
+#         self.n_frames = len(self.frames)
 
-        self.results["m"] = np.zeros((self.nbins))
-        self.results["mM"] = np.zeros((self.nbins))
-        self.results["M"] = 0
-        self.results["M2"] = 0
-        self.volume = 0
+#         self.results["m"] = np.zeros((self.nbins))
+#         self.results["mM"] = np.zeros((self.nbins))
+#         self.results["M"] = 0
+#         self.results["M2"] = 0
+#         self.volume = 0
 
-        for single_data in rawdata:
-            self.results["m"] += single_data[0]
-            self.results["mM"] += single_data[1]
-            self.results["M"] += single_data[2]
-            self.results["M2"] += single_data[3]
-            self.volume += single_data[4]
+#         for single_data in rawdata:
+#             self.results["m"] += single_data[0]
+#             self.results["mM"] += single_data[1]
+#             self.results["M"] += single_data[2]
+#             self.results["M2"] += single_data[3]
+#             self.volume += single_data[4]
 
-        self.results["m"] /= self.n_frames
-        self.results["mM"] /= self.n_frames
-        self.results["M"] /= self.n_frames
-        self.results["M2"] /= self.n_frames
-        self.volume /= self.n_frames
+#         self.results["m"] /= self.n_frames
+#         self.results["mM"] /= self.n_frames
+#         self.results["M"] /= self.n_frames
+#         self.results["M2"] /= self.n_frames
+#         self.volume /= self.n_frames
 
-        x_fluct = self.results["mM"] - self.results["m"] * self.results["M"]
-        M_fluct = self.results["M2"] - self.results["M"] * self.results["M"]
-        const = convert(
-            constants["Boltzman_constant"], "kJ/mol",
-            "eV") * self.temperature * constants["electric_constant"]
-        self.results["inveps"] = 1 - x_fluct / (const + M_fluct / self.volume)
+#         x_fluct = self.results["mM"] - self.results["m"] * self.results["M"]
+#         M_fluct = self.results["M2"] - self.results["M"] * self.results["M"]
+#         const = convert(
+#             constants["Boltzman_constant"], "kJ/mol",
+#             "eV") * self.temperature * constants["electric_constant"]
+#         self.results["inveps"] = 1 - x_fluct / (const + M_fluct / self.volume)
 
-        return "FINISH PARA CONCLUDE"
+#         return "FINISH PARA CONCLUDE"
 
-    def run(self, start=None, stop=None, step=None, n_proc=1):
-        parallel_exec(self._run, start, stop, step, n_proc)
+#     def run(self, start=None, stop=None, step=None, n_proc=1):
+#         parallel_exec(self._run, start, stop, step, n_proc)
