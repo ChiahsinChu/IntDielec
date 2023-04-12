@@ -1,6 +1,3 @@
-[submodule "intdielec/exts/cp2kdata"]
-	path = intdielec/exts/cp2kdata
-	url = https://github.com/robinzyb/cp2kdata.git
 [submodule "intdielec/exts/mdanalysis"]
 	path = intdielec/exts/mdanalysis
 	url = https://github.com/ChiahsinChu/mdanalysis.git
