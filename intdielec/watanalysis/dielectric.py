@@ -110,28 +110,24 @@ class InverseDielectricConstant(AnalysisBase):
 
         x_fluct = self.results.mM - self.results.m * self.results.M
         M_fluct = self.results.M2 - self.results.M * self.results.M
-
-        self.results.eps = self.results.fluct / (
-            convert(constants["Boltzman_constant"], "kJ/mol", "eV") *
-            self.temperature * self.volume * constants["electric_constant"])
-
         const = convert(
             constants["Boltzman_constant"], "kJ/mol",
-            "eV") * self.temperature * constants["electric_constant"] / 3.
+            "eV") * self.temperature * constants["electric_constant"]
         self.results.inveps = 1 - x_fluct / (const + M_fluct / self.volume)
 
 
 class ParallelInverseDielectricConstant(InverseDielectricConstant):
     def __init__(self,
-                 universe,
-                 bins,
-                 axis="z",
+                 atomgroups,
+                 bin_edges,
+                 surf_ids,
+                 axis: int = 2,
                  temperature=330,
-                 make_whole=True,
-                 verbose=False,
-                 **kwargs) -> None:
-        super().__init__(universe, bins, axis, temperature, make_whole,
-                         verbose, **kwargs)
+                 img_plane=0,
+                 make_whole=False,
+                 verbose=False) -> None:
+        super().__init__(atomgroups, bin_edges, surf_ids, axis, temperature,
+                         img_plane, make_whole, verbose)
         #parallel value initial
         self.para = None
         self._para_region = None
