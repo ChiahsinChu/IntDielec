@@ -57,9 +57,11 @@ class InverseDielectricConstant(AnalysisBase):
         ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[
             ave_axis[1]]
 
+        z = self._ts.positions[:, self.axis]
+
         # get refs
-        z_lo = np.mean(self.atoms.positions[self.surf_ids[0]][:, 2])
-        z_hi = np.mean(self.atoms.positions[self.surf_ids[1]][:, 2])
+        z_lo = np.mean(z[self.surf_ids[0]])
+        z_hi = np.mean(z[self.surf_ids[1]])
         print(z_lo, z_hi)
 
         bin_edges = np.linspace(z_lo, z_hi,
@@ -67,7 +69,6 @@ class InverseDielectricConstant(AnalysisBase):
         bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
 
         # charge density [e/A^3]
-        z = self.atoms.positions[:, self.axis]
         rho, bin_edges = np.histogram(z,
                                       bins=bin_edges,
                                       weights=self.atoms.charges)
