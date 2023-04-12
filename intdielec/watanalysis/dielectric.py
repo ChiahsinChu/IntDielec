@@ -7,27 +7,30 @@ from MDAnalysis.analysis.dielectric import DielectricConstant
 from MDAnalysis.units import constants, convert
 # from pmda.parallel import ParallelAnalysisBase
 
-from ..utils.mda import make_selection, make_selection_two
+from ..utils.unit import *
+from scipy import integrate
 
 
 class InverseDielectricConstant(AnalysisBase):
     def __init__(self,
-                 universe,
-                 bins,
-                 axis="z",
+                 atomgroups,
+                 bin_edges,
+                 axis: int = 2,
                  temperature=330,
+                 img_plane=0.,
                  make_whole=True,
                  verbose=False,
                  **kwargs) -> None:
-        super().__init__(universe.trajectory, verbose)
+        self.universe = atomgroups.universe
+        super().__init__(self.universe.trajectory, verbose)
 
-        self.universe = universe
-        self.atoms = universe.atoms
-        self.bins = bins
-        self.nbins = len(bins) - 1
-        axis_dict = {"x": 0, "y": 1, "z": 2}
-        self.axis = axis_dict[axis]
+        self.atoms = atomgroups
+        self.bin_width = bin_edges[1] - bin_edges[0]
+        self.bins = (bin_edges[1:] + bin_edges[:-1]) / 2
+        self.nbins = len(bin_edges) - 1
+        self.axis = axis
         self.temperature = temperature
+        self.img_plane = img_plane
         self.make_whole = make_whole
         self.kwargs = kwargs
 
@@ -43,55 +46,57 @@ class InverseDielectricConstant(AnalysisBase):
 
         self.results.m = np.zeros((self.nbins))
         self.results.mM = np.zeros((self.nbins))
-        self.results.M = 0
-        self.results.M2 = 0
-        self.volume = 0
-
-        self.ags = []
-        for ii in range(self.nbins):
-            sel_region = [self.bins[ii], self.bins[ii + 1]]
-            select = make_selection(sel_region=sel_region, **self.kwargs)
-            self.ags.append(self.universe.select_atoms(select, updating=True))
+        self.results.M = 0.
+        self.results.M2 = 0.
+        self.volume = 0.
 
     def _single_frame(self):
-        ave_axis = np.delete(np.arange(3), self.axis)
-        ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[
-            ave_axis[1]]
-        # ts_volume = self._ts.volume
-        surf_ids = self.kwargs["surf_ids"]
-        # print(surf_ids)
-
-        z_lo = np.mean(self.atoms.positions[surf_ids[0]][:, 2])
-        z_hi = np.mean(self.atoms.positions[surf_ids[1]][:, 2])
-        # print("z_lo: ", z_lo)
-        # print("z_hi: ", z_hi)
-        ts_volume = ts_area * (z_hi - z_lo)
-
-        self.volume += ts_volume
-
         if self.make_whole:
             self.atoms.unwrap()
 
+        ave_axis = np.delete(np.arange(3), self.axis)
+        ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[
+            ave_axis[1]]
+
+        # get refs
+        # ts_volume = self._ts.volume
+        surf_ids = self.kwargs["surf_ids"]
+        # print(surf_ids)
+        z_lo = np.mean(self.atoms.positions[surf_ids[0]][:, 2])
+        z_hi = np.mean(self.atoms.positions[surf_ids[1]][:, 2])
+        bin_edges = np.linspace(z_lo, z_hi,
+                                int((z_hi - z_lo) / self.bin_width) + 1)
+        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
+
+        # charge density [e/A^3]
+        z = self.atoms.positions[:, self.axis]
+        rho, bin_edges = np.histogram(z,
+                                      bins=bin_edges,
+                                      weights=self.atoms.charges)
+        bin_volumes = np.diff(bin_edges) * ts_area
+        rho /= bin_volumes
+        # m
+        _m = -integrate.cumulative_trapezoid(rho, self.bins, initial=0)
+        # M
         M = np.dot(self.atoms.charges, self.atoms.positions)[self.axis]
         self.results.M += M
-        self.results.M2 += M * M
+        self.results.M2 += (M**2)
 
-        def _single_bin(ii, make_whole, ags, bins, axis, results):
-            if make_whole:
-                ags[ii].unwrap()
-            bin_volume = ts_area * (bins[ii + 1] - bins[ii]) * 2
-            m = np.dot(ags[ii].charges, ags[ii].positions)[axis] / bin_volume
-            results.m[ii] += m
-            results.mM[ii] += m * M
-            # print(results)
+        # lo surf
+        m = np.interp(self.bins + z_lo, bins, _m)
+        self.results.m += m
+        self.results.mM += (m * M)
+        # hi surf
+        m = np.interp(np.sort(z_hi - self.bins), bins, _m)
+        self.results.m += np.flip(m)
+        self.results.mM += np.flip(m * M)
 
-        for ii in range(self.nbins):
-            _single_bin(ii, self.make_whole, self.ags, self.bins, self.axis,
-                        self.results)
+        ts_volume = ts_area * (z_hi - z_lo - 2 * self.img_plane)
+        self.volume += ts_volume
 
     def _conclude(self):
-        self.results.m /= self.n_frames
-        self.results.mM /= self.n_frames
+        self.results.m /= (self.n_frames * 2)
+        self.results.mM /= (self.n_frames * 2)
         self.results.M /= self.n_frames
         self.results.M2 /= self.n_frames
         self.volume /= self.n_frames
@@ -193,89 +198,3 @@ class ParallelInverseDielectricConstant(InverseDielectricConstant):
         self.results["inveps"] = 1 - x_fluct / (const + M_fluct / self.volume)
 
         return "FINISH PARA CONCLUDE"
-
-
-class DeprecatedDC(DielectricConstant):
-    def __init__(self,
-                 universe,
-                 bins,
-                 temperature=330,
-                 make_whole=True,
-                 verbose=False,
-                 **kwargs) -> None:
-        self.universe = universe
-        self.bins = bins
-        self.nbins = len(bins) - 1
-        self.kwargs = kwargs
-        super().__init__(universe.atoms,
-                         temperature,
-                         make_whole,
-                         verbose=verbose)
-
-    def _prepare(self):
-        super()._prepare()
-
-        # reset
-        self.volume = np.zeros(self.nbins)
-        self.results.M = np.zeros((self.nbins, 3))
-        self.results.M2 = np.zeros((self.nbins, 3))
-        self.results.fluct = np.zeros((self.nbins, 3))
-        self.results.eps = np.zeros((self.nbins, 3))
-        self.results.eps_mean = np.zeros(self.nbins)
-
-        self.ags = []
-        for ii in range(self.nbins):
-            sel_region = [self.bins[ii], self.bins[ii + 1]]
-            select = make_selection_two(sel_region=sel_region, **self.kwargs)
-            self.ags.append(
-                self.universe.select_atoms(select[0], updating=True))
-            self.ags.append(
-                self.universe.select_atoms(select[1], updating=True))
-
-    def _single_frame(self):
-
-        for ii in range(self.nbins):
-            # lower surface
-            if self.make_whole:
-                self.ags[2 * ii].unwrap()
-
-            # volume of each bin rather than the whole system
-            # self.volume += self.atomgroup.universe.trajectory.ts.volume
-            self.volume[ii] += self._ts.dimensions[0] * self._ts.dimensions[
-                1] * (self.bins[ii + 1] - self.bins[ii])
-
-            M = np.dot(self.ags[2 * ii].charges, self.ags[2 * ii].positions)
-            self.results.M[ii] += M
-            self.results.M2[ii] += M * M
-
-            # upper surface
-            if self.make_whole:
-                self.ags[2 * ii + 1].unwrap()
-
-            # volume of each bin rather than the whole system
-            # self.volume += self.atomgroup.universe.trajectory.ts.volume
-            self.volume[ii] += self._ts.dimensions[0] * self._ts.dimensions[
-                1] * (self.bins[ii + 1] - self.bins[ii])
-
-            M = np.dot(self.ags[2 * ii + 1].charges,
-                       self.ags[2 * ii + 1].positions) * np.array(
-                           [1., 1., -1.])
-            self.results.M[ii] += M
-            self.results.M2[ii] += M * M
-
-    def _conclude(self):
-        self.results.M /= self.n_frames
-        self.results.M2 /= self.n_frames
-        self.volume /= self.n_frames
-
-        self.results.fluct = self.results.M2 - self.results.M * self.results.M
-
-        self.results.eps = self.results.fluct / (
-            convert(constants["Boltzman_constant"], "kJ/mol", "eV") *
-            self.temperature * np.reshape(self.volume, (self.nbins, 1)) *
-            constants["electric_constant"])
-
-        self.results.eps_mean = self.results.eps.mean(axis=-1)
-
-        self.results.eps += 1
-        self.results.eps_mean += 1
