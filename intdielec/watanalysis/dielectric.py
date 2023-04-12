@@ -3,24 +3,24 @@ import numpy as np
 
 from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.exceptions import NoDataError
-from MDAnalysis.analysis.dielectric import DielectricConstant
 from MDAnalysis.units import constants, convert
-# from pmda.parallel import ParallelAnalysisBase
 
 from ..utils.unit import *
 from scipy import integrate
 
 
 class InverseDielectricConstant(AnalysisBase):
-    def __init__(self,
-                 atomgroups,
-                 bin_edges,
-                 axis: int = 2,
-                 temperature=330,
-                 img_plane=0.,
-                 make_whole=True,
-                 verbose=False,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        atomgroups,
+        bin_edges,
+        surf_ids,
+        axis: int = 2,
+        temperature=330,
+        img_plane=0.,
+        make_whole=True,
+        verbose=False,
+    ) -> None:
         self.universe = atomgroups.universe
         super().__init__(self.universe.trajectory, verbose)
 
@@ -28,11 +28,11 @@ class InverseDielectricConstant(AnalysisBase):
         self.bin_width = bin_edges[1] - bin_edges[0]
         self.bins = (bin_edges[1:] + bin_edges[:-1]) / 2
         self.nbins = len(bin_edges) - 1
+        self.surf_ids = surf_ids
         self.axis = axis
         self.temperature = temperature
         self.img_plane = img_plane
         self.make_whole = make_whole
-        self.kwargs = kwargs
 
     def _prepare(self):
         if not hasattr(self.atoms, "charges"):
@@ -59,11 +59,8 @@ class InverseDielectricConstant(AnalysisBase):
             ave_axis[1]]
 
         # get refs
-        # ts_volume = self._ts.volume
-        surf_ids = self.kwargs["surf_ids"]
-        # print(surf_ids)
-        z_lo = np.mean(self.atoms.positions[surf_ids[0]][:, 2])
-        z_hi = np.mean(self.atoms.positions[surf_ids[1]][:, 2])
+        z_lo = np.mean(self.atoms.positions[self.surf_ids[0]][:, 2])
+        z_hi = np.mean(self.atoms.positions[self.surf_ids[1]][:, 2])
         bin_edges = np.linspace(z_lo, z_hi,
                                 int((z_hi - z_lo) / self.bin_width) + 1)
         bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
