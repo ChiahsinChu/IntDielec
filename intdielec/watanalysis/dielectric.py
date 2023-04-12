@@ -6,6 +6,7 @@ from MDAnalysis.exceptions import NoDataError
 from MDAnalysis.units import constants, convert
 
 from scipy import integrate
+from ..utils.parallel import parallel_exec
 
 
 class InverseDielectricConstant(AnalysisBase):
@@ -43,8 +44,10 @@ class InverseDielectricConstant(AnalysisBase):
                                       " systems with free charges are not"
                                       " available.")
 
-        self.results.m = np.zeros((self.nbins))
-        self.results.mM = np.zeros((self.nbins))
+        self.results.m_lo = np.zeros((self.nbins))
+        self.results.mM_lo = np.zeros((self.nbins))
+        self.results.m_hi = np.zeros((self.nbins))
+        self.results.mM_hi = np.zeros((self.nbins))
         self.results.M = 0.
         self.results.M2 = 0.
         self.volume = 0.
@@ -63,6 +66,12 @@ class InverseDielectricConstant(AnalysisBase):
         z_hi = np.mean(z[self.surf_ids[1]])
         print(z_lo, z_hi)
 
+        # M
+        M = np.dot(self.universe.atoms.charges,
+                   self.universe.atoms.positions)[self.axis]
+        self.results.M += M
+        self.results.M2 += (M**2)
+
         bin_edges = np.linspace(z_lo, z_hi,
                                 int((z_hi - z_lo) / self.bin_width) + 1)
         bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
@@ -73,29 +82,28 @@ class InverseDielectricConstant(AnalysisBase):
                                       weights=self.atoms.charges)
         bin_volumes = np.diff(bin_edges) * ts_area
         rho /= bin_volumes
-        # m
-        _m = -integrate.cumulative_trapezoid(rho, self.bins, initial=0)
-        # M
-        M = np.dot(self.universe.atoms.charges,
-                   self.universe.atoms.positions)[self.axis]
-        self.results.M += M
-        self.results.M2 += (M**2)
+
+        _m = -integrate.cumulative_trapezoid(rho, bins, initial=0)
 
         # lo surf
         m = np.interp(self.bins + z_lo, bins, _m)
-        self.results.m += m
-        self.results.mM += (m * M)
+        self.results.m_lo += m
+        self.results.mM_lo += (m * M)
         # hi surf
-        m = np.interp(np.sort(z_hi - self.bins), bins, _m)
-        self.results.m += np.flip(m)
-        self.results.mM += np.flip(m * M)
+        m = np.interp(np.sort(z_hi - self.bins), bins, (_m[-1] - _m))
+        self.results.m_hi += np.flip(m)
+        self.results.mM_hi += np.flip(m * M)
 
         ts_volume = ts_area * (z_hi - z_lo - 2 * self.img_plane)
         self.volume += ts_volume
 
     def _conclude(self):
-        self.results.m /= (self.n_frames * 2)
-        self.results.mM /= (self.n_frames * 2)
+        self.results.m_lo /= self.n_frames
+        self.results.mM_lo /= self.n_frames
+        self.results.m_hi /= self.n_frames
+        self.results.mM_hi /= self.n_frames
+        self.results.m = (self.results.m_lo + self.results.m_hi) / 2
+        self.results.mM = (self.results.mM_lo + self.results.mM_hi) / 2
         self.results.M /= self.n_frames
         self.results.M2 /= self.n_frames
         self.volume /= self.n_frames
@@ -138,7 +146,7 @@ class ParallelInverseDielectricConstant(InverseDielectricConstant):
         self._setup_frames(self._trajectory, start, stop, step)
         self._prepare()
 
-    def run(self, start=None, stop=None, step=None, verbose=None):
+    def _run(self, start=None, stop=None, step=None, verbose=None):
 
         #self._trajectory._reopen()
         if verbose == True:
@@ -197,3 +205,6 @@ class ParallelInverseDielectricConstant(InverseDielectricConstant):
         self.results["inveps"] = 1 - x_fluct / (const + M_fluct / self.volume)
 
         return "FINISH PARA CONCLUDE"
+
+    def run(self, start=None, stop=None, step=None, n_proc=1):
+        parallel_exec(self._run, start, stop, step, n_proc)
