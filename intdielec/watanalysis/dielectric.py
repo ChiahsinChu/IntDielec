@@ -43,13 +43,15 @@ class InverseDielectricConstant(AnalysisBase):
                                       " systems with free charges are not"
                                       " available.")
 
-        self.results.m_lo = np.zeros((self.nbins))
-        self.results.mM_lo = np.zeros((self.nbins))
-        self.results.m_hi = np.zeros((self.nbins))
-        self.results.mM_hi = np.zeros((self.nbins))
+        # self.results.m_lo = np.zeros((self.nbins))
+        # self.results.mM_lo = np.zeros((self.nbins))
+        # self.results.m_hi = np.zeros((self.nbins))
+        # self.results.mM_hi = np.zeros((self.nbins))
+        self.results.m = np.zeros((self.nbins))
+        self.results.mM = np.zeros((self.nbins))
         self.results.M = 0.
         self.results.M2 = 0.
-        self.volume = 0.
+        self.results.volume = 0.
 
     def _single_frame(self):
         if self.make_whole:
@@ -88,33 +90,33 @@ class InverseDielectricConstant(AnalysisBase):
 
         # lo surf
         m = np.interp(self.bins + z_lo, bins, _m)
-        self.results.m_lo += m
-        self.results.mM_lo += (m * M)
+        self.results.m += m
+        self.results.mM += (m * M)
         # hi surf
         m = np.interp(np.sort(z_hi - self.bins), bins, (_m[-1] - _m))
-        self.results.m_hi += np.flip(m)
-        self.results.mM_hi -= np.flip(m * M)
+        self.results.m += np.flip(m)
+        self.results.mM -= np.flip(m * M)
 
         ts_volume = ts_area * (z_hi - z_lo - 2 * self.img_plane)
-        self.volume += ts_volume
+        self.results.volume += ts_volume
 
     def _conclude(self):
-        self.results.m_lo /= self.n_frames
-        self.results.mM_lo /= self.n_frames
-        self.results.m_hi /= self.n_frames
-        self.results.mM_hi /= self.n_frames
-        self.results.m = (self.results.m_lo + self.results.m_hi) / 2
-        self.results.mM = (self.results.mM_lo + self.results.mM_hi) / 2
+        self.results.m /= (self.n_frames * 2)
+        self.results.mM /= (self.n_frames * 2)
         self.results.M /= self.n_frames
         self.results.M2 /= self.n_frames
-        self.volume /= self.n_frames
+        self.results.volume /= self.n_frames
 
         x_fluct = self.results.mM - self.results.m * self.results.M
         M_fluct = self.results.M2 - self.results.M * self.results.M
         const = convert(
             constants["Boltzman_constant"], "kJ/mol",
             "eV") * self.temperature * constants["electric_constant"]
-        self.results.inveps = 1 - x_fluct / (const + M_fluct / self.volume)
+        self.results.inveps = 1 - x_fluct / (const +
+                                             M_fluct / self.results.volume)
+
+        self.results.bins = self.bins
+        self.results.temperature = self.temperature
 
 
 # class ParallelInverseDielectricConstant(InverseDielectricConstant):
