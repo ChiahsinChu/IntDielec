@@ -8,9 +8,9 @@ from ase import io, Atoms
 from ..watanalysis.dielectric import ParallelInverseDielectricConstant as PIDC
 
 from ..plot import use_style
-from ..utils.parallel import parallel_exec
-from ..utils.math import *
-from ..utils.unit import *
+from ..exts.toolbox.toolbox.utils.parallel import parallel_exec
+from ..exts.toolbox.toolbox.utils.math import *
+from ..exts.toolbox.toolbox.utils.unit import *
 from . import Eps
 
 use_style("pub")

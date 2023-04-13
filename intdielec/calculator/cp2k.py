@@ -1,14 +1,14 @@
 import logging
 import os
+import shlex
 import sys
 from subprocess import Popen
-import shlex
 
 from ase import io
 from ase.calculators.cp2k import CP2K
 
-from ..io.cp2k import Cp2kOutput
-from ..utils.utils import iterdict, load_dict
+from ..exts.toolbox.toolbox.io.cp2k import Cp2kOutput
+from ..exts.toolbox.toolbox.utils.utils import iterdict, load_dict
 
 
 class Cp2kCalculator:

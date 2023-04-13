@@ -7,7 +7,7 @@ import numpy as np
 from scipy import integrate
 from ase.geometry.cell import cellpar_to_cell
 
-from ..utils.unit import *
+from ..exts.toolbox.toolbox.utils.unit import *
 
 _EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 
