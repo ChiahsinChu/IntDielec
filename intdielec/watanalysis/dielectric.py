@@ -6,7 +6,6 @@ from MDAnalysis.exceptions import NoDataError
 from MDAnalysis.units import constants, convert
 
 from scipy import integrate
-from ..utils.parallel import parallel_exec
 
 
 class InverseDielectricConstant(AnalysisBase):
@@ -66,11 +65,9 @@ class InverseDielectricConstant(AnalysisBase):
         z_hi = np.mean(z[self.surf_ids[1]])
         # print(z_lo, z_hi)
 
-        # M
-        M = np.dot(self.universe.atoms.charges,
-                   self.universe.atoms.positions)[self.axis]
-        self.results.M += M
-        self.results.M2 += (M**2)
+        # # M
+        # M = np.dot(self.universe.atoms.charges,
+        #            self.universe.atoms.positions)[self.axis]
 
         bin_edges = np.linspace(z_lo, z_hi,
                                 int((z_hi - z_lo) / self.bin_width) + 1)
@@ -82,8 +79,12 @@ class InverseDielectricConstant(AnalysisBase):
                                       weights=self.atoms.charges)
         bin_volumes = np.diff(bin_edges) * ts_area
         rho /= bin_volumes
-
         _m = -integrate.cumulative_trapezoid(rho, bins, initial=0)
+
+        # M
+        M = np.sum(_m * bin_volumes)
+        self.results.M += M
+        self.results.M2 += (M**2)
 
         # lo surf
         m = np.interp(self.bins + z_lo, bins, _m)
@@ -92,7 +93,7 @@ class InverseDielectricConstant(AnalysisBase):
         # hi surf
         m = np.interp(np.sort(z_hi - self.bins), bins, (_m[-1] - _m))
         self.results.m_hi += np.flip(m)
-        self.results.mM_hi += np.flip(m * M)
+        self.results.mM_hi -= np.flip(m * M)
 
         ts_volume = ts_area * (z_hi - z_lo - 2 * self.img_plane)
         self.volume += ts_volume
