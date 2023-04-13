@@ -1,19 +1,16 @@
-import os
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import MDAnalysis as mda
-import numpy as np
-from ase import io, Atoms
-from ..watanalysis.dielectric import ParallelInverseDielectricConstant as PIDC
+from ase import Atoms
+import logging
 
-from ..plot import use_style
-from ..exts.toolbox.toolbox.utils.parallel import parallel_exec
 from ..exts.toolbox.toolbox.utils.math import *
 from ..exts.toolbox.toolbox.utils.unit import *
+from ..exts.toolbox.toolbox.utils.utils import safe_makedirs
+from ..exts.toolbox.toolbox import plot
+from ..utils import *
+from ..watanalysis.dielectric import InverseDielectricConstant as IDC
 from . import Eps
 
-use_style("pub")
+plot.use_style("pub")
 
 
 class OrientEps(Eps):
@@ -21,7 +18,7 @@ class OrientEps(Eps):
                  work_dir: str = ".",
                  topo: str = None,
                  coord: str = None,
-                 data_fmt: str = "hdf5",
+                 data_fmt: str = "pkl",
                  **kwargs) -> None:
         super().__init__(work_dir, data_fmt)
 
@@ -46,61 +43,45 @@ class OrientEps(Eps):
             kwargs.update({"atom_style": self._get_atom_style()})
 
         self.universe = mda.Universe(self.topo, self.coord, **kwargs)
-        self.n_frames = self.universe._trajectory.n_frames
+        self.water = self.universe.select_atoms("name O or name H")
 
-    def run(self, start=0, stop=None, step=1, n_proc=20, **kwargs):
-        """
-        task = PIDC(
-            universe=self.universe,
-            bins=np.arange(0, 10, 0.2),
-            axis="z",
-            temperature=330,
-            surf_ids=surf_ids,
-            make_whole=False,
-            c_ag="name O",
-            select_all=True,
-        )
-        """
+    def run(self, start=0, stop=None, step=1, **kwargs):
         if stop is None:
-            stop = self.n_frames
-        surf_ids = kwargs.get("surf_ids", None)
-        if surf_ids is None:
-            from zjxpack.postprocess.metal import ECMetal
+            stop = self.universe._trajectory.n_frames
 
-            metal_type = kwargs.pop("metal_type")
-            surf_atom_num = kwargs.pop("surf_atom_num")
-            atoms = ECMetal(self.atoms,
-                            metal_type=metal_type,
-                            surf_atom_num=surf_atom_num)
-            surf_ids = atoms.get_surf_idx()
-            kwargs.update({"surf_ids": surf_ids})
-
-        kwargs.update({
-            "make_whole": False,
-            "c_ag": "name O",
-            "select_all": True
-        })
-
-        task = PIDC(universe=self.universe, **kwargs)
-        parallel_exec(task.run,
-                      start=start,
-                      stop=stop,
-                      step=step,
-                      n_proc=n_proc)
+        task = IDC(atomgroups=self.water, **kwargs)
+        task.run(start, stop, step)
         self.results = task.results
-        self.results.update({"bins": kwargs["bins"]})
-        # if not os.path.exists(os.path.join(dname, "dielectric")):
-        #     os.makedirs(os.path.join(dname, "dielectric"))
-        # np.save(os.path.join(dname, "dielectric/inveps.npy"),
-        #         task.results["inveps"])
-        # np.save(os.path.join(dname, "dielectric/M2.npy"), task.results["M2"])
-        # np.save(os.path.join(dname, "dielectric/m.npy"), task.results["m"])
-        # np.save(os.path.join(dname, "dielectric/mM.npy"), task.results["mM"])
-        # np.save(os.path.join(dname, "dielectric/M.npy"), task.results["M"])
         self._save_data()
+        self.make_plots()
 
-    def plot(self):
-        pass
+    def make_plots(self):
+        fig, axs = plt.subplots(nrows=2, ncols=1, figsize=[5, 6], dpi=300)
+        x = self.results["bins"]
+
+        # local polarization distribution
+        ax = axs[0]
+        xlabel = " "
+        ylabel = r"local polarization [eA$^{-2}$]"
+        ax.axhline(y=0., color="gray")
+        ax.plot(x, self.results["m"])
+        ax.set_xlim(np.min(x), np.max(x))
+        plot.ax_setlabel(ax, xlabel, ylabel)
+
+        # inveps
+        ax = axs[1]
+        xlabel = r"z - z$_{surf}$ [A]"
+        ylabel = r"$\varepsilon_{ori}^{-1}$"
+        ax.axhline(y=0., color="gray")
+        ax.axhline(y=1., color="gray", ls="--")
+        ax.plot(x, self.results["inveps"])
+        ax.set_xlim(np.min(x), np.max(x))
+        plot.ax_setlabel(ax, xlabel, ylabel)
+
+        fig.subplots_adjust(hspace=0.)
+        fig.savefig(os.path.join(self.work_dir, "ori_eps_cal.png"),
+                    bbox_inches='tight',
+                    transparent=True)
 
     def _get_atom_style(self):
         # atom_style="id resid type charge x y z"
