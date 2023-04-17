@@ -63,8 +63,10 @@ class InverseDielectricConstant(AnalysisBase):
 
         # get refs
         z = self._ts.positions[:, self.axis]
-        z_lo = np.mean(z[self.surf_ids[0]])
-        z_hi = np.mean(z[self.surf_ids[1]])
+        _z_lo = np.mean(z[self.surf_ids[0]])
+        _z_hi = np.mean(z[self.surf_ids[1]])
+        z_lo = np.min([_z_lo, _z_hi])
+        z_hi = np.max([_z_lo, _z_hi])
         # print(z_lo, z_hi)
 
         # # M
@@ -93,9 +95,9 @@ class InverseDielectricConstant(AnalysisBase):
         self.results.m += m
         self.results.mM += (m * M)
         # hi surf
-        m = np.interp(np.sort(z_hi - self.bins), bins, (_m[-1] - _m))
+        m = np.interp(np.sort(z_hi - self.bins), bins, _m)
         self.results.m += np.flip(m)
-        self.results.mM -= np.flip(m * M)
+        self.results.mM += np.flip(m * M)
 
         ts_volume = ts_area * (z_hi - z_lo - 2 * self.img_plane)
         self.results.volume += ts_volume
