@@ -121,6 +121,73 @@ class InverseDielectricConstant(AnalysisBase):
         self.results.temperature = self.temperature
 
 
+class AdInverseDielectricConstant(InverseDielectricConstant):
+    def __init__(self,
+                 atomgroups,
+                 bin_edges,
+                 surf_ids,
+                 cutoff=2.7,
+                 sfactor=1.2,
+                 **kwargs) -> None:
+        super().__init__(atomgroups, bin_edges, surf_ids, **kwargs)
+        self.cutoff = cutoff
+        self.sfactor = sfactor
+
+    def _single_frame(self):
+        if self.make_whole:
+            self.atoms.unwrap()
+
+        ave_axis = np.delete(np.arange(3), self.axis)
+        ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[
+            ave_axis[1]]
+
+        # get refs
+        z = self._ts.positions[:, self.axis]
+        _z_lo = np.mean(z[self.surf_ids[0]])
+        _z_hi = np.mean(z[self.surf_ids[1]])
+        z_lo = np.min([_z_lo, _z_hi])
+        z_hi = np.max([_z_lo, _z_hi])
+        # print(z_lo, z_hi)
+
+        # scale charges of chemisorbed water
+        atype_mask = (self.universe.atoms.types == "O")
+        z_mask = ((z <= (z_lo + self.cutoff)) | (z >= (z_hi - self.cutoff)))
+        sel_O_ids = np.nonzero(atype_mask * z_mask)
+        sel_ids = np.sort(
+            np.concatenate([sel_O_ids, sel_O_ids + 1, sel_O_ids + 2]))
+        charges = self.atoms.charges.copy()
+        charges[sel_ids] *= self.sfactor
+
+        bin_edges = np.linspace(z_lo, z_hi,
+                                int((z_hi - z_lo) / self.bin_width) + 1)
+        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
+
+        # charge density [e/A^3]
+        rho, bin_edges = np.histogram(self.atoms.positions[:, 2],
+                                      bins=bin_edges,
+                                      weights=charges)
+        bin_volumes = np.diff(bin_edges) * ts_area
+        rho /= bin_volumes
+        _m = -integrate.cumulative_trapezoid(rho, bins, initial=0)
+
+        # M
+        M = np.sum(_m * bin_volumes)
+        self.results.M += M
+        self.results.M2 += (M**2)
+
+        # lo surf
+        m = np.interp(self.bins + z_lo, bins, _m)
+        self.results.m += m
+        self.results.mM += (m * M)
+        # hi surf
+        m = np.interp(np.sort(z_hi - self.bins), bins, _m)
+        self.results.m += np.flip(m)
+        self.results.mM += np.flip(m * M)
+
+        ts_volume = ts_area * (z_hi - z_lo - 2 * self.img_plane)
+        self.results.volume += ts_volume
+
+
 # class ParallelInverseDielectricConstant(InverseDielectricConstant):
 #     def __init__(self,
 #                  atomgroups,
