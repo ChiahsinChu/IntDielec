@@ -1,10 +1,10 @@
-import numpy as np
-# import multiprocessing as mp
+import logging
+import time
 
+import numpy as np
 from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.exceptions import NoDataError
 from MDAnalysis.units import constants, convert
-
 from scipy import integrate
 
 
@@ -34,6 +34,8 @@ class InverseDielectricConstant(AnalysisBase):
         self.make_whole = make_whole
 
     def _prepare(self):
+        logging.info("Start calculation")
+
         if not hasattr(self.atoms, "charges"):
             raise NoDataError("No charges defined given atomgroup.")
 
@@ -119,6 +121,9 @@ class InverseDielectricConstant(AnalysisBase):
 
         self.results.bins = self.bins
         self.results.temperature = self.temperature
+
+        logging.info("Number of frames: %s" % self.n_frames)
+        logging.info("End calculation")
 
 
 class AdInverseDielectricConstant(InverseDielectricConstant):
