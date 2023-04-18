@@ -152,8 +152,6 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
         ave_axis = np.delete(np.arange(3), self.axis)
         ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[
             ave_axis[1]]
-        ts_volume = ts_area * (z_hi - z_lo - 2 * self.img_plane)
-        self.results.volume += ts_volume
 
         # get refs
         z = self._ts.positions[:, self.axis]
@@ -165,6 +163,8 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
         bin_edges = np.linspace(z_lo, z_hi,
                                 int((z_hi - z_lo) / self.bin_width) + 1)
         bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
+        ts_volume = ts_area * (z_hi - z_lo - 2 * self.img_plane)
+        self.results.volume += ts_volume
 
         # unscaled charges
         # charge density [e/A^3]
