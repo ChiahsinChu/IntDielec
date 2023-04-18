@@ -191,7 +191,7 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
         # scale charges of chemisorbed water
         atype_mask = (self.universe.atoms.types == "O")
         z_mask = ((z <= (z_lo + self.cutoff)) | (z >= (z_hi - self.cutoff)))
-        sel_O_ids = np.nonzero(atype_mask * z_mask)
+        sel_O_ids = np.nonzero(atype_mask * z_mask)[0]
         sel_ids = np.sort(
             np.concatenate([sel_O_ids, sel_O_ids + 1, sel_O_ids + 2]))
         charges = self.atoms.charges.copy()
