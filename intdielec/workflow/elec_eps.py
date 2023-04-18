@@ -22,7 +22,6 @@ from ..exts.toolbox.toolbox.utils.utils import (load_dict, save_dict,
 from ..utils.config import check_water
 from . import Eps
 
-_EPSILON = VAC_PERMITTIVITY / UNIT_CHARGE * ANG_TO_M
 EPS_VAC = 1.
 EPS_INT = 4.
 EPS_WAT = 2.
@@ -672,7 +671,7 @@ class ElecEps(Eps):
     def _calculate_efield(x, delta_rho_e, delta_efield_zero):
         x, _y = get_int_array(x, delta_rho_e)
         # E-field [V/A]
-        y = _y / (AU_TO_ANG)**3 / _EPSILON
+        y = _y / (AU_TO_ANG)**3 / EPSILON
         return x, (y + delta_efield_zero.reshape(-1, 1))
 
     @staticmethod
@@ -686,7 +685,7 @@ class ElecEps(Eps):
     def _calculate_inveps(x, delta_rho_e, delta_efield_zero):
         x, _y = get_int_array(x, delta_rho_e)
         # E-field [V/A]
-        y = _y / (AU_TO_ANG)**3 / _EPSILON
+        y = _y / (AU_TO_ANG)**3 / EPSILON
         return (y + delta_efield_zero.reshape(
             -1, 1)) / delta_efield_zero.reshape(-1, 1)
 
@@ -1167,7 +1166,7 @@ class IterElecEps(ElecEps):
         # cross_area = np.linalg.norm(
         #     np.cross(self.atoms.cell[0], self.atoms.cell[1]))
         # logging.debug("cross area: %f" % cross_area)
-        # v_guess = 2 * self.l_vac * (n_e / cross_area / _EPSILON)
+        # v_guess = 2 * self.l_vac * (n_e / cross_area / EPSILON)
         # logging.debug("V_guess (1): %f" % v_guess)
 
         # dielectrics
