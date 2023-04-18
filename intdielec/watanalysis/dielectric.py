@@ -1,3 +1,7 @@
+"""
+Ref:
+    https://maicos-devel.gitlab.io/maicos/explanations/dielectric.html
+"""
 import numpy as np
 from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.exceptions import NoDataError
