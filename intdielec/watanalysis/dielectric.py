@@ -1,8 +1,7 @@
 import numpy as np
 from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.exceptions import NoDataError
-from MDAnalysis.units import constants, convert
-from scipy import integrate
+from scipy import constants, integrate
 
 
 class InverseDielectricConstant(AnalysisBase):
@@ -29,6 +28,10 @@ class InverseDielectricConstant(AnalysisBase):
         self.temperature = temperature
         self.img_plane = img_plane
         self.make_whole = make_whole
+
+        self.const = (constants.epsilon_0 / constants.elementary_charge *
+                      constants.angstrom) * constants.physical_constants[
+                          "Boltzmann constant in eV/K"][0] * self.temperature
 
     def _prepare(self):
         if not hasattr(self.atoms, "charges"):
@@ -104,10 +107,7 @@ class InverseDielectricConstant(AnalysisBase):
 
         x_fluct = self.results.mM - self.results.m * self.results.M
         M_fluct = self.results.M2 - self.results.M * self.results.M
-        const = convert(
-            constants["Boltzman_constant"], "kJ/mol",
-            "eV") * self.temperature * constants["electric_constant"]
-        self.results.inveps = 1 - x_fluct / (const +
+        self.results.inveps = 1 - x_fluct / (self.const +
                                              M_fluct / self.results.volume)
 
         self.results.bins = self.bins
@@ -218,8 +218,5 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
 
         x_fluct = self.results.mM_scaled - self.results.m_scaled * self.results.M_scaled
         M_fluct = self.results.M2_scaled - self.results.M_scaled * self.results.M_scaled
-        const = convert(
-            constants["Boltzman_constant"], "kJ/mol",
-            "eV") * self.temperature * constants["electric_constant"]
         self.results.inveps_scaled = 1 - x_fluct / (
-            const + M_fluct / self.results.volume)
+            self.const + M_fluct / self.results.volume)
