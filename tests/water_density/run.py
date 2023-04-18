@@ -2,7 +2,7 @@ import MDAnalysis as mda
 import time
 
 from intdielec.utils import *
-from intdielec.watanalysis.waterstructure import WatDensity
+from intdielec.watanalysis.structure import WatDensity
 
 
 traj = "dump.lammpstrj"
