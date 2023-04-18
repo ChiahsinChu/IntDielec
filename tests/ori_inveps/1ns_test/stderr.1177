@@ -1,0 +1,2 @@
+/data/jxzhu/software/mdanalysis-package-2.3.0/package/MDAnalysis/analysis/base.py:438: UserWarning: Reader has no dt information, set to 1.0 ps
+  self.times[i] = ts.time

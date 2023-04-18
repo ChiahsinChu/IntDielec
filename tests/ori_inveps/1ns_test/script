@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#SBATCH -J test
+#SBATCH -t 24:00:00
+#SBATCH -o stdout.%j
+#SBATCH -e stderr.%j
+#SBATCH -p fat
+
+module load miniconda/3
+source activate gnn
+
+python run.py
+
