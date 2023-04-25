@@ -241,6 +241,9 @@ class TestInverseDielectricConstant(DielectricPlanar):
             make_index_selection(surf_ids[0]))
         self.surf_hi = atomgroups.universe.select_atoms(
             make_index_selection(surf_ids[1]))
+
+    def _prepare(self):
+        super()._prepare()
         self.volume = 0.
         self.z_lo = []
         self.z_hi = []
