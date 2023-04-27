@@ -1,7 +1,3 @@
-[submodule "intdielec/exts/mdanalysis"]
-	path = intdielec/exts/mdanalysis
-	url = https://github.com/ChiahsinChu/mdanalysis.git
-	branch = jxzhu_dev
 [submodule "intdielec/exts/toolbox"]
 	path = intdielec/exts/toolbox
 	url = git@github.com:ChiahsinChu/toolbox.git
