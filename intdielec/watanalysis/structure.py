@@ -9,7 +9,7 @@ from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import \
 from MDAnalysis.core.groups import AtomGroup
 from MDAnalysis.exceptions import NoDataError
 from MDAnalysis.lib.distances import capped_distance, minimize_vectors
-from scipy import stats, constants
+from scipy import constants, stats
 
 from ..exts.toolbox.toolbox.utils.utils import calc_water_density
 from ..utils.mda import make_selection, make_selection_two
@@ -94,12 +94,11 @@ class WatDensity(AnalysisBase):
         return ts_area
 
 
-# TODO: to be checked >>>>>>>>>>>>>
 class AngularDistribution(AnalysisBase):
     def __init__(self,
                  universe,
                  nbins=50,
-                 axis="z",
+                 axis: int = 2,
                  updating=True,
                  verbose=False,
                  **kwargs):
@@ -107,7 +106,6 @@ class AngularDistribution(AnalysisBase):
         super().__init__(trajectory, verbose=verbose)
 
         select = make_selection_two(**kwargs)
-        # print("selection: ", select)
         self.universe = universe
         self.updating = updating
         self.ags = self._make_selections(select)
@@ -120,9 +118,8 @@ class AngularDistribution(AnalysisBase):
         self.ts_cosD = []
 
     def _single_frame(self):
-        # BUG: be careful! for OHH only yet!
-        axis_dict = {"x": 0, "y": 1, "z": 2}
-        axis = axis_dict[self.axis]
+        # NOTE: be careful! for OHH only yet!
+        axis = self.axis
 
         cosOH, cosHH, cosD = self._getCosTheta(self.ags[0], axis)
         self.ts_cosOH.extend(cosOH.tolist())
@@ -161,28 +158,6 @@ class AngularDistribution(AnalysisBase):
                     ([output[1][:-1] + (output[1][1] - output[1][0]) / 2],
                      [output[0]])))
 
-        # self.results['cosOH'] =
-        # self.results['cosHH'] = np.transpose(
-        #     np.concatenate(
-        #         ([output[1][1][:-1] + (output[1][1][1] - output[1][0][0]) / 2],
-        #          [output[1][0]])))
-        # self.results['cosD'] = np.transpose(
-        #     np.concatenate(
-        #         ([output[2][1][:-1] + (output[2][1][1] - output[2][1][0]) / 2],
-        #          [output[2][0]])))
-        # self.results['OH'] = np.transpose(
-        #     np.concatenate(
-        #         ([output[3][1][:-1] + (output[3][1][1] - output[3][1][0]) / 2],
-        #          [output[3][0]])))
-        # self.results['HH'] = np.transpose(
-        #     np.concatenate(
-        #         ([output[4][1][:-1] + (output[4][1][1] - output[4][1][0]) / 2],
-        #          [output[4][0]])))
-        # self.results['D'] = np.transpose(
-        #     np.concatenate(
-        #         ([output[5][1][:-1] + (output[5][1][1] - output[5][1][0]) / 2],
-        #          [output[5][0]])))
-
     def _getCosTheta(self, ag, axis):
         ts_positions = ag.positions
         ts_p_O = ts_positions[::3]
@@ -217,6 +192,9 @@ class AngularDistribution(AnalysisBase):
             sel_ag.unwrap()
             selection.append(sel_ag)
         return selection
+
+
+# TODO: to be checked >>>>>>>>>>>>>
 
 
 class HBA(HydrogenBondAnalysis):
