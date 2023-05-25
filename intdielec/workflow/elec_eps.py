@@ -1,24 +1,24 @@
 import copy
-import glob
 import logging
-import os
 
 import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
 import statsmodels.api as sm
-from ase import Atoms, io
+from ase import Atoms
 from scipy import stats
+
+from software.IntDielec.intdielec.exts.toolbox.toolbox.utils import np
+from software.IntDielec.intdielec.exts.toolbox.toolbox.utils.math import np
 
 from .. import plot
 from ..exts.toolbox.toolbox.calculator.cp2k import Cp2kCalculator
 from ..exts.toolbox.toolbox.io.cp2k import (Cp2kCube, Cp2kHartreeCube,
                                             Cp2kInput, Cp2kOutput, Cp2kPdos)
 from ..exts.toolbox.toolbox.io.template import cp2k_default_input
+from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.math import *
 from ..exts.toolbox.toolbox.utils.unit import *
 from ..exts.toolbox.toolbox.utils.utils import (load_dict, save_dict,
-                                                update_dict)
+                                                update_dict, safe_makedirs)
 from ..utils.config import check_water
 from . import Eps
 
@@ -80,8 +80,7 @@ class ElecEps(Eps):
                     self._water_pdos_input(n_wat=self.info["n_wat"]))
 
         dname = os.path.join(self.work_dir, dname)
-        if not os.path.exists(dname):
-            os.makedirs(dname)
+        safe_makedirs(dname)
 
         task = Cp2kInput(self.atoms, **kwargs)
         task.write(output_dir=dname, fp_params=fp_params, save_dict=calculate)
@@ -176,8 +175,7 @@ class ElecEps(Eps):
         for ii, v, task in zip(np.arange(len(self.v_seq)), self.v_seq,
                                self.v_tasks):
             dname = os.path.join(self.work_dir, task)
-            if not os.path.exists(dname):
-                os.makedirs(dname)
+            safe_makedirs(dname)
             if not os.path.exists(os.path.join(dname, "cp2k-RESTART.wfn")):
                 if not hasattr(self, "suffix"):
                     # ElecEps
@@ -339,8 +337,7 @@ class ElecEps(Eps):
         data_dict["lin_test"] = np.std(data_dict["inveps"], axis=0)
 
     def make_plots(self, out=None, figure_name_suffix="", sigma=0.0):
-        if not os.path.exists(os.path.join(self.work_dir, "figures")):
-            os.makedirs(os.path.join(self.work_dir, "figures"))
+        safe_makedirs(os.path.join(self.work_dir, "figures"))
         if out is None:
             out = [["hartree", "rho_pol"], ["delta_efield", "inveps"]]
         if isinstance(out, str):
@@ -690,10 +687,8 @@ class ElecEps(Eps):
             -1, 1)) / delta_efield_zero.reshape(-1, 1)
 
     def _dft_calculate(self, work_dir, ignore_finished_tag):
-        flag = os.path.join(work_dir, "finished_tag")
-        if (ignore_finished_tag == True) or (os.path.exists(flag) == False):
-            Cp2kCalculator(work_dir=work_dir).run(type="bash",
-                                                  command=self.command)
+        Cp2kCalculator(work_dir=work_dir).run(
+            ignore_finished_tag=ignore_finished_tag)
 
     @staticmethod
     def _water_pdos_input(n_wat):
@@ -764,8 +759,7 @@ class IterElecEps(ElecEps):
         update_dict(fp_params, update_d)
 
         dname = os.path.join(self.work_dir, dname)
-        if not os.path.exists(dname):
-            os.makedirs(dname)
+        safe_makedirs(dname)
 
         task = Cp2kInput(self.pbc_atoms, **kwargs)
         task.write(output_dir=dname, fp_params=fp_params, save_dict=calculate)
@@ -1566,3 +1560,195 @@ class DualIterElecEps(IterElecEps):
             return False
         else:
             return True
+
+
+class FiniteFieldElecEps(ElecEps):
+    def __init__(self,
+                 atoms: Atoms = None,
+                 work_dir: str = None,
+                 efield_seq: list or np.ndarray = None,
+                 data_fmt: str = "pkl") -> None:
+        Eps.__init__(work_dir, data_fmt)
+        self.results = {}
+        self.atoms = atoms
+        assert atoms.cell is not None
+
+        self.set_efield_seq(efield_seq)
+
+        logging.info("Number of atoms: %d" % len(atoms))
+
+    def calculate(self, pos_vac=0., save_fname="eps_data", **kwargs):
+        """
+        If v does not exist or overwrite is True, then read the data
+        - sigma 
+            - [x] v
+            - [x] hartree
+            - [x] rho
+            - [x] efield_vac
+
+            - [x] v_prime
+            - [x] rho_pol
+            - [x] efield
+            - [x] polarization
+            - [x] inveps
+            - [x] std_inveps
+        """
+        logging.info("Vaccum position for E-field reference: %.2f [A]" %
+                     pos_vac)
+        sigma = kwargs.get("gaussian_sigma", 0.0)
+        update_dict(self.results, {0.0: {}})
+        old_v = self.results[0.0].get("v", [])
+        if not isinstance(old_v, list):
+            old_v = old_v.tolist()
+        efield = self.results[0.0].get("efield", [])
+        if not isinstance(efield, list):
+            efield = efield.tolist()
+        hartree = self.results[0.0].get("hartree", [])
+        if not isinstance(hartree, list):
+            hartree = hartree.tolist()
+        efield_vac = self.results[0.0].get("efield_vac", [])
+        if not isinstance(efield_vac, list):
+            efield_vac = efield_vac.tolist()
+        rho = self.results[0.0].get("rho", [])
+        if not isinstance(rho, list):
+            rho = rho.tolist()
+
+        if sigma > 0:
+            update_dict(self.results, {sigma: {}})
+            old_v_conv = self.results[sigma].get("v", [])
+            rho_conv = self.results[sigma].get("rho", [])
+
+        calculate_delta_flag = False
+        for v, task in zip(self.efield_seq, self.tasks):
+            if not False in (np.abs(v - np.array(old_v)) > 1e-2):
+                calculate_delta_flag = True
+                old_v.append(v)
+                efield.append(v / (self.atoms.cell[2][2] - 10.))
+
+                dname = os.path.join(self.work_dir, task)
+                # hartree cube
+                fname = glob.glob(os.path.join(dname, "*hartree*.cube"))
+                assert len(fname) == 1
+                cube = Cp2kHartreeCube(fname[0])
+                output = cube.get_ave_cube(**kwargs)
+                hartree.append(output[1])
+                # efield in the vac
+                efield_vac.append(
+                    self._calculate_efield_zero(output[0], output[1], pos_vac))
+                # eden cube
+                try:
+                    fname = glob.glob(
+                        os.path.join(dname, "*TOTAL_DENSITY*.cube"))
+                    assert len(fname) == 1
+                    cube = Cp2kCube(fname[0])
+                except:
+                    fname = glob.glob(
+                        os.path.join(dname, "*ELECTRON_DENSITY*.cube"))
+                    assert len(fname) == 1
+                    cube = Cp2kCube(fname[0])
+                output = cube.get_ave_cube(**kwargs)
+                rho.append(-output[1])
+                if sigma > 0:
+                    old_v_conv.append(v)
+                    rho_conv.append(-output[2])
+
+        if calculate_delta_flag:
+            # update data
+            sort_ids = np.argsort(old_v)
+            self.results[0.0]["v"] = np.sort(old_v)
+            self.results[0.0]["efield"] = np.array(efield)[sort_ids]
+            self.results[0.0]["v_grid"] = output[0]
+            self.results[0.0]["hartree"] = np.array(hartree)[sort_ids]
+            self.results[0.0]["efield_vac"] = np.array(efield_vac)[sort_ids]
+            self.results[0.0]["rho"] = np.array(rho)[sort_ids]
+            # self.results[0.0]["mo"] = np.array(mo)[sort_ids]
+            self.calculate_delta(0.0)
+            if sigma > 0:
+                sort_ids = np.argsort(old_v_conv)
+                self.results[sigma]["v"] = np.sort(old_v_conv)
+                self.results[sigma]["rho"] = np.array(rho_conv)[sort_ids]
+                self.results[sigma]["efield_vac"] = np.array(
+                    efield_vac)[sort_ids]
+                self.calculate_delta(sigma)
+
+        self._save_data(save_fname)
+
+    def workflow(self):
+        # V/A to a.u. (hartree / (e bohr))
+        coeff = 1. / (
+            constants.angstrom *
+            constants.physical_constants["atomic unit of electric field"][0])
+
+        logging.info("{:=^50}".format(" Start: eps Calculation "))
+
+        logging.info("{:=^50}".format(" Start: DFT for eps calculation "))
+        for efield, task in zip(self.efield_seq, self.tasks):
+            work_dir = os.path.join(self.work_dir, task)
+            wfn_restart = self.find_wfn_restart()
+            cp2k_inp = Cp2kInput(self.atoms,
+                                 wfn_restart=wfn_restart,
+                                 hartree=True,
+                                 totden=True,
+                                 extended_fft_lengths=True,
+                                 smear=False,
+                                 mlwf=True)
+            # set OT and set field
+            fp_params = {
+                "FORCE_EVAL": {
+                    "STRESS_TENSOR": "NONE",
+                    "PRINT": {
+                        "STRESS_TENSOR": {
+                            "_": "OFF"
+                        }
+                    },
+                    "DFT": {
+                        "SCF": {
+                            "MAX_SCF": 50,
+                            "OUTER_SCF": {
+                                "EPS_SCF": 3.0E-7,
+                                "MAX_SCF": 5
+                            },
+                            "OT": {
+                                "MINIMIZER": "DIIS",
+                                "PRECONDITIONER": "FULL_SINGLE_INVERSE",
+                                "ENERGY_GAP": 0.1
+                            }
+                        },
+                        "PRINT": {
+                            "MOMENTS": {
+                                "PERIODIC": ".TRUE."
+                            }
+                        },
+                        "PERIODIC_EFIELD": {
+                            "INTENSITY": "%.4e" % (efield * coeff)
+                        }
+                    }
+                }
+            }
+            cp2k_inp.write(output_dir=work_dir, fp_params=fp_params)
+            Cp2kCalculator(work_dir).run()
+        logging.info("{:=^50}".format(" End: DFT for eps calculation "))
+
+        # eps_cal: calculate eps
+        logging.info("{:=^50}".format(" Start: analyse eps calculation "))
+        self.calculate()
+        logging.info("{:=^50}".format(" End: analyse eps calculation "))
+
+        self.make_plots()
+        logging.info("{:=^50}".format(" End: eps Calculation "))
+
+    def set_efield_seq(self, efield_seq: list or np.ndarray = None):
+        self.efield_seq = efield_seq
+        self.tasks = []
+        if efield_seq is not None:
+            for ii, efield in enumerate(efield_seq):
+                self.tasks.append("%02d.%.4f_VA^-1" % (ii, efield))
+
+    def find_wfn_restart(self):
+        wfn_fnames = glob.glob(
+            os.path.join(self.work_dir, "*/cp2k-RESTART.wfn"))
+        wfn_fnames.sort()
+        if len(wfn_fnames) > 0:
+            return wfn_fnames[-1]
+        else:
+            return None
