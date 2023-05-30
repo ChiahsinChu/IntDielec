@@ -24,12 +24,17 @@ class InverseDielectricConstant(AnalysisBase):
         temperature=330,
         img_plane=0.,
         make_whole=False,
+        dimensions=None,
         verbose=False,
     ) -> None:
         self.universe = atomgroups.universe
         super().__init__(self.universe.trajectory, verbose)
 
-        l_box = self.universe.trajectory.dimensions[axis]
+        try:
+            l_box = self.universe.trajectory.dimensions[axis]
+        except:
+            l_box = dimensions[axis]
+
         self.nbins = int(l_box / bin_width)
         self.bin_edges = np.linspace(0, l_box, self.nbins + 1)
         self.bin_width = self.bin_edges[1] - self.bin_edges[0]
