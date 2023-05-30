@@ -226,6 +226,8 @@ class DPInverseDielectricConstant(InverseDielectricConstant):
         coord = self._ts.positions
 
         charges = np.ones(len(self.atoms))
+        print(coord.shape, charges.shape)
+
         # O
         charges[self.atype == 0] = 6
         n_rho, bin_edges = np.histogram(coord[:, self.axis],
