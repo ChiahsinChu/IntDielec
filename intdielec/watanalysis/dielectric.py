@@ -214,7 +214,7 @@ class DPInverseDielectricConstant(InverseDielectricConstant):
                  **kwargs) -> None:
         super().__init__(atomgroups, bin_width, surf_ids, **kwargs)
         self.model = DeepDipole(model)
-        atype = self.universe.atoms.types
+        atype = atomgroups.types
         self.atype = np.ones(len(atomgroups), dtype=np.int32)
         self.atype[atype == "O"] = 0
         self.atype[atype == "H"] = 1
