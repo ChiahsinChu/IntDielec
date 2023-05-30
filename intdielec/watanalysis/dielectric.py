@@ -234,7 +234,7 @@ class DPInverseDielectricConstant(InverseDielectricConstant):
 
         wannier = self._dp_eval(coord.reshape(1, -1))
         e_coord = coord[self.atype == 0] + wannier
-        e_charges = np.full((len(wannier)), -2)
+        e_charges = np.full((len(wannier)), -8)
         e_rho, bin_edges = np.histogram(e_coord[:, self.axis],
                                         bins=self.bin_edges,
                                         weights=e_charges)
