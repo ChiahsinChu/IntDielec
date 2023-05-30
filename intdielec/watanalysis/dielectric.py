@@ -223,10 +223,10 @@ class DPInverseDielectricConstant(InverseDielectricConstant):
         """
         rho: charge density [e/A^3]
         """
-        coord = self._ts.positions
+        coord = self.atoms.positions
 
         charges = np.ones(len(self.atoms))
-        print(coord.shape, charges.shape)
+        # print(coord.shape, charges.shape)
 
         # O
         charges[self.atype == 0] = 6
