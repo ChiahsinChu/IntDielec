@@ -133,7 +133,7 @@ class InverseDielectricConstant(AnalysisBase):
         """
         rho: charge density [e/A^3]
         """
-        rho, bin_edges = np.histogram(self._ts.positions[:, self.axis],
+        rho, bin_edges = np.histogram(self.atoms.positions[:, self.axis],
                                       bins=self.bin_edges,
                                       weights=self.atoms.charges)
         return rho
@@ -193,7 +193,7 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
                 self.const + M_fluct / self.results.volume)
 
     def _calc_rho(self):
-        z = self._ts.positions[:, self.axis]
+        z = self.atoms.positions[:, self.axis]
         # scale charges of chemisorbed water
         atype_mask = (self.universe.atoms.types == "O")
         z_mask = ((z <= (self._ts_z_lo + self.cutoff)) |
