@@ -1,11 +1,9 @@
-import os
-
-import numpy as np
 from ase import geometry
 from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.exceptions import NoDataError
 from scipy import constants, integrate
 
+from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.utils import save_dict
 
 try:

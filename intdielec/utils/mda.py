@@ -1,5 +1,5 @@
-import numpy as np
 import MDAnalysis as mda
+import numpy as np
 from MDAnalysis.transformations import translate, wrap
 
 
@@ -154,9 +154,9 @@ def center(universe, elem_type, cell=None):
 """
 Functions for postprocessing of PartialHBAnalysis results
 """
-import numpy as np
 import os
 
+import numpy as np
 from WatAnalysis.utils import get_cum_ave
 
 
@@ -185,7 +185,8 @@ def lifetime(hbonds_result,
     """
     Adapted from MDA
     """
-    from MDAnalysis.lib.correlations import autocorrelation, correct_intermittency
+    from MDAnalysis.lib.correlations import (autocorrelation,
+                                             correct_intermittency)
 
     frames = np.arange(start, stop, step)
     found_hydrogen_bonds = [set() for _ in frames]
