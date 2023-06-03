@@ -1,3 +1,7 @@
+"""
+Ref:
+- https://docs.mdanalysis.org/2.3.0/documentation_pages/analysis/waterdynamics.html
+"""
 from collections import deque
 
 from MDAnalysis.analysis.base import AnalysisBase
@@ -8,6 +12,7 @@ from ..exts.toolbox.toolbox.utils.math import handle_zero_division
 
 
 class SelectedACF(AnalysisBase):
+
     def __init__(self, atomgroup: AtomGroup, dts=None, verbose=True, **kwargs):
         self.universe = atomgroup.universe
         super().__init__(self.universe.trajectory, verbose=verbose, **kwargs)
@@ -67,9 +72,6 @@ class SelectedACF(AnalysisBase):
         pass
 
     def _update_output(self, ii, mask):
-        # self.count[ii] += np.count_nonzero(output_mask)
-        # -1 & -1-dt
-        # self.acf[ii] += self._calc_acf(dt, output_mask)
         pass
 
     def _calc_refs(self):
@@ -80,6 +82,7 @@ class SelectedACF(AnalysisBase):
 
 
 class SelectedDipoleACF(SelectedACF):
+
     def __init__(self,
                  atomgroup: AtomGroup,
                  dts=None,
@@ -111,11 +114,12 @@ class SelectedDipoleACF(SelectedACF):
         if self.refs is not None:
             refs = self._calc_refs()
             ts_positions = self.ag.positions[::3, self.axis]
-            ds = np.tile(ts_positions, (len(refs), 1))
-            # n_ref * n_sample
-            _mask = (np.abs(ds - np.reshape(refs, (-1, 1))) <= self.cutoff)
-            # n_sample
-            ts_mask = np.sum(_mask, axis=0)
+            ts_mask = np.full(self.n_sample, False)
+            for ref in refs:
+                # n_ref * n_sample
+                _mask = (np.abs(ts_positions - ref) <= self.cutoff)
+                # n_sample
+                ts_mask += _mask
             return ts_mask
         else:
             return np.full(self.n_sample, True)
@@ -143,6 +147,7 @@ class SelectedDipoleACF(SelectedACF):
 
 
 class SelectedMSD(SelectedACF):
+
     def __init__(self,
                  atomgroup: AtomGroup,
                  dts=None,
