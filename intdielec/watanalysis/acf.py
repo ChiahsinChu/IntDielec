@@ -6,12 +6,9 @@ from MDAnalysis.core import AtomGroup
 from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.math import handle_zero_division
 
+
 class SelectedACF(AnalysisBase):
-    def __init__(self, 
-                 atomgroup:AtomGroup, 
-                 dts=None,
-                 verbose=True,  
-                 **kwargs):
+    def __init__(self, atomgroup: AtomGroup, dts=None, verbose=True, **kwargs):
         self.universe = atomgroup.universe
         super().__init__(self.universe.trajectory, verbose=verbose, **kwargs)
         self.ag = atomgroup
@@ -23,7 +20,7 @@ class SelectedACF(AnalysisBase):
     def _prepare(self):
         # save raw data
         self.raw_data = []
-        maxlen = int(self.dts[-1]+1)
+        maxlen = int(self.dts[-1] + 1)
         for ii in range(self.n_sample):
             self.raw_data.append(deque(maxlen=maxlen))
 
@@ -39,15 +36,15 @@ class SelectedACF(AnalysisBase):
         # update self.raw_data
         for queue, data in zip(self.raw_data, ts_data):
             queue.append(data)
-        
+
         # make mask for the *selected* sample in the current frame
         ts_mask = self._calc_ts_mask()
         sel_ids = np.nonzero(ts_mask)[0]
-        rest_ids = np.nonzero(~ts_mask)[0] 
+        rest_ids = np.nonzero(~ts_mask)[0]
         for ii in range(self.n_dt):
             _score = self.score[ii]
             dt = self.dts[ii]
-            
+
             # update score for every dt
             _score[sel_ids] += 1
             _score[rest_ids] = -dt
@@ -59,10 +56,10 @@ class SelectedACF(AnalysisBase):
 
     def _conclude(self):
         self.acf = handle_zero_division(self.acf, self.count)
-    
+
     def save(self, fname="acf.txt"):
         np.savetxt(fname, np.transpose([self.dts, self.acf]), header="dt acf")
-        
+
     def _calc_ts_data(self):
         pass
 
@@ -81,17 +78,20 @@ class SelectedACF(AnalysisBase):
             refs.append(ref_ag.centroid()[self.axis])
         return refs
 
+
 class SelectedDipoleACF(SelectedACF):
-    def __init__(self, 
-                 atomgroup: AtomGroup, 
-                 dts=None, 
+    def __init__(self,
+                 atomgroup: AtomGroup,
+                 dts=None,
                  refs=None,
-                 cutoff=None, 
-                 axis=2, **kwargs):
-        super().__init__(atomgroup, dts, **kwargs)
+                 cutoff=None,
+                 axis=2,
+                 verbose=True,
+                 **kwargs):
+        super().__init__(atomgroup, dts, verbose, **kwargs)
         # update n_sample
         self.n_sample = int(len(self.ag) / 3)
-        
+
         self.refs = refs
         self.cutoff = cutoff
         self.axis = axis
@@ -104,7 +104,7 @@ class SelectedDipoleACF(SelectedACF):
         ts_p_O = ts_positions[::3]
         ts_p_H1 = ts_positions[1::3]
         ts_p_H2 = ts_positions[2::3]
-        dipole = ts_p_H1 + ts_p_H2 - 2 * ts_p_O 
+        dipole = ts_p_H1 + ts_p_H2 - 2 * ts_p_O
         return dipole.reshape(self.n_sample, 3)
 
     def _calc_ts_mask(self):
@@ -127,21 +127,32 @@ class SelectedDipoleACF(SelectedACF):
         try:
             for jj in np.nonzero(mask)[0]:
                 single_raw_data = self.raw_data[jj]
-                acf += np.inner(single_raw_data[-1], single_raw_data[-1-dt])
+                acf += self.lg2(
+                    np.dot(single_raw_data[-1], single_raw_data[-1 - dt]))
             self.count[ii] += np.count_nonzero(mask)
             self.acf[ii] += acf
         except:
             pass
 
+    @staticmethod
+    def lg2(x):
+        """
+        Second Legendre polynomial
+        """
+        return (3 * x * x - 1) / 2
+
+
 class SelectedMSD(SelectedACF):
-    def __init__(self, 
-                 atomgroup: AtomGroup, 
-                 dts=None, 
+    def __init__(self,
+                 atomgroup: AtomGroup,
+                 dts=None,
                  refs=None,
-                 cutoff=None, 
-                 axis=2, **kwargs):
-        super().__init__(atomgroup, dts, **kwargs)
-        
+                 cutoff=None,
+                 axis=2,
+                 verbose=True,
+                 **kwargs):
+        super().__init__(atomgroup, dts, verbose, **kwargs)
+
         self.refs = refs
         self.cutoff = cutoff
         self.axis = axis
@@ -174,12 +185,12 @@ class SelectedMSD(SelectedACF):
         try:
             for jj in np.nonzero(mask)[0]:
                 single_raw_data = self.raw_data[jj]
-                acf += np.square(single_raw_data[-1] - single_raw_data[-1-dt])
+                acf += np.square(single_raw_data[-1] -
+                                 single_raw_data[-1 - dt])
             self.count[ii] += np.count_nonzero(mask)
             self.acf[ii] += acf
         except:
             pass
-        
+
     def save(self, fname="msd.txt"):
         np.savetxt(fname, np.transpose([self.dts, self.acf]), header="dt msd")
-        
