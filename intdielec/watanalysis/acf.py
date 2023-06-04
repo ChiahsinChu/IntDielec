@@ -107,7 +107,7 @@ class SelectedDipoleACF(SelectedACF):
         ts_p_H2 = ts_positions[2::3]
         dipole = ts_p_H1 + ts_p_H2 - 2 * ts_p_O
         dipole = np.reshape(dipole, (self.n_sample, 3))
-        dipole = dipole / np.linalg.norm(dipole, axis=-1)
+        dipole = dipole / np.linalg.norm(dipole, axis=-1, keepdims=True)
         return dipole
 
     def _calc_ts_mask(self):
