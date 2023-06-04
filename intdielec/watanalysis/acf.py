@@ -12,7 +12,6 @@ from ..exts.toolbox.toolbox.utils.math import handle_zero_division
 
 
 class SelectedACF(AnalysisBase):
-
     def __init__(self, atomgroup: AtomGroup, dts=None, verbose=True, **kwargs):
         self.universe = atomgroup.universe
         super().__init__(self.universe.trajectory, verbose=verbose, **kwargs)
@@ -82,7 +81,6 @@ class SelectedACF(AnalysisBase):
 
 
 class SelectedDipoleACF(SelectedACF):
-
     def __init__(self,
                  atomgroup: AtomGroup,
                  dts=None,
@@ -108,7 +106,9 @@ class SelectedDipoleACF(SelectedACF):
         ts_p_H1 = ts_positions[1::3]
         ts_p_H2 = ts_positions[2::3]
         dipole = ts_p_H1 + ts_p_H2 - 2 * ts_p_O
-        return dipole.reshape(self.n_sample, 3)
+        dipole = np.reshape(dipole, (self.n_sample, 3))
+        dipole = dipole / np.linalg.norm(dipole, axis=-1)
+        return dipole
 
     def _calc_ts_mask(self):
         if self.refs is not None:
@@ -147,7 +147,6 @@ class SelectedDipoleACF(SelectedACF):
 
 
 class SelectedMSD(SelectedACF):
-
     def __init__(self,
                  atomgroup: AtomGroup,
                  dts=None,
