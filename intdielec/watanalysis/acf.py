@@ -11,7 +11,7 @@ from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.math import handle_zero_division
 
 
-class SelectedACF(AnalysisBase):
+class SelectedTimeSeries(AnalysisBase):
     def __init__(self, atomgroup: AtomGroup, dts=None, verbose=True, **kwargs):
         self.universe = atomgroup.universe
         super().__init__(self.universe.trajectory, verbose=verbose, **kwargs)
@@ -80,7 +80,7 @@ class SelectedACF(AnalysisBase):
         return refs
 
 
-class SelectedDipoleACF(SelectedACF):
+class SelectedDipoleACF(SelectedTimeSeries):
     def __init__(self,
                  atomgroup: AtomGroup,
                  dts=None,
@@ -146,7 +146,7 @@ class SelectedDipoleACF(SelectedACF):
         return (3 * x * x - 1) / 2
 
 
-class SelectedMSD(SelectedACF):
+class SelectedMSD(SelectedTimeSeries):
     def __init__(self,
                  atomgroup: AtomGroup,
                  dts=None,
