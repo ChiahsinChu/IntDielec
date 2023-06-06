@@ -195,7 +195,7 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
     def _calc_rho(self):
         z = self.atoms.positions[:, self.axis]
         # scale charges of chemisorbed water
-        atype_mask = (self.universe.atoms.types == "O")
+        atype_mask = (self.atoms.types == "O")
         z_mask = ((z <= (self._ts_z_lo + self.cutoff)) |
                   (z >= (self._ts_z_hi - self.cutoff)))
         sel_O_ids = np.nonzero(atype_mask * z_mask)[0]
