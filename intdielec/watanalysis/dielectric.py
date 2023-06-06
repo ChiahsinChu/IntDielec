@@ -23,7 +23,7 @@ class InverseDielectricConstant(AnalysisBase):
         img_plane=0.,
         make_whole=False,
         dimensions=None,
-        verbose=False,
+        verbose=True,
     ) -> None:
         self.universe = atomgroups.universe
         super().__init__(self.universe.trajectory, verbose)
@@ -144,11 +144,13 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
                  surf_ids,
                  cutoff=2.7,
                  sfactor=2,
+                 perturbation=0,
                  calc_unscaled=False,
                  **kwargs) -> None:
         super().__init__(atomgroups, bin_width, surf_ids, **kwargs)
         self.cutoff = cutoff
         self.sfactor = sfactor
+        self.perturbation = perturbation
         self.calc_unscaled = calc_unscaled
 
     def _prepare(self):
@@ -201,6 +203,12 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
             np.concatenate([sel_O_ids, sel_O_ids + 1, sel_O_ids + 2]))
         charges = self.atoms.charges.copy()
         charges[sel_ids] *= self.sfactor
+        # add pert in charge and keep electroneutrality
+        perturbation = np.random.uniform(low=-self.perturbation,
+                                         high=self.perturbation,
+                                         size=len(sel_ids))
+        perturbation -= perturbation.mean()
+        charges[sel_ids] += perturbation
 
         # charge density [e/A^3]
         rho, bin_edges = np.histogram(z, bins=bin_edges, weights=charges)
