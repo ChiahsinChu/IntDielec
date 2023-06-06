@@ -211,7 +211,7 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
         charges[sel_ids] += perturbation
 
         # charge density [e/A^3]
-        rho, bin_edges = np.histogram(z, bins=bin_edges, weights=charges)
+        rho, bin_edges = np.histogram(z, bins=self.bin_edges, weights=charges)
         return rho
 
 
