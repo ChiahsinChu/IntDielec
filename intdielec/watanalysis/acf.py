@@ -9,6 +9,7 @@ from MDAnalysis.core import AtomGroup
 
 from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.math import handle_zero_division
+from ..exts.toolbox.toolbox.utils.utils import save_dict
 
 
 class SelectedTimeSeries(AnalysisBase):
@@ -162,9 +163,6 @@ class SelectedMSD(SelectedTimeSeries):
         self.axis = axis
 
     def _calc_ts_data(self):
-        """
-        only for unwrapped, OHH 
-        """
         ts_positions = self.ag.positions[:, self.axis]
         return ts_positions
 
@@ -198,3 +196,48 @@ class SelectedMSD(SelectedTimeSeries):
 
     def save(self, fname="msd.txt"):
         np.savetxt(fname, np.transpose([self.dts, self.acf]), header="dt msd")
+
+
+class ExchangeFreq(SelectedTimeSeries):
+    def __init__(self,
+                 atomgroup: AtomGroup,
+                 dt=None,
+                 refs=None,
+                 cutoff=None,
+                 axis=2,
+                 verbose=True,
+                 **kwargs):
+        super().__init__(atomgroup, np.reshape(dt, (1)), verbose, **kwargs)
+        self.refs = refs
+        self.cutoff = cutoff
+        self.axis = axis
+
+    def _calc_ts_data(self):
+        ts_positions = self.ag.positions[:, self.axis]
+        ts_data = np.ones(self.n_sample)
+        if self.refs is not None:
+            refs = self._calc_refs()
+            for ref in refs:
+                # chemisorbed water
+                _mask = (np.abs(ts_positions - ref) <= self.cutoff)
+                ts_data[np.nonzero(_mask)[0]] = -1
+        return ts_data
+
+    def _calc_ts_mask(self):
+        return np.full(self.n_sample, True)
+
+    def _update_output(self, ii, mask):
+        # -1 & -1-dt
+        dt = self.dts[ii]
+        try:
+            for single_raw_data in self.raw_data:
+                label = single_raw_data[-1] * single_raw_data[-1 - dt]
+                if label < 0:
+                    self.acf[ii] += 1
+            self.count[ii] += 1
+        except:
+            pass
+
+    def save(self, fname="ex_freq.json"):
+        result = {"dt": self.dts[0], "ex_freq [frame^-1]": self.acf}
+        save_dict(result, fname)
