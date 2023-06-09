@@ -120,7 +120,7 @@ class OrientEps(Eps):
 
         ax_right = ax.twinx()
         color = "red"
-        ax_right.plot(x, ave_eps, xlim=xlim, color=color)
+        ax_right.plot(x, ave_eps, color=color)
         ax_right.set_ylim(bottom=0.)
         ax_right.tick_params(axis="y", labelcolor=color)
         ax_right.axhline(y=1., color=color, ls="--", alpha=0.5)
