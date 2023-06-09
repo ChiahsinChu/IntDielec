@@ -1,10 +1,12 @@
 import MDAnalysis as mda
 from ase import Atoms
+from MDAnalysis import transformations as trans
 
+from ..exts.toolbox.toolbox import plot
+from ..exts.toolbox.toolbox.plot.figure import FullCellFigure, HalfCellFigure
 from ..exts.toolbox.toolbox.utils.math import *
 from ..exts.toolbox.toolbox.utils.unit import *
-from ..exts.toolbox.toolbox.utils.utils import safe_makedirs
-from ..exts.toolbox.toolbox import plot
+from ..exts.toolbox.toolbox.utils.utils import safe_makedirs, load_dict
 from ..utils import *
 from ..watanalysis.dielectric import InverseDielectricConstant
 from . import Eps
@@ -18,6 +20,7 @@ class OrientEps(Eps):
                  topo: str = None,
                  coord: str = None,
                  data_fmt: str = "pkl",
+                 dimensions=None, 
                  **kwargs) -> None:
         super().__init__(work_dir, data_fmt)
 
@@ -42,6 +45,9 @@ class OrientEps(Eps):
             kwargs.update({"atom_style": self._get_atom_style()})
 
         self.universe = mda.Universe(self.topo, self.coord, **kwargs)
+        if dimensions is not None:
+            transform = trans.boxdimensions.set_dimensions(dimensions)
+            self.universe.trajectory.add_transformations(transform)
         self.water = self.universe.select_atoms("name O or name H")
 
     def run(self,
@@ -59,33 +65,30 @@ class OrientEps(Eps):
         self._save_data()
         self.make_plots()
 
-    def make_plots(self):
-        fig, axs = plt.subplots(nrows=2, ncols=1, figsize=[5, 6], dpi=300)
-        x = self.results["bins"]
+    def make_plots(self, half=False):
+        if not hasattr(self, "results"):
+            self.results = load_dict(self.work_dir, "eps_data.%s" % self.data_fmt)
 
-        # local polarization distribution
-        ax = axs[0]
-        xlabel = " "
-        ylabel = r"local polarization [eA$^{-2}$]"
-        ax.axhline(y=0., color="gray")
-        ax.plot(x, self.results["m"])
-        ax.set_xlim(np.min(x), np.max(x))
-        plot.ax_setlabel(ax, xlabel, ylabel)
+        work_dir = os.path.join(self.work_dir, "figures")
+        safe_makedirs(work_dir)
 
         # inveps
-        ax = axs[1]
-        xlabel = r"z - z$_{surf}$ [A]"
-        ylabel = r"$\varepsilon_{ori}^{-1}$"
-        ax.axhline(y=0., color="gray")
-        ax.axhline(y=1., color="gray", ls="--")
-        ax.plot(x, self.results["inveps"])
-        ax.set_xlim(np.min(x), np.max(x))
-        plot.ax_setlabel(ax, xlabel, ylabel)
+        figure = FullCellFigure()
+        figure.setup(self.results["bins"], 
+                     self.results["inveps"], 
+                     z_surfs=(self.results["z_lo"], self.results["z_hi"]), 
+                     color="blue")
+        figure.set_labels("orient_inveps")
+        figure.fig.savefig(os.path.join(work_dir, "orient_inveps.png"))
 
-        fig.subplots_adjust(hspace=0.)
-        fig.savefig(os.path.join(self.work_dir, "ori_eps_cal.png"),
-                    bbox_inches='tight',
-                    transparent=True)
+        # local polarization distribution
+        figure = FullCellFigure()
+        figure.setup(self.results["bins"], 
+                     self.results["m"], 
+                     z_surfs=(self.results["z_lo"], self.results["z_hi"]), 
+                     color="blue")
+        figure.set_labels("polarization")
+        figure.fig.savefig(os.path.join(work_dir, "polarization.png"))
 
     def _get_atom_style(self):
         # atom_style="id resid type charge x y z"
@@ -111,3 +114,4 @@ class OrientEps(Eps):
                       pbc=True)
         atoms.set_cell(self.universe._trajectory.ts.dimensions)
         return atoms
+
