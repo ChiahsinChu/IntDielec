@@ -312,11 +312,11 @@ class NewAdInverseDielectricConstant(InverseDielectricConstant):
         charges = self.atoms.charges.copy()
         # lower surface
         z_mask = (z <= (self._ts_z_lo + self.cutoff))
-        n_wat = np.nonzero(atype_mask * z_mask)
+        n_wat = np.count_nonzero(atype_mask * z_mask)
         charges = np.append(charges, [-self.mu_ad * n_wat, self.mu_ad * n_wat])
         # upper surface
         z_mask = (z >= (self._ts_z_hi - self.cutoff))
-        n_wat = np.nonzero(atype_mask * z_mask)
+        n_wat = np.count_nonzero(atype_mask * z_mask)
         charges = np.append(charges, [-self.mu_ad * n_wat, self.mu_ad * n_wat])
         z = np.append(z, [
             self._ts_z_lo + 1, self._ts_z_lo + 2, self._ts_z_hi - 1,
