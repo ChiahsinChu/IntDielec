@@ -149,7 +149,7 @@ class OrientEps(Eps):
         ax_right.plot(x, c_d, color=color)
         ax_right.set_ylim(0., np.min([c_d.max(), 20]))
         ax_right.tick_params(axis="y", labelcolor=color)
-        ax_right.axhline(y=1., color=color, ls="--", alpha=0.5)
+        ax_right.axhline(y=20., color=color, ls="--", alpha=0.5)
         ax_right.axvline(x=6., color=color, ls="--", alpha=0.5)
         ax_right.set_ylabel(r"${\rm C_d}$ [$\mu F/cm^2$]", color=color)
 
