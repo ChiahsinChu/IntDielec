@@ -50,12 +50,12 @@ class OrientEps(Eps):
             self.universe.trajectory.add_transformations(transform)
         self.water = self.universe.select_atoms("name O or name H")
 
-    def run(self,
-            start=0,
-            stop=None,
-            step=1,
-            IDC=InverseDielectricConstant,
-            **kwargs):
+    def workflow(self,
+                 start=0,
+                 stop=None,
+                 step=1,
+                 IDC=InverseDielectricConstant,
+                 **kwargs):
         if stop is None:
             stop = self.universe._trajectory.n_frames
 
