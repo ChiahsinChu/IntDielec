@@ -1,18 +1,17 @@
 import logging
 import os
 
-from ..exts.toolbox.toolbox.utils.utils import load_dict, save_dict
+from ..exts.toolbox.toolbox.utils.utils import load_dict, save_dict, safe_makedirs
 
 
 class Eps:
-
     def __init__(
         self,
         work_dir: str = None,
         data_fmt: str = "pkl",
     ) -> None:
         self.work_dir = work_dir
-
+        safe_makedirs(work_dir)
         self.data_fmt = data_fmt
         self._load_data()
 
