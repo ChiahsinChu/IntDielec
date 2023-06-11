@@ -6,11 +6,6 @@ from scipy import constants, integrate
 from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.utils import save_dict
 
-try:
-    from deepmd.infer import DeepDipole
-except:
-    pass
-
 
 class InverseDielectricConstant(AnalysisBase):
     def __init__(
@@ -218,6 +213,8 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
 class DPInverseDielectricConstant(InverseDielectricConstant):
     def __init__(self, atomgroups, bin_width, surf_ids, model,
                  **kwargs) -> None:
+        from deepmd.infer import DeepDipole
+
         super().__init__(atomgroups, bin_width, surf_ids, **kwargs)
         self.model = DeepDipole(model)
         atype = atomgroups.types
