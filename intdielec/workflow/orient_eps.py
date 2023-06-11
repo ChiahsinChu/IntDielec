@@ -145,7 +145,7 @@ class OrientEps(Eps):
 
         ax_right = ax.twinx()
         color = "red"
-        c_d = ave_eps / x * const
+        c_d = handle_zero_division(ave_eps * const, x, threshold=0.1)
         ax_right.plot(x, c_d, color=color)
         ax_right.set_ylim(0., np.min([c_d.max(), 20]))
         ax_right.tick_params(axis="y", labelcolor=color)
