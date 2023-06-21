@@ -16,9 +16,10 @@ from ..exts.toolbox.toolbox.io.cp2k import (Cp2kCube, Cp2kHartreeCube,
 from ..exts.toolbox.toolbox.io.template import cp2k_default_input
 from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.math import *
+from ..exts.toolbox.toolbox.utils.optimizer import Optimizer
 from ..exts.toolbox.toolbox.utils.unit import *
-from ..exts.toolbox.toolbox.utils.utils import (load_dict, save_dict,
-                                                update_dict, safe_makedirs)
+from ..exts.toolbox.toolbox.utils.utils import (load_dict, safe_makedirs,
+                                                save_dict, update_dict)
 from ..utils.config import check_water
 from . import Eps
 
@@ -1094,15 +1095,6 @@ class IterElecEps(ElecEps):
     def _guess(self):
         logging.info("V_guess [V]: %f" % self.v_guess)
 
-        # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
-        # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
-        # ref_id = np.argmin(np.abs(test_data[0] - self.l_wat_pdos))
-        # self.convergence = test_data[-1][:ref_id].mean()
-        # if self.suffix == "lo":
-        #     self.convergence -= ref_data[-1][:ref_id].mean()
-        # else:
-        #     self.convergence -= ref_data[-1][-ref_id:].mean()
-
         cube = Cp2kHartreeCube(
             os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
         _test_hartree = cube.get_ave_cube()
@@ -1137,95 +1129,16 @@ class IterElecEps(ElecEps):
         guess_method = self.wf_configs.get("guess_method", "ols_cut")
         guess_setup = self.wf_configs.get("guess_setup", {})
         self.guess_slope = guess_setup.pop("slope", SLOPE)
-        self.v_guess = getattr(self, "_guess_%s" % guess_method)(**guess_setup)
+
+        if len(self.search_history) < 2:
+            self.v_guess = self.convergence * self.guess_slope
+        else:
+            opt = Optimizer(guess_method)
+            self.v_guess = opt.run(x=self.search_history[:, 0], 
+                                   y=self.search_history[:, 1], 
+                                   **guess_setup)
+            
         return self.v_guess
-
-    def _guess_simple(self):
-        # z = self.atoms.get_positions()[:, 2]
-        # mask_coord = (z >= (self.info["z_ave"] + self.l_wat_pdos))
-        # mask = self.info["O_mask"] * mask_coord
-        # sel_water_ids = np.arange(len(self.atoms))[mask] // 3
-        # n_e = 0.
-        # for ii in sel_water_ids:
-        #     fname = os.path.join(self.work_subdir,
-        #                          "cp2k-list%d-1.pdos" % (ii + 1))
-        #     pdos = Cp2kPdos(fname)
-        #     e = pdos.energies - pdos.fermi
-        #     mask = ((e - 0.1) * (e + 0.1) < 0.)
-        #     raw_dos = pdos._get_raw_dos("total")
-        #     occupation = pdos.occupation
-        #     n_e += (raw_dos[mask] * (2.0 - occupation[mask])).sum()
-        # logging.debug("number of electron at wat/vac interface: %f" % n_e)
-
-        # cross_area = np.linalg.norm(
-        #     np.cross(self.atoms.cell[0], self.atoms.cell[1]))
-        # logging.debug("cross area: %f" % cross_area)
-        # v_guess = 2 * self.l_vac * (n_e / cross_area / EPSILON)
-        # logging.debug("V_guess (1): %f" % v_guess)
-
-        # dielectrics
-        # # slope = (EPS_WAT * self.l_vac * 2 + self.l_qm_wat) / (EPS_WAT * self.l_vac + self.l_wat_pdos)
-        # # emprical values
-        # slope = 0.5
-        # ref_data = np.load(os.path.join(self.work_dir, "pbc/data.npy"))
-        # test_data = np.load(os.path.join(self.work_subdir, "data.npy"))
-        # ref_id = np.argmin(np.abs(test_data[0] - self.l_wat_pdos))
-        # logging.debug("ref_id: %d" % ref_id)
-        # test_homo = test_data[-1][(ref_id - 4):(ref_id + 1)].mean()
-        # if self.suffix == "lo":
-        #     ref_homo = ref_data[-1][(ref_id - 4):(ref_id + 1)].mean()
-        # else:
-        #     ref_homo = ref_data[-1][-(ref_id - 1):-(ref_id - 6)].mean()
-        # delta_v = test_homo - ref_homo
-        # v_guess += delta_v * slope
-        v_guess = self.convergence * self.guess_slope
-        # efield = get_efields(1.0, l=[self.l_vac, L_INT, self.l_qm_wat-L_INT, self.l_vac], eps=[EPS_VAC,EPS_INT, EPS_WAT,  EPS_VAC]):
-        # logging.debug("V_guess (2): %f" % v_guess)
-        return v_guess
-
-    def _guess_ols(self):
-        if len(self.search_history) < 2:
-            return self._guess_simple()
-        else:
-            result = stats.linregress(x=self.search_history[:, 0],
-                                      y=self.search_history[:, 1])
-            v_guess = -result.intercept / result.slope
-        return v_guess
-
-    def _guess_ols_cut(self, nstep=4):
-        if len(self.search_history) < 2:
-            return self._guess_simple()
-        else:
-            l_cut = min(len(self.search_history), nstep)
-            result = stats.linregress(x=self.search_history[-l_cut:, 0],
-                                      y=self.search_history[-l_cut:, 1])
-            v_guess = -result.intercept / result.slope
-        return v_guess
-
-    def _guess_wls(self):
-        if len(self.search_history) < 2:
-            return self._guess_simple()
-        else:
-            #fit linear regression model
-            X = self.search_history[:, 0]
-            y = self.search_history[:, 1]
-            X = sm.add_constant(x)
-            wt = np.exp(-np.array(y)**2 / 0.1)
-            fit_wls = sm.WLS(y, X, weights=wt).fit()
-            return -fit_wls.params[0] / fit_wls.params[1]
-
-    def _guess_wls_cut(self, nstep=4):
-        if len(self.search_history) < 2:
-            return self._guess_simple()
-        else:
-            l_cut = min(len(self.search_history), nstep)
-            X = self.search_history[-l_cut:, 0]
-            y = self.search_history[-l_cut:, 1]
-            X = sm.add_constant(x)
-            wt = np.exp(-np.array(y)**2 / 0.1)
-            fit_wls = sm.WLS(y, X, weights=wt).fit()
-            return -fit_wls.params[0] / fit_wls.params[1]
-
 
 class QMMMIterElecEps(IterElecEps):
     """
