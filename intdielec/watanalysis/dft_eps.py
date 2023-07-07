@@ -120,7 +120,7 @@ class DFTInvEps:
     def read_data_cube(self, fname):
         cube = Cp2kCube(fname)
         output = cube.get_ave_cube(**self.kwargs)
-        np.save(os.path.join(os.path.basename(fname), "totden.npy"), [output[0], output[1]])
+        np.save(os.path.join(os.path.dirname(fname), "totden.npy"), [output[0], output[1]])
         return [output[0], output[1]]
     
     def read_data_npy(self, fname):
