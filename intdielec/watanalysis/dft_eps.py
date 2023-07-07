@@ -4,7 +4,7 @@ from scipy import integrate
 from ..exts.toolbox.toolbox.io.cp2k import Cp2kCube
 from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.unit import *
-from ..exts.toolbox.toolbox.utils.utils import save_dict
+from ..exts.toolbox.toolbox.utils.utils import save_dict, load_dict
 
 
 class WaterMLWF:
