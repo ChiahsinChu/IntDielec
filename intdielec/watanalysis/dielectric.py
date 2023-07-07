@@ -328,7 +328,6 @@ class NewAdInverseDielectricConstant(InverseDielectricConstant):
         return rho
 
 
-
 class DPDielectricConstant(DielectricConstant):
     def __init__(self, atomgroup, temperature=330, make_whole=False, model="graph.pb",  **kwargs):
         super().__init__(atomgroup, temperature, make_whole, **kwargs)
@@ -360,6 +359,7 @@ class DPDielectricConstant(DielectricConstant):
         cell = geometry.cell.cellpar_to_cell(self._ts.dimensions)
         dipole = self.model.eval(coord, cell.reshape(1, 9), self.atype)
         return dipole.reshape(-1, 3)
+
 
 class DeprecatedInverseDielectricConstant(AnalysisBase):
     def __init__(

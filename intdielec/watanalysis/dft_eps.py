@@ -1,4 +1,5 @@
 from tqdm import trange
+from scipy import integrate
 
 from ..exts.toolbox.toolbox.io.cp2k import Cp2kCube
 from ..exts.toolbox.toolbox.utils import *
@@ -48,13 +49,17 @@ class WaterMLWF:
     
 
 class DFTInvEps:
-    def __init__(self, fnames, **kwargs) -> None:
+    def __init__(self, atoms, fnames, **kwargs) -> None:
         self.fnames = fnames
         self.fmt = os.path.splitext(fnames[0])[1][1:]
         self.kwargs = kwargs
+        
+        self.axis = kwargs.get("axis", 2)
+        self.volume = atoms.get_volume()
+        self.cross_area = self.volume / atoms.get_cell()[self.axis, self.axis]
 
         output = self.read_data(fnames[0])
-        self.m, self.M = self.calc_local_m(output)
+        self.m, self.M = self.calc_local_m(output, self.cross_area)
         self.mM = self.m * self.M
         self.M2 = self.M ** 2
 
@@ -89,7 +94,10 @@ class DFTInvEps:
     def save(self, fname):
         np.save(fname, self.results)
 
-    def calc_inveps(self, volume, temperature=330, fname=None):
+    def calc_inveps(self, volume=None, temperature=330, fname=None):
+        if volume is None:
+            volume = self.volume
+
         try:
             results = self.results
         except:
@@ -105,10 +113,13 @@ class DFTInvEps:
         return inveps
 
     @staticmethod
-    def calc_local_m(output):
-        m_perp = np.cumsum(output[1])
-        m_perp *= (output[0][1] - output[0][0])
-        M_perp = np.sum(m_perp)
+    def calc_local_m(output, cross_area):
+        # bohr to angstrom
+        rho = output[1] * AU_TO_ANG ** 3
+        # in cp2k, rho has negative sign
+        m_perp = integrate.cumulative_trapezoid(rho, output[0], initial=0)
+        bin_volume = cross_area * (output[0][1] - output[0][0])
+        M_perp = np.sum(m_perp * bin_volume)
         return m_perp, M_perp
     
     def read_data(self, fname):
