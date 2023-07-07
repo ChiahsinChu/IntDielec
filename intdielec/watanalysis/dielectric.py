@@ -1,5 +1,6 @@
 from ase import geometry
 from MDAnalysis.analysis.base import AnalysisBase
+from MDAnalysis.analysis.dielectric import DielectricConstant
 from MDAnalysis.exceptions import NoDataError
 from scipy import constants, integrate
 
@@ -326,6 +327,39 @@ class NewAdInverseDielectricConstant(InverseDielectricConstant):
         rho, bin_edges = np.histogram(z, bins=self.bin_edges, weights=charges)
         return rho
 
+
+
+class DPDielectricConstant(DielectricConstant):
+    def __init__(self, atomgroup, temperature=330, make_whole=False, model="graph.pb",  **kwargs):
+        super().__init__(atomgroup, temperature, make_whole, **kwargs)
+        from deepmd.infer import DeepDipole
+        self.model = DeepDipole(model)
+        atype = atomgroup.types
+        self.atype = np.ones(len(atomgroup), dtype=np.int32)
+        self.atype[atype == "O"] = 0
+        self.atype[atype == "H"] = 1
+
+    def _single_frame(self):
+        if self.make_whole:
+            self.atomgroup.unwrap()
+
+        self.volume += self.atomgroup.universe.trajectory.ts.volume 
+        coord = self.atomgroup.positions
+        charges = np.ones(len(self.atomgroup))
+        charges[self.atype == 0] = 6
+        M = np.dot(charges, self.atomgroup.positions)
+        wannier = self._dp_eval(coord.reshape(1, -1))
+        e_coord = coord[self.atype == 0] + wannier
+        e_charges = np.full((len(wannier)), -8)
+        M += np.dot(e_charges, e_coord)
+
+        self.results.M += M
+        self.results.M2 += M * M
+    
+    def _dp_eval(self, coord):
+        cell = geometry.cell.cellpar_to_cell(self._ts.dimensions)
+        dipole = self.model.eval(coord, cell.reshape(1, 9), self.atype)
+        return dipole.reshape(-1, 3)
 
 class DeprecatedInverseDielectricConstant(AnalysisBase):
     def __init__(
