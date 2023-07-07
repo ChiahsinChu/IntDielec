@@ -71,7 +71,7 @@ class DFTInvEps:
         nframes = len(self.fnames)
         for ii in trange(1, nframes):
             output = self.read_data(self.fnames[ii])
-            m_perp, M_perp = self.calc_local_m(output)
+            m_perp, M_perp = self.calc_local_m(output, self.cross_area)
             self.m += m_perp
             self.M += M_perp
             self.mM += m_perp * M_perp
