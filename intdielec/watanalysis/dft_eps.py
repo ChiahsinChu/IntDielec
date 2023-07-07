@@ -57,6 +57,7 @@ class DFTInvEps:
         self.axis = kwargs.get("axis", 2)
         self.volume = atoms.get_volume()
         self.cross_area = self.volume / atoms.get_cell()[self.axis, self.axis]
+        print("Cross area: %f" % self.cross_area)
 
         output = self.read_data(fnames[0])
         self.m, self.M = self.calc_local_m(output, self.cross_area)
@@ -92,7 +93,7 @@ class DFTInvEps:
         }
     
     def save(self, fname):
-        np.save(fname, self.results)
+        save_dict(fname, self.results)
 
     def calc_inveps(self, volume=None, temperature=330, fname=None):
         if volume is None:
@@ -115,7 +116,7 @@ class DFTInvEps:
     @staticmethod
     def calc_local_m(output, cross_area):
         # bohr to angstrom
-        rho = output[1] * AU_TO_ANG ** 3
+        rho = output[1] / AU_TO_ANG ** 3
         # in cp2k, rho has negative sign
         m_perp = integrate.cumulative_trapezoid(rho, output[0], initial=0)
         bin_volume = cross_area * (output[0][1] - output[0][0])
