@@ -93,7 +93,7 @@ class DFTInvEps:
         }
     
     def save(self, fname):
-        save_dict(fname, self.results)
+        save_dict(self.results, fname)
 
     def calc_inveps(self, volume=None, temperature=330, fname=None):
         if volume is None:
