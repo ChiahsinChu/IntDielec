@@ -1,5 +1,7 @@
 import numpy as np
 
+from ..exts.toolbox.toolbox.utils.math import gaussian_func
+
 
 class WaterEDen:
     def __init__(self, atoms) -> None:
@@ -16,11 +18,7 @@ class WaterEDen:
         H_coord = self.atoms.get_positions()[:, 2][H_mask] - z_ref
         out = np.zeros_like(grid)
         for z in O_coord:
-            out += 6 * self.gaussian_dist(grid, z, O_sigma)
+            out += 6 * gaussian_func(grid, z, O_sigma)
         for z in H_coord:
-            out += self.gaussian_dist(grid, z, H_sigma)
+            out += gaussian_func(grid, z, H_sigma)
         return out
-
-    @staticmethod
-    def gaussian_dist(x, mu, sigma):
-        return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sigma, 2.)))
