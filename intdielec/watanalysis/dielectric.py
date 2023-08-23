@@ -6,6 +6,7 @@ from scipy import constants, integrate
 
 from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.utils import save_dict
+from ..exts.toolbox.toolbox.utils.math import gaussian_int
 
 
 class InverseDielectricConstant(AnalysisBase):
@@ -328,8 +329,51 @@ class NewAdInverseDielectricConstant(InverseDielectricConstant):
         return rho
 
 
+class GaussianInverseDielectricConstant(InverseDielectricConstant):
+    def __init__(self,
+                 atomgroups,
+                 bin_width,
+                 surf_ids,
+                 axis: int = 2,
+                 temperature=330,
+                 img_plane=0,
+                 oxygen_sigma=0.669,
+                 hydrogen_sigma=0.371,
+                 make_whole=False,
+                 dimensions=None,
+                 verbose=True) -> None:
+        super().__init__(atomgroups, bin_width, surf_ids, axis, temperature,
+                         img_plane, make_whole, dimensions, verbose)
+        self.oxygen_sigma = oxygen_sigma
+        self.hydrogen_sigma = hydrogen_sigma
+
+    def _calc_rho(self):
+        """
+        rho: charge density [e/A^3]
+        """
+        sigma = np.zeros((len(self.atoms)))
+        # water only 
+        coords = self.atoms.positions[:, self.axis].reshape(-1, 1)
+        charges = self.atoms.charges
+        bin_edges = np.reshape(self.bin_edges, (1, -1))
+        sigma[charges > 0] = self.hydrogen_sigma
+        sigma[charges < 0] = self.oxygen_sigma
+        # nat * (nbins + 1)
+        rho = charges.reshape(-1, 1) * gaussian_int(bin_edges, coords, sigma.reshape(-1, 1))
+        # nat * nbins
+        rho = np.diff(rho, axis=1)
+        return np.sum(rho, axis=0)
+
 class DPDielectricConstant(DielectricConstant):
-    def __init__(self, atomgroup, temperature=330, make_whole=False, model="graph.pb",  **kwargs):
+    """
+    Analysis class for bulk water + DP potential
+    """
+    def __init__(self,
+                 atomgroup,
+                 temperature=330,
+                 make_whole=False,
+                 model="graph.pb",
+                 **kwargs):
         super().__init__(atomgroup, temperature, make_whole, **kwargs)
         from deepmd.infer import DeepDipole
         self.model = DeepDipole(model)
@@ -342,7 +386,7 @@ class DPDielectricConstant(DielectricConstant):
         if self.make_whole:
             self.atomgroup.unwrap()
 
-        self.volume += self.atomgroup.universe.trajectory.ts.volume 
+        self.volume += self.atomgroup.universe.trajectory.ts.volume
         coord = self.atomgroup.positions
         charges = np.ones(len(self.atomgroup))
         charges[self.atype == 0] = 6
@@ -354,7 +398,7 @@ class DPDielectricConstant(DielectricConstant):
 
         self.results.M += M
         self.results.M2 += M * M
-    
+
     def _dp_eval(self, coord):
         cell = geometry.cell.cellpar_to_cell(self._ts.dimensions)
         dipole = self.model.eval(coord, cell.reshape(1, 9), self.atype)
