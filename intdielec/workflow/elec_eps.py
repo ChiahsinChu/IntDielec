@@ -768,24 +768,30 @@ class IterElecEps(ElecEps):
         self.work_subdir = dname
 
     def pbc_calculate(self):
-        n_wat = self.pbc_info["n_wat"]
-        z_wat = self.pbc_atoms.get_positions()[self.pbc_info["O_mask"], 2]
-        z_wat_vs_lo = z_wat - self.pbc_info["z_lo"]
-        z_wat_vs_hi = self.pbc_info["z_hi"] - z_wat
+        try:
+            n_wat = self.pbc_info["n_wat"]
+            z_wat = self.pbc_atoms.get_positions()[self.pbc_info["O_mask"], 2]
+            z_wat_vs_lo = z_wat - self.pbc_info["z_lo"]
+            z_wat_vs_hi = self.pbc_info["z_hi"] - z_wat
 
-        sort_ids = np.argsort(z_wat)
+            sort_ids = np.argsort(z_wat)
 
-        cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
+            cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
 
-        np.save(os.path.join(self.work_subdir, "data.npy"), [
-            z_wat_vs_lo[sort_ids], z_wat_vs_hi[sort_ids], cbm[sort_ids],
-            vbm[sort_ids]
-        ])
+            np.save(os.path.join(self.work_subdir, "data.npy"), [
+                z_wat_vs_lo[sort_ids], z_wat_vs_hi[sort_ids], cbm[sort_ids],
+                vbm[sort_ids]
+            ])
+        except:
+            pass
 
         cube = Cp2kHartreeCube(
             os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
         pbc_hartree = cube.get_ave_cube()
-        cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
+        try:
+            cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output"))
+        except:
+            cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
         self.pbc_hartree = [pbc_hartree[0], pbc_hartree[1] - cp2k_out.fermi]
 
     def ref_preset(self, fp_params={}, calculate=False, **kwargs):
@@ -806,14 +812,17 @@ class IterElecEps(ElecEps):
         super().ref_calculate(vac_region=vac_region, dname=dname)
         self.info["v_zero"] = self.v_zero
         if not os.path.exists(os.path.join(self.work_subdir, "data.npy")):
-            n_wat = self.info["n_wat"]
-            z_wat = self.atoms.get_positions()[self.info["O_mask"],
-                                               2] - self.info["z_ave"]
-            sort_ids = np.argsort(z_wat)
-            cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
+            try:
+                n_wat = self.info["n_wat"]
+                z_wat = self.atoms.get_positions()[self.info["O_mask"],
+                                                2] - self.info["z_ave"]
+                sort_ids = np.argsort(z_wat)
+                cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
 
-            np.save(os.path.join(self.work_subdir, "data.npy"),
-                    [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+                np.save(os.path.join(self.work_subdir, "data.npy"),
+                        [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+            except:
+                pass
         self.v_seq = [self._guess()]
 
     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
@@ -838,8 +847,8 @@ class IterElecEps(ElecEps):
                 os.path.join(self.work_subdir, "cp2k-RESTART.wfn")
             })
 
-        update_dict(fp_params,
-                    self._water_pdos_input(n_wat=self.info["n_wat"]))
+        # update_dict(fp_params,
+        #             self._water_pdos_input(n_wat=self.info["n_wat"]))
         super().preset(pos_dielec=[
             self.l_vac / 2.,
             self.atoms.get_cell()[2][2] - self.l_vac / 2.
@@ -850,14 +859,17 @@ class IterElecEps(ElecEps):
 
     def search_calculate(self):
         if not os.path.exists(os.path.join(self.work_subdir, "data.npy")):
-            n_wat = self.info["n_wat"]
-            z_wat = self.atoms.get_positions()[self.info["O_mask"],
-                                               2] - self.info["z_ave"]
-            sort_ids = np.argsort(z_wat)
-            cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
+            try:
+                n_wat = self.info["n_wat"]
+                z_wat = self.atoms.get_positions()[self.info["O_mask"],
+                                                2] - self.info["z_ave"]
+                sort_ids = np.argsort(z_wat)
+                cbm, vbm = self._water_mo_output(self.work_subdir, n_wat)
 
-            np.save(os.path.join(self.work_subdir, "data.npy"),
-                    [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+                np.save(os.path.join(self.work_subdir, "data.npy"),
+                        [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+            except:
+                pass
 
         self.v_seq = [self._guess()]
 
@@ -1098,7 +1110,10 @@ class IterElecEps(ElecEps):
         cube = Cp2kHartreeCube(
             os.path.join(self.work_subdir, "cp2k-v_hartree-1_0.cube"))
         _test_hartree = cube.get_ave_cube()
-        cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
+        try:
+            cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output"))
+        except:
+            cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
 
         grids = np.arange(0, self.l_wat_pdos, 0.1)
 
