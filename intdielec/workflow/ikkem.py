@@ -41,7 +41,7 @@ plot.use_style("pub")
 class DualIterElecEps(_DualIterElecEps):
     def __init__(self, atoms: Atoms = None, work_dir: str = None, data_fmt: str = "pkl") -> None:
         super().__init__(atoms, work_dir, data_fmt)
-        self.calculator = CP2KDPDispatcher(work_dir=work_dir)
+        self.calculator = CP2KDPDispatcher(work_dir=".")
     
     def _dft_calculate(self, work_dir, ignore_finished_tag=False, backward_files=None):
         if ignore_finished_tag or not os.path.exists(
@@ -163,14 +163,14 @@ class DualIterElecEps(_DualIterElecEps):
                 logging.info("{:=^50}".format(" Start: task_%s.%06d " %
                                               (suffix, ii)))
                 self._dft_calculate(self.work_subdir, ignore_finished_tag, backward_files)
-                logging.info("{:=^50}".format(" Start: task_%s.%06d " %
+                logging.info("{:=^50}".format(" End: task_%s.%06d " %
                                               (suffix, ii)))
             self.calculate(**calculate_params)
 
             search_flag = False
             for n_loop in range(max_loop_eps):
                 if np.abs(self.convergence
-                          ) <= convergence_eps and self._check_water_mos():
+                          ) <= convergence_eps:
                     search_flag = True
                     logging.info("Finish searching in %d step(s)." %
                                  (n_loop + 1))

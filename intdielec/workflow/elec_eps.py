@@ -6,9 +6,6 @@ import statsmodels.api as sm
 from ase import Atoms
 from scipy import stats
 
-from software.IntDielec.intdielec.exts.toolbox.toolbox.utils import np
-from software.IntDielec.intdielec.exts.toolbox.toolbox.utils.math import np
-
 from .. import plot
 from ..exts.toolbox.toolbox.calculator.cp2k import Cp2kCalculator
 from ..exts.toolbox.toolbox.io.cp2k import (Cp2kCube, Cp2kHartreeCube,
@@ -92,7 +89,7 @@ class ElecEps(Eps):
             fname = glob.glob(os.path.join(dname, "output*"))
             assert len(fname) == 1
             output = Cp2kOutput(fname[0])
-            DeltaV = -output.potdrop[0]
+            DeltaV = -output.potdrop
         except:
             assert (vac_region is not None)
             fname = glob.glob(os.path.join(dname, "*hartree*.cube"))
@@ -117,7 +114,8 @@ class ElecEps(Eps):
             "extended_fft_lengths": True
         }
         update_dict(kwargs, update_d)
-
+        
+        cell_params = self.atoms.cell.cellpar()
         update_d = {
             "GLOBAL": {
                 "PROJECT": "cp2k"
@@ -136,9 +134,9 @@ class ElecEps(Eps):
                                     "PARALLEL_PLANE":
                                     "XY",
                                     "X_XTNT":
-                                    "0.0 %.4f" % self.atoms.cell[0][0],
+                                    "0.0 %.4f" % cell_params[0],
                                     "Y_XTNT":
-                                    "0.0 %.4f" % self.atoms.cell[1][1],
+                                    "0.0 %.4f" % cell_params[1],
                                     "INTERCEPT":
                                     pos_dielec[0],
                                     "PERIODIC_REGION":
@@ -149,9 +147,9 @@ class ElecEps(Eps):
                                     "PARALLEL_PLANE":
                                     "XY",
                                     "X_XTNT":
-                                    "0.0 %.4f" % self.atoms.cell[0][0],
+                                    "0.0 %.4f" % cell_params[0],
                                     "Y_XTNT":
-                                    "0.0 %.4f" % self.atoms.cell[1][1],
+                                    "0.0 %.4f" % cell_params[1],
                                     "INTERCEPT":
                                     pos_dielec[1],
                                     "PERIODIC_REGION":
@@ -286,16 +284,19 @@ class ElecEps(Eps):
                     rho_conv.append(-output[2])
                     # self.rho_conv = -np.array(rho_conv)
 
-                fname = os.path.join(dname, "data.npy")
-                if not os.path.exists(fname):
-                    n_wat = self.info["n_wat"]
-                    z_wat = self.atoms.get_positions()[self.info["O_mask"],
-                                                       2] - self.info["z_ave"]
-                    sort_ids = np.argsort(z_wat)
-                    cbm, vbm = self._water_mo_output(dname, n_wat)
+                try:
+                    fname = os.path.join(dname, "data.npy")
+                    if not os.path.exists(fname):
+                        n_wat = self.info["n_wat"]
+                        z_wat = self.atoms.get_positions()[self.info["O_mask"],
+                                                        2] - self.info["z_ave"]
+                        sort_ids = np.argsort(z_wat)
+                        cbm, vbm = self._water_mo_output(dname, n_wat)
 
-                    np.save(os.path.join(dname, "data.npy"),
-                            [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+                        np.save(os.path.join(dname, "data.npy"),
+                                [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
+                except:
+                    pass
 
         if calculate_delta_flag:
             # update data
