@@ -1,16 +1,15 @@
-import os
+from scipy import stats
+from ase.geometry.cell import cellpar_to_cell
 
-import numpy as np
-from mdadist.distances import calc_bonds_vector
 from MDAnalysis.analysis.base import AnalysisBase
-# from MDAnalysis.analysis.waterdynamics import AngularDistribution
 from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import \
     HydrogenBondAnalysis
 from MDAnalysis.core.groups import AtomGroup
 from MDAnalysis.exceptions import NoDataError
 from MDAnalysis.lib.distances import capped_distance, minimize_vectors
-from scipy import constants, stats
 
+from ..exts.toolbox.toolbox.utils import *
+from ..exts.toolbox.toolbox.utils.unit import *
 from ..exts.toolbox.toolbox.utils.utils import calc_water_density
 from ..utils.mda import make_selection, make_selection_two
 
@@ -62,9 +61,10 @@ class WatDensity(AnalysisBase):
     def _single_frame(self):
         # get refs
         z = self._ts.positions[:, self.axis]
-        z_lo = np.mean(z[self.surf_ids[0]])
-        z_hi = np.mean(z[self.surf_ids[1]])
-
+        z_ave = [np.mean(z[self.surf_ids[0]]), np.mean(z[self.surf_ids[1]])]
+        z_lo = np.min(z_ave)
+        z_hi = np.max(z_ave)
+        
         raw_z = self.water.positions[:, self.axis]
 
         bin_edges = np.linspace(
@@ -89,8 +89,8 @@ class WatDensity(AnalysisBase):
     @property
     def cross_area(self):
         ave_axis = np.delete(np.arange(3), self.axis)
-        ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[
-            ave_axis[1]]
+        cell = cellpar_to_cell(self._ts.dimensions)
+        ts_area = np.linalg.norm(np.cross(cell[ave_axis[0]], cell[ave_axis[1]]))
         return ts_area
 
 
@@ -621,10 +621,10 @@ class InterfaceWatOri(InterfaceWatDensity):
         # get all OH bond vectors
         water_oris = np.zeros((self._nwat))
         OH_vecs = np.zeros((len(self.pairs[0]), 3))
-        calc_bonds_vector(O_coord[self.pairs[0]],
-                          H_coord[self.pairs[1]],
-                          box=self._cell,
-                          result=OH_vecs)
+        minimize_vectors(O_coord[self.pairs[0]],
+                         H_coord[self.pairs[1]],
+                         box=self._cell,
+                         result=OH_vecs)
         # get the number of H assigned to each O
         ids, counts = np.unique(self.pairs[0], return_counts=True)
         # calculate the cosine of dipole

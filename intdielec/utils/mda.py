@@ -1,7 +1,8 @@
 import MDAnalysis as mda
-import numpy as np
 from MDAnalysis.transformations import translate, wrap
 
+from ..exts.toolbox.toolbox.utils import *
+from ..exts.toolbox.toolbox.utils.math import cumave
 
 def make_selection(
     sel_region,
@@ -154,11 +155,6 @@ def center(universe, elem_type, cell=None):
 """
 Functions for postprocessing of PartialHBAnalysis results
 """
-import os
-
-import numpy as np
-from WatAnalysis.utils import get_cum_ave
-
 
 def count_by_time(hbonds_result, start, stop, step=1, dt=1):
     """
@@ -171,7 +167,7 @@ def count_by_time(hbonds_result, start, stop, step=1, dt=1):
     indices /= step
     counts = np.zeros_like(np.arange(start, stop, step))
     counts[indices.astype(np.intp)] = tmp_counts
-    return [np.arange(start, stop, step) * dt, counts, get_cum_ave(counts)]
+    return [np.arange(start, stop, step) * dt, counts, cumave(counts)]
 
 
 def lifetime(hbonds_result,
