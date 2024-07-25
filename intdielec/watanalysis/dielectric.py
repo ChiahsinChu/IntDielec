@@ -17,7 +17,7 @@ class InverseDielectricConstant(AnalysisBase):
         surf_ids,
         axis: int = 2,
         temperature=330,
-        img_plane=0.,
+        img_plane=0.0,
         make_whole=False,
         dimensions=None,
         verbose=True,
@@ -26,14 +26,14 @@ class InverseDielectricConstant(AnalysisBase):
         super().__init__(self.universe.trajectory, verbose)
 
         try:
-            l_box = self.universe.trajectory.dimensions[axis]
+            l_box = self.universe.dimensions[axis]
         except:
             l_box = dimensions[axis]
 
         self.nbins = int(l_box / bin_width)
         self.bin_edges = np.linspace(0, l_box, self.nbins + 1)
         self.bin_width = self.bin_edges[1] - self.bin_edges[0]
-        self.bins = (self.bin_edges[:-1] + self.bin_edges[1:]) / 2.
+        self.bins = (self.bin_edges[:-1] + self.bin_edges[1:]) / 2.0
 
         self.atoms = atomgroups
         self.surf_ids = surf_ids
@@ -42,26 +42,30 @@ class InverseDielectricConstant(AnalysisBase):
         self.img_plane = img_plane
         self.make_whole = make_whole
 
-        self.const = (constants.epsilon_0 / constants.elementary_charge *
-                      constants.angstrom) * constants.physical_constants[
-                          "Boltzmann constant in eV/K"][0] * self.temperature
+        self.const = (
+            (constants.epsilon_0 / constants.elementary_charge * constants.angstrom)
+            * constants.physical_constants["Boltzmann constant in eV/K"][0]
+            * self.temperature
+        )
 
     def _prepare(self):
         if not hasattr(self.atoms, "charges"):
             raise NoDataError("No charges defined given atomgroup.")
 
-        if not np.allclose(self.atoms.total_charge(), 0.0, atol=1E-5):
-            raise NotImplementedError("Analysis for non-neutral systems or"
-                                      " systems with free charges are not"
-                                      " available.")
+        if not np.allclose(self.atoms.total_charge(), 0.0, atol=1e-5):
+            raise NotImplementedError(
+                "Analysis for non-neutral systems or"
+                " systems with free charges are not"
+                " available."
+            )
 
         self.results.m = np.zeros((self.nbins))
         self.results.mM = np.zeros((self.nbins))
-        self.results.M = 0.
-        self.results.M2 = 0.
+        self.results.M = 0.0
+        self.results.M2 = 0.0
 
-        self.results.z_lo = 0.
-        self.results.z_hi = 0.
+        self.results.z_lo = 0.0
+        self.results.z_hi = 0.0
 
     def _single_frame(self):
         if self.make_whole:
@@ -88,8 +92,8 @@ class InverseDielectricConstant(AnalysisBase):
         #            self.universe.atoms.positions)[self.axis]
         M = np.sum(m * bin_volumes)
         self.results.M += M
-        self.results.M2 += (M**2)
-        self.results.mM += (m * M)
+        self.results.M2 += M**2
+        self.results.mM += m * M
 
     def _conclude(self):
         self.results.m /= self.n_frames
@@ -100,19 +104,19 @@ class InverseDielectricConstant(AnalysisBase):
         self.results.z_lo /= self.n_frames
         self.results.z_hi /= self.n_frames
         self.results.volume = self.cross_area * (
-            self.results.z_hi - self.results.z_lo - 2 * self.img_plane)
+            self.results.z_hi - self.results.z_lo - 2 * self.img_plane
+        )
 
         x_fluct = self.results.mM - self.results.m * self.results.M
         M_fluct = self.results.M2 - self.results.M * self.results.M
-        self.results.inveps = 1 - x_fluct / (self.const +
-                                             M_fluct / self.results.volume)
+        self.results.inveps = 1 - x_fluct / (self.const + M_fluct / self.results.volume)
 
         self.results.bins = self.bins
         self.results.temperature = self.temperature
 
     def save(self, save_dir=".", prefix=None):
         if prefix is not None:
-            fname = "%s_inveps.pkl" % prefix
+            fname = "%s.inveps.pkl" % prefix
         else:
             fname = "inveps.pkl"
         save_dict(self.results, os.path.join(save_dir, fname))
@@ -128,22 +132,26 @@ class InverseDielectricConstant(AnalysisBase):
         """
         rho: charge density [e/A^3]
         """
-        rho, bin_edges = np.histogram(self.atoms.positions[:, self.axis],
-                                      bins=self.bin_edges,
-                                      weights=self.atoms.charges)
+        rho, bin_edges = np.histogram(
+            self.atoms.positions[:, self.axis],
+            bins=self.bin_edges,
+            weights=self.atoms.charges,
+        )
         return rho
 
 
 class AdInverseDielectricConstant(InverseDielectricConstant):
-    def __init__(self,
-                 atomgroups,
-                 bin_width,
-                 surf_ids,
-                 cutoff=2.7,
-                 sfactor=2,
-                 perturbation=0,
-                 calc_unscaled=False,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        atomgroups,
+        bin_width,
+        surf_ids,
+        cutoff=2.7,
+        sfactor=2,
+        perturbation=0,
+        calc_unscaled=False,
+        **kwargs
+    ) -> None:
         super().__init__(atomgroups, bin_width, surf_ids, **kwargs)
         self.cutoff = cutoff
         self.sfactor = sfactor
@@ -154,17 +162,17 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
         super()._prepare()
         self.results.m_unscaled = np.zeros((self.nbins))
         self.results.mM_unscaled = np.zeros((self.nbins))
-        self.results.M_unscaled = 0.
-        self.results.M2_unscaled = 0.
+        self.results.M_unscaled = 0.0
+        self.results.M2_unscaled = 0.0
 
     def _single_frame(self):
         super()._single_frame()
 
         if self.calc_unscaled:
             # charge density [e/A^3]
-            rho, bin_edges = np.histogram(self.atoms.positions[:, 2],
-                                          bins=bin_edges,
-                                          weights=self.atoms.charges)
+            rho, bin_edges = np.histogram(
+                self.atoms.positions[:, 2], bins=bin_edges, weights=self.atoms.charges
+            )
             bin_volumes = np.diff(bin_edges) * self.cross_area
             rho /= bin_volumes
             m = -integrate.cumulative_trapezoid(rho, self.bins, initial=0)
@@ -173,8 +181,8 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
             # M
             M = np.sum(m * bin_volumes)
             self.results.M_unscaled += M
-            self.results.M2_unscaled += (M**2)
-            self.results.mM_unscaled += (m * M)
+            self.results.M2_unscaled += M**2
+            self.results.mM_unscaled += m * M
 
     def _conclude(self):
         super()._conclude()
@@ -184,26 +192,33 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
             self.results.M_unscaled /= self.n_frames
             self.results.M2_unscaled /= self.n_frames
 
-            x_fluct = self.results.mM_unscaled - self.results.m_unscaled * self.results.M_unscaled
-            M_fluct = self.results.M2_unscaled - self.results.M_unscaled * self.results.M_unscaled
+            x_fluct = (
+                self.results.mM_unscaled
+                - self.results.m_unscaled * self.results.M_unscaled
+            )
+            M_fluct = (
+                self.results.M2_unscaled
+                - self.results.M_unscaled * self.results.M_unscaled
+            )
             self.results.inveps_unscaled = 1 - x_fluct / (
-                self.const + M_fluct / self.results.volume)
+                self.const + M_fluct / self.results.volume
+            )
 
     def _calc_rho(self):
         z = self.atoms.positions[:, self.axis]
         # scale charges of chemisorbed water
-        atype_mask = (self.atoms.types == "O")
-        z_mask = ((z <= (self._ts_z_lo + self.cutoff)) |
-                  (z >= (self._ts_z_hi - self.cutoff)))
+        atype_mask = self.atoms.types == "O"
+        z_mask = (z <= (self._ts_z_lo + self.cutoff)) | (
+            z >= (self._ts_z_hi - self.cutoff)
+        )
         sel_O_ids = np.nonzero(atype_mask * z_mask)[0]
-        sel_ids = np.sort(
-            np.concatenate([sel_O_ids, sel_O_ids + 1, sel_O_ids + 2]))
+        sel_ids = np.sort(np.concatenate([sel_O_ids, sel_O_ids + 1, sel_O_ids + 2]))
         charges = self.atoms.charges.copy()
         charges[sel_ids] *= self.sfactor
         # add pert in charge and keep electroneutrality
-        perturbation = np.random.uniform(low=-self.perturbation,
-                                         high=self.perturbation,
-                                         size=len(sel_ids))
+        perturbation = np.random.uniform(
+            low=-self.perturbation, high=self.perturbation, size=len(sel_ids)
+        )
         perturbation -= perturbation.mean()
         charges[sel_ids] += perturbation
 
@@ -213,8 +228,7 @@ class AdInverseDielectricConstant(InverseDielectricConstant):
 
 
 class DPInverseDielectricConstant(InverseDielectricConstant):
-    def __init__(self, atomgroups, bin_width, surf_ids, model,
-                 **kwargs) -> None:
+    def __init__(self, atomgroups, bin_width, surf_ids, model, **kwargs) -> None:
         from deepmd.infer import DeepDipole
 
         super().__init__(atomgroups, bin_width, surf_ids, **kwargs)
@@ -235,16 +249,16 @@ class DPInverseDielectricConstant(InverseDielectricConstant):
 
         # O
         charges[self.atype == 0] = 6
-        n_rho, bin_edges = np.histogram(coord[:, self.axis],
-                                        bins=self.bin_edges,
-                                        weights=charges)
+        n_rho, bin_edges = np.histogram(
+            coord[:, self.axis], bins=self.bin_edges, weights=charges
+        )
 
         wannier = self._dp_eval(coord.reshape(1, -1))
         e_coord = coord[self.atype == 0] + wannier
         e_charges = np.full((len(wannier)), -8)
-        e_rho, bin_edges = np.histogram(e_coord[:, self.axis],
-                                        bins=self.bin_edges,
-                                        weights=e_charges)
+        e_rho, bin_edges = np.histogram(
+            e_coord[:, self.axis], bins=self.bin_edges, weights=e_charges
+        )
 
         return n_rho + e_rho
 
@@ -255,14 +269,16 @@ class DPInverseDielectricConstant(InverseDielectricConstant):
 
 
 class NewAdInverseDielectricConstant(InverseDielectricConstant):
-    def __init__(self,
-                 atomgroups,
-                 bin_width,
-                 surf_ids,
-                 cutoff=2.7,
-                 mu_ad=0.26,
-                 calc_unscaled=False,
-                 **kwargs) -> None:
+    def __init__(
+        self,
+        atomgroups,
+        bin_width,
+        surf_ids,
+        cutoff=2.7,
+        mu_ad=0.26,
+        calc_unscaled=False,
+        **kwargs
+    ) -> None:
         super().__init__(atomgroups, bin_width, surf_ids, **kwargs)
         self.cutoff = cutoff
         self.mu_ad = mu_ad
@@ -272,17 +288,17 @@ class NewAdInverseDielectricConstant(InverseDielectricConstant):
         super()._prepare()
         self.results.m_unscaled = np.zeros((self.nbins))
         self.results.mM_unscaled = np.zeros((self.nbins))
-        self.results.M_unscaled = 0.
-        self.results.M2_unscaled = 0.
+        self.results.M_unscaled = 0.0
+        self.results.M2_unscaled = 0.0
 
     def _single_frame(self):
         super()._single_frame()
 
         if self.calc_unscaled:
             # charge density [e/A^3]
-            rho, bin_edges = np.histogram(self.atoms.positions[:, 2],
-                                          bins=bin_edges,
-                                          weights=self.atoms.charges)
+            rho, bin_edges = np.histogram(
+                self.atoms.positions[:, 2], bins=bin_edges, weights=self.atoms.charges
+            )
             bin_volumes = np.diff(bin_edges) * self.cross_area
             rho /= bin_volumes
             m = -integrate.cumulative_trapezoid(rho, self.bins, initial=0)
@@ -291,8 +307,8 @@ class NewAdInverseDielectricConstant(InverseDielectricConstant):
             # M
             M = np.sum(m * bin_volumes)
             self.results.M_unscaled += M
-            self.results.M2_unscaled += (M**2)
-            self.results.mM_unscaled += (m * M)
+            self.results.M2_unscaled += M**2
+            self.results.mM_unscaled += m * M
 
     def _conclude(self):
         super()._conclude()
@@ -302,48 +318,71 @@ class NewAdInverseDielectricConstant(InverseDielectricConstant):
             self.results.M_unscaled /= self.n_frames
             self.results.M2_unscaled /= self.n_frames
 
-            x_fluct = self.results.mM_unscaled - self.results.m_unscaled * self.results.M_unscaled
-            M_fluct = self.results.M2_unscaled - self.results.M_unscaled * self.results.M_unscaled
+            x_fluct = (
+                self.results.mM_unscaled
+                - self.results.m_unscaled * self.results.M_unscaled
+            )
+            M_fluct = (
+                self.results.M2_unscaled
+                - self.results.M_unscaled * self.results.M_unscaled
+            )
             self.results.inveps_unscaled = 1 - x_fluct / (
-                self.const + M_fluct / self.results.volume)
+                self.const + M_fluct / self.results.volume
+            )
 
     def _calc_rho(self):
         z = self.atoms.positions[:, self.axis]
         # count number of chemisorbed water
-        atype_mask = (self.atoms.types == "O")
+        atype_mask = self.atoms.types == "O"
         charges = self.atoms.charges.copy()
         # lower surface
-        z_mask = (z <= (self._ts_z_lo + self.cutoff))
+        z_mask = z <= (self._ts_z_lo + self.cutoff)
         n_wat = np.count_nonzero(atype_mask * z_mask)
         charges = np.append(charges, [-self.mu_ad * n_wat, self.mu_ad * n_wat])
         # upper surface
-        z_mask = (z >= (self._ts_z_hi - self.cutoff))
+        z_mask = z >= (self._ts_z_hi - self.cutoff)
         n_wat = np.count_nonzero(atype_mask * z_mask)
         charges = np.append(charges, [-self.mu_ad * n_wat, self.mu_ad * n_wat])
-        z = np.append(z, [
-            self._ts_z_lo + 1, self._ts_z_lo + 2, self._ts_z_hi - 1,
-            self._ts_z_hi - 2
-        ])
+        z = np.append(
+            z,
+            [
+                self._ts_z_lo + 1,
+                self._ts_z_lo + 2,
+                self._ts_z_hi - 1,
+                self._ts_z_hi - 2,
+            ],
+        )
         # charge density [e/A^3]
         rho, bin_edges = np.histogram(z, bins=self.bin_edges, weights=charges)
         return rho
 
 
 class GaussianInverseDielectricConstant(InverseDielectricConstant):
-    def __init__(self,
-                 atomgroups,
-                 bin_width,
-                 surf_ids,
-                 axis: int = 2,
-                 temperature=330,
-                 img_plane=0,
-                 oxygen_sigma=0.669,
-                 hydrogen_sigma=0.371,
-                 make_whole=False,
-                 dimensions=None,
-                 verbose=True) -> None:
-        super().__init__(atomgroups, bin_width, surf_ids, axis, temperature,
-                         img_plane, make_whole, dimensions, verbose)
+    def __init__(
+        self,
+        atomgroups,
+        bin_width,
+        surf_ids,
+        axis: int = 2,
+        temperature=330,
+        img_plane=0,
+        oxygen_sigma=0.669,
+        hydrogen_sigma=0.371,
+        make_whole=False,
+        dimensions=None,
+        verbose=True,
+    ) -> None:
+        super().__init__(
+            atomgroups,
+            bin_width,
+            surf_ids,
+            axis,
+            temperature,
+            img_plane,
+            make_whole,
+            dimensions,
+            verbose,
+        )
         self.oxygen_sigma = oxygen_sigma
         self.hydrogen_sigma = hydrogen_sigma
 
@@ -359,37 +398,51 @@ class GaussianInverseDielectricConstant(InverseDielectricConstant):
         sigma[charges > 0] = self.hydrogen_sigma
         sigma[charges < 0] = self.oxygen_sigma
         # nat * (nbins + 1)
-        rho = charges.reshape(-1, 1) * gaussian_int(bin_edges, coords,
-                                                    sigma.reshape(-1, 1))
+        rho = charges.reshape(-1, 1) * gaussian_int(
+            bin_edges, coords, sigma.reshape(-1, 1)
+        )
         # nat * nbins
         rho = np.diff(rho, axis=1)
         return np.sum(rho, axis=0)
 
 
 class CP2KGaussianInverseDielectricConstant(InverseDielectricConstant):
-    def __init__(self,
-                 atomgroups,
-                 bin_width,
-                 surf_ids,
-                 axis: int = 2,
-                 temperature=330,
-                 img_plane=0,
-                 make_whole=False,
-                 dimensions=None,
-                 verbose=True) -> None:
-        super().__init__(atomgroups, bin_width, surf_ids, axis, temperature,
-                         img_plane, make_whole, dimensions, verbose)
+    def __init__(
+        self,
+        atomgroups,
+        bin_width,
+        surf_ids,
+        axis: int = 2,
+        temperature=330,
+        img_plane=0,
+        make_whole=False,
+        dimensions=None,
+        verbose=True,
+    ) -> None:
+        super().__init__(
+            atomgroups,
+            bin_width,
+            surf_ids,
+            axis,
+            temperature,
+            img_plane,
+            make_whole,
+            dimensions,
+            verbose,
+        )
 
     def _calc_rho(self):
         """
         rho: charge density [e/A^3]
         """
-        oxygen_e_sigma = 0.41124753
-        hydrogen_e_sigma = 0.50682463
-        oxygen_n_sigma = 0.13459347
-        hydrogen_n_sigma = 0.1079383
-        oxygen_charge = -0.988
-        hydrogen_charge = 0.494
+        oxygen_e_sigma = 0.384
+        hydrogen_e_sigma = 0.382
+        oxygen_n_sigma = 0.129
+        hydrogen_n_sigma = 0.106
+        oxygen_e_charge = -0.956
+        hydrogen_e_charge = -0.110
+        oxygen_n_charge = 0.884
+        hydrogen_n_charge = 0.146
 
         e_sigma = np.zeros((len(self.atoms)))
         n_sigma = np.zeros((len(self.atoms)))
@@ -399,24 +452,26 @@ class CP2KGaussianInverseDielectricConstant(InverseDielectricConstant):
         coords = self.atoms.positions[:, self.axis].reshape(-1, 1)
         bin_edges = np.reshape(self.bin_edges, (1, -1))
         # set hydrogen param
-        mask = (self.atoms.charges > 0)
+        mask = self.atoms.charges > 0
         e_sigma[mask] = hydrogen_e_sigma
         n_sigma[mask] = hydrogen_n_sigma
-        e_charges[mask] = 1. - hydrogen_charge
-        n_charges[mask] = 1.
+        e_charges[mask] = hydrogen_e_charge
+        n_charges[mask] = hydrogen_n_charge
         # set oxygen param
-        mask = (self.atoms.charges < 0)
+        mask = self.atoms.charges < 0
         e_sigma[mask] = oxygen_e_sigma
         n_sigma[mask] = oxygen_n_sigma
-        e_charges[mask] = 6. - oxygen_charge
-        n_charges[mask] = 6.
+        e_charges[mask] = oxygen_e_charge
+        n_charges[mask] = oxygen_n_charge
 
         # nat * (nbins + 1)
         rho_e = e_charges.reshape(-1, 1) * gaussian_int(
-            bin_edges, coords, e_sigma.reshape(-1, 1))
+            bin_edges, coords, e_sigma.reshape(-1, 1)
+        )
         rho_n = n_charges.reshape(-1, 1) * gaussian_int(
-            bin_edges, coords, n_sigma.reshape(-1, 1))
-        rho = rho_n - rho_e
+            bin_edges, coords, n_sigma.reshape(-1, 1)
+        )
+        rho = rho_n + rho_e
         # nat * nbins
         rho = np.diff(rho, axis=1)
         return np.sum(rho, axis=0)
@@ -426,14 +481,13 @@ class DPDielectricConstant(DielectricConstant):
     """
     Analysis class for bulk water + DP potential
     """
-    def __init__(self,
-                 atomgroup,
-                 temperature=330,
-                 make_whole=False,
-                 model="graph.pb",
-                 **kwargs):
+
+    def __init__(
+        self, atomgroup, temperature=330, make_whole=False, model="graph.pb", **kwargs
+    ):
         super().__init__(atomgroup, temperature, make_whole, **kwargs)
         from deepmd.infer import DeepDipole
+
         self.model = DeepDipole(model)
         atype = atomgroup.types
         self.atype = np.ones(len(atomgroup), dtype=np.int32)
@@ -471,7 +525,7 @@ class DeprecatedInverseDielectricConstant(AnalysisBase):
         surf_ids,
         axis: int = 2,
         temperature=330,
-        img_plane=0.,
+        img_plane=0.0,
         make_whole=False,
         verbose=False,
     ) -> None:
@@ -488,32 +542,35 @@ class DeprecatedInverseDielectricConstant(AnalysisBase):
         self.img_plane = img_plane
         self.make_whole = make_whole
 
-        self.const = (constants.epsilon_0 / constants.elementary_charge *
-                      constants.angstrom) * constants.physical_constants[
-                          "Boltzmann constant in eV/K"][0] * self.temperature
+        self.const = (
+            (constants.epsilon_0 / constants.elementary_charge * constants.angstrom)
+            * constants.physical_constants["Boltzmann constant in eV/K"][0]
+            * self.temperature
+        )
 
     def _prepare(self):
         if not hasattr(self.atoms, "charges"):
             raise NoDataError("No charges defined given atomgroup.")
 
-        if not np.allclose(self.atoms.total_charge(), 0.0, atol=1E-5):
-            raise NotImplementedError("Analysis for non-neutral systems or"
-                                      " systems with free charges are not"
-                                      " available.")
+        if not np.allclose(self.atoms.total_charge(), 0.0, atol=1e-5):
+            raise NotImplementedError(
+                "Analysis for non-neutral systems or"
+                " systems with free charges are not"
+                " available."
+            )
 
         self.results.m = np.zeros((self.nbins))
         self.results.mM = np.zeros((self.nbins))
-        self.results.M = 0.
-        self.results.M2 = 0.
-        self.results.volume = 0.
+        self.results.M = 0.0
+        self.results.M2 = 0.0
+        self.results.volume = 0.0
 
     def _single_frame(self):
         if self.make_whole:
             self.atoms.unwrap()
 
         ave_axis = np.delete(np.arange(3), self.axis)
-        ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[
-            ave_axis[1]]
+        ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[ave_axis[1]]
 
         # get refs
         z = self._ts.positions[:, self.axis]
@@ -527,14 +584,13 @@ class DeprecatedInverseDielectricConstant(AnalysisBase):
         # M = np.dot(self.universe.atoms.charges,
         #            self.universe.atoms.positions)[self.axis]
 
-        bin_edges = np.linspace(z_lo, z_hi,
-                                int((z_hi - z_lo) / self.bin_width) + 1)
-        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
+        bin_edges = np.linspace(z_lo, z_hi, int((z_hi - z_lo) / self.bin_width) + 1)
+        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.0
 
         # charge density [e/A^3]
-        rho, bin_edges = np.histogram(self.atoms.positions[:, 2],
-                                      bins=bin_edges,
-                                      weights=self.atoms.charges)
+        rho, bin_edges = np.histogram(
+            self.atoms.positions[:, 2], bins=bin_edges, weights=self.atoms.charges
+        )
         bin_volumes = np.diff(bin_edges) * ts_area
         rho /= bin_volumes
         _m = -integrate.cumulative_trapezoid(rho, bins, initial=0)
@@ -542,12 +598,12 @@ class DeprecatedInverseDielectricConstant(AnalysisBase):
         # M
         M = np.sum(_m * bin_volumes)
         self.results.M += M
-        self.results.M2 += (M**2)
+        self.results.M2 += M**2
 
         # lo surf
         m = np.interp(self.bins + z_lo, bins, _m)
         self.results.m += m
-        self.results.mM += (m * M)
+        self.results.mM += m * M
         # hi surf
         m = np.interp(np.sort(z_hi - self.bins), bins, _m)
         self.results.m += np.flip(m)
@@ -557,31 +613,31 @@ class DeprecatedInverseDielectricConstant(AnalysisBase):
         self.results.volume += ts_volume
 
     def _conclude(self):
-        self.results.m /= (self.n_frames * 2)
-        self.results.mM /= (self.n_frames * 2)
+        self.results.m /= self.n_frames * 2
+        self.results.mM /= self.n_frames * 2
         self.results.M /= self.n_frames
         self.results.M2 /= self.n_frames
         self.results.volume /= self.n_frames
 
         x_fluct = self.results.mM - self.results.m * self.results.M
         M_fluct = self.results.M2 - self.results.M * self.results.M
-        self.results.inveps = 1 - x_fluct / (self.const +
-                                             M_fluct / self.results.volume)
+        self.results.inveps = 1 - x_fluct / (self.const + M_fluct / self.results.volume)
 
         self.results.bins = self.bins
         self.results.temperature = self.temperature
 
 
-class DeprecatedAdInverseDielectricConstant(DeprecatedInverseDielectricConstant
-                                            ):
-    def __init__(self,
-                 atomgroups,
-                 bin_edges,
-                 surf_ids,
-                 cutoff=2.7,
-                 sfactor=2,
-                 calc_unscaled=False,
-                 **kwargs) -> None:
+class DeprecatedAdInverseDielectricConstant(DeprecatedInverseDielectricConstant):
+    def __init__(
+        self,
+        atomgroups,
+        bin_edges,
+        surf_ids,
+        cutoff=2.7,
+        sfactor=2,
+        calc_unscaled=False,
+        **kwargs
+    ) -> None:
         super().__init__(atomgroups, bin_edges, surf_ids, **kwargs)
         self.cutoff = cutoff
         self.sfactor = sfactor
@@ -591,16 +647,15 @@ class DeprecatedAdInverseDielectricConstant(DeprecatedInverseDielectricConstant
         super()._prepare()
         self.results.m_scaled = np.zeros((self.nbins))
         self.results.mM_scaled = np.zeros((self.nbins))
-        self.results.M_scaled = 0.
-        self.results.M2_scaled = 0.
+        self.results.M_scaled = 0.0
+        self.results.M2_scaled = 0.0
 
     def _single_frame(self):
         if self.make_whole:
             self.atoms.unwrap()
 
         ave_axis = np.delete(np.arange(3), self.axis)
-        ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[
-            ave_axis[1]]
+        ts_area = self._ts.dimensions[ave_axis[0]] * self._ts.dimensions[ave_axis[1]]
 
         # get refs
         z = self._ts.positions[:, self.axis]
@@ -609,29 +664,28 @@ class DeprecatedAdInverseDielectricConstant(DeprecatedInverseDielectricConstant
         z_lo = np.min([_z_lo, _z_hi])
         z_hi = np.max([_z_lo, _z_hi])
         # print(z_lo, z_hi)
-        bin_edges = np.linspace(z_lo, z_hi,
-                                int((z_hi - z_lo) / self.bin_width) + 1)
-        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
+        bin_edges = np.linspace(z_lo, z_hi, int((z_hi - z_lo) / self.bin_width) + 1)
+        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.0
         ts_volume = ts_area * (z_hi - z_lo - 2 * self.img_plane)
         self.results.volume += ts_volume
 
         if self.calc_unscaled:
             # unscaled charges
             # charge density [e/A^3]
-            rho, bin_edges = np.histogram(self.atoms.positions[:, 2],
-                                          bins=bin_edges,
-                                          weights=self.atoms.charges)
+            rho, bin_edges = np.histogram(
+                self.atoms.positions[:, 2], bins=bin_edges, weights=self.atoms.charges
+            )
             bin_volumes = np.diff(bin_edges) * ts_area
             rho /= bin_volumes
             _m = -integrate.cumulative_trapezoid(rho, bins, initial=0)
             # M
             M = np.sum(_m * bin_volumes)
             self.results.M += M
-            self.results.M2 += (M**2)
+            self.results.M2 += M**2
             # lo surf m
             m = np.interp(self.bins + z_lo, bins, _m)
             self.results.m += m
-            self.results.mM += (m * M)
+            self.results.mM += m * M
             # hi surf m
             m = np.interp(np.sort(z_hi - self.bins), bins, _m)
             self.results.m += np.flip(m)
@@ -639,29 +693,28 @@ class DeprecatedAdInverseDielectricConstant(DeprecatedInverseDielectricConstant
 
         # scaled charges
         # scale charges of chemisorbed water
-        atype_mask = (self.universe.atoms.types == "O")
-        z_mask = ((z <= (z_lo + self.cutoff)) | (z >= (z_hi - self.cutoff)))
+        atype_mask = self.universe.atoms.types == "O"
+        z_mask = (z <= (z_lo + self.cutoff)) | (z >= (z_hi - self.cutoff))
         sel_O_ids = np.nonzero(atype_mask * z_mask)[0]
-        sel_ids = np.sort(
-            np.concatenate([sel_O_ids, sel_O_ids + 1, sel_O_ids + 2]))
+        sel_ids = np.sort(np.concatenate([sel_O_ids, sel_O_ids + 1, sel_O_ids + 2]))
         charges = self.atoms.charges.copy()
         charges[sel_ids] *= self.sfactor
 
         # charge density [e/A^3]
-        rho, bin_edges = np.histogram(self.atoms.positions[:, 2],
-                                      bins=bin_edges,
-                                      weights=charges)
+        rho, bin_edges = np.histogram(
+            self.atoms.positions[:, 2], bins=bin_edges, weights=charges
+        )
         bin_volumes = np.diff(bin_edges) * ts_area
         rho /= bin_volumes
         _m = -integrate.cumulative_trapezoid(rho, bins, initial=0)
         # M
         M = np.sum(_m * bin_volumes)
         self.results.M_scaled += M
-        self.results.M2_scaled += (M**2)
+        self.results.M2_scaled += M**2
         # lo surf m
         m = np.interp(self.bins + z_lo, bins, _m)
         self.results.m_scaled += m
-        self.results.mM_scaled += (m * M)
+        self.results.mM_scaled += m * M
         # hi surf m
         m = np.interp(np.sort(z_hi - self.bins), bins, _m)
         self.results.m_scaled += np.flip(m)
@@ -670,12 +723,13 @@ class DeprecatedAdInverseDielectricConstant(DeprecatedInverseDielectricConstant
     def _conclude(self):
         super()._conclude()
 
-        self.results.m_scaled /= (self.n_frames * 2)
-        self.results.mM_scaled /= (self.n_frames * 2)
+        self.results.m_scaled /= self.n_frames * 2
+        self.results.mM_scaled /= self.n_frames * 2
         self.results.M_scaled /= self.n_frames
         self.results.M2_scaled /= self.n_frames
 
         x_fluct = self.results.mM_scaled - self.results.m_scaled * self.results.M_scaled
         M_fluct = self.results.M2_scaled - self.results.M_scaled * self.results.M_scaled
         self.results.inveps_scaled = 1 - x_fluct / (
-            self.const + M_fluct / self.results.volume)
+            self.const + M_fluct / self.results.volume
+        )
