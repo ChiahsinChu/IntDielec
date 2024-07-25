@@ -8,6 +8,8 @@ from MDAnalysis.core.groups import AtomGroup
 from MDAnalysis.exceptions import NoDataError
 from MDAnalysis.lib.distances import capped_distance, minimize_vectors
 
+from .base import ReWeightingOP
+
 from ..exts.toolbox.toolbox.utils import *
 from ..exts.toolbox.toolbox.utils.unit import *
 from ..exts.toolbox.toolbox.utils.utils import calc_water_density
@@ -92,6 +94,49 @@ class WatDensity(AnalysisBase):
         cell = cellpar_to_cell(self._ts.dimensions)
         ts_area = np.linalg.norm(np.cross(cell[ave_axis[0]], cell[ave_axis[1]]))
         return ts_area
+
+
+class ReWeightingWatDensity(WatDensity, ReWeightingOP):
+    def __init__(self, 
+                 universe, 
+                 bin_edges, 
+                 surf_ids, 
+                 sel_water="name O", 
+                 axis: int = 2, 
+                 verbose=False, 
+                 **kwargs):
+        super().__init__(universe, bin_edges, surf_ids, 
+                         sel_water, axis, verbose, **kwargs)
+        
+    def _prepare(self):
+        super()._prepare()
+        self.weights = self.calc_weights()
+    
+    def _single_frame(self):
+        # get refs
+        z = self._ts.positions[:, self.axis]
+        z_ave = [np.mean(z[self.surf_ids[0]]), np.mean(z[self.surf_ids[1]])]
+        z_lo = np.min(z_ave)
+        z_hi = np.max(z_ave)
+        
+        raw_z = self.water.positions[:, self.axis]
+
+        bin_edges = np.linspace(
+            0., self._ts.dimensions[self.axis],
+            int(self._ts.dimensions[self.axis] / self.bin_width) + 1)
+        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
+        n_wat, bin_edges = np.histogram(raw_z, bins=bin_edges)
+        bin_volumes = np.diff(bin_edges) * self.cross_area
+        rho = calc_water_density(n_wat, bin_volumes)
+
+        ts_result = np.interp(self.bins + z_lo, bins, rho)
+        ts_result += np.flip(np.interp(np.sort(z_hi - self.bins), bins, rho))
+        ts_result /= 2.
+        weight = self.weights[self._frame_index]
+        self.result += (ts_result * weight)
+        
+    def _conclude(self):
+        self.result /= np.sum(self.weights)
 
 
 class AngularDistribution(AnalysisBase):

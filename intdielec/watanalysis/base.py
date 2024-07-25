@@ -78,3 +78,23 @@ class InterfaceTemperature(SelectedTemperature):
         # print("selection: ", select)
         super().__init__(universe.select_atoms(select, updating=True), u_vels,
                          zero_p, v_format, unit, verbose)
+
+class ReWeightingOP:
+    def __init__(
+        self,
+        temp_in,
+        temp_out,
+        energy_in,
+        energy_out,
+    ) -> None:
+        self.temp_in = temp_in
+        self.temp_out = temp_out
+        self.energy_in = np.array(energy_in) - np.mean(energy_in)
+        self.energy_out = np.array(energy_out) - np.mean(energy_out)
+        
+    def calc_weights(self):
+        beta_in = 1. / (self.temp_in * constants.physical_constants["Boltzmann constant in eV/K"][0])
+        beta_out = 1. / (self.temp_out * constants.physical_constants["Boltzmann constant in eV/K"][0])
+        exp_values = beta_in * self.energy_in - beta_out * self.energy_out
+        weights = np.exp(exp_values)
+        return weights
