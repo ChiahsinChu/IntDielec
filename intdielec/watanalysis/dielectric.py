@@ -450,10 +450,11 @@ class DeepWannierGaussianInverseDielectricConstant(
         )
 
         coeff = constants.physical_constants["Bohr radius"][0] / constants.angstrom
+        wc_spread = 1.885748409412253 # data from pure water DFT (+-4e-3)
         g_spread_dict = {
             "O": 0.244554 * coeff,
             "H": 0.200000 * coeff,
-            "X": 0.7371286901859476 * coeff,
+            "X": np.sqrt(wc_spread / 3) * coeff,
         }
         self.g_spread = np.concatenate(
             [
