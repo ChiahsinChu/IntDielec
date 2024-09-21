@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 from ase import io
 
 from intdielec.workflow.elec_eps import IterElecEps
-
 
 work_dir = "."
 atoms = io.read("../data/coord.xyz")

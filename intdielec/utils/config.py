@@ -1,19 +1,17 @@
-import glob
-
+# SPDX-License-Identifier: LGPL-3.0-or-later
 import numpy as np
-from ase import io
 
 
 def check_water(atoms, H_ids=None, O_ids=None, OH_cutoff=1.3):
     """
     Parameters
     ----------
-    atoms: ASE Atoms object
+    atoms : ASE Atoms object
         PBC should be pre-set
-    H_ids/O_ids: list or array
+    H_ids/O_ids : list or array
         indices of H/O in water
-    OH_cutoff: float (1.3)
-        cutoff to define O-H bond 
+    OH_cutoff : float (1.3)
+        cutoff to define O-H bond
     """
     full_type = np.array(atoms.get_chemical_symbols())
     if H_ids is None:

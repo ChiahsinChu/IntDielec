@@ -1,12 +1,12 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 from ase import geometry
 from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.analysis.dielectric import DielectricConstant
 from MDAnalysis.exceptions import NoDataError
 from scipy import constants, integrate
-
-from ..exts.toolbox.toolbox.utils import *
-from ..exts.toolbox.toolbox.utils.math import gaussian_int
-from ..exts.toolbox.toolbox.utils.utils import save_dict
+from toolbox.utils import *
+from toolbox.utils.math import gaussian_int
+from toolbox.utils.utils import save_dict
 
 
 class InverseDielectricConstant(AnalysisBase):
@@ -450,7 +450,7 @@ class DeepWannierGaussianInverseDielectricConstant(
         )
 
         coeff = constants.physical_constants["Bohr radius"][0] / constants.angstrom
-        wc_spread = 1.885748409412253 # data from pure water DFT (+-4e-3)
+        wc_spread = 1.885748409412253  # data from pure water DFT (+-4e-3)
         g_spread_dict = {
             "O": 0.244554 * coeff,
             "H": 0.200000 * coeff,
@@ -570,10 +570,10 @@ class DeepWannierDielectricConstant(DielectricConstant):
         **kwargs,
     ):
         from deepmd.infer import DeepDipole
-        
+
         super().__init__(atomgroups, temperature, make_whole, **kwargs)
         self.universe = atomgroups.universe
-        
+
         self.model = DeepDipole(model)
         self.type_map = self.model.tmap
 
@@ -595,14 +595,14 @@ class DeepWannierDielectricConstant(DielectricConstant):
             self.atomgroup.unwrap()
 
         self.volume += self.atomgroup.universe.trajectory.ts.volume
-        
+
         ion_coords = self.atomgroup.positions
         atomic_dipole = self._dp_eval(ion_coords)
         wannier_coords = ion_coords[self.symbols == "O"] + atomic_dipole
         extended_coords = np.concatenate([ion_coords, wannier_coords], axis=0)
-        
+
         M = np.dot(self.charges, extended_coords)
-        
+
         self.results.M += M
         self.results.M2 += M * M
 

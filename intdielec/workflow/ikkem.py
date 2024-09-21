@@ -1,65 +1,60 @@
-import copy
+# SPDX-License-Identifier: LGPL-3.0-or-later
 import logging
 
-import matplotlib as mpl
 from ase import Atoms
+from toolbox.calculator import CP2KDPDispatcher
+from toolbox.utils import *
+from toolbox.utils.math import *
+from toolbox.utils.unit import *
+from toolbox.utils.utils import save_dict
 
 from .. import plot
-from ..exts.toolbox.toolbox.calculator import CP2KDPDispatcher
-from ..exts.toolbox.toolbox.io.cp2k import (Cp2kCube, Cp2kHartreeCube,
-                                            Cp2kInput, Cp2kOutput, Cp2kPdos)
-from ..exts.toolbox.toolbox.io.template import cp2k_default_input
-from ..exts.toolbox.toolbox.utils import *
-from ..exts.toolbox.toolbox.utils.math import *
-from ..exts.toolbox.toolbox.utils.optimizer import Optimizer
-from ..exts.toolbox.toolbox.utils.unit import *
-from ..exts.toolbox.toolbox.utils.utils import (load_dict, safe_makedirs,
-                                                save_dict, update_dict)
-from ..utils.config import check_water
 from . import Eps
 from .elec_eps import DualIterElecEps as _DualIterElecEps
 
-EPS_VAC = 1.
-EPS_INT = 4.
-EPS_WAT = 2.
+EPS_VAC = 1.0
+EPS_INT = 4.0
+EPS_WAT = 2.0
 
 N_SURF = 16
-L_VAC = 15.
-L_INT = 5.
-L_QM_WAT = 15.
-L_MM_WAT = 10.
-L_WAT_PDOS = 10.
+L_VAC = 15.0
+L_INT = 5.0
+L_QM_WAT = 15.0
+L_MM_WAT = 10.0
+L_WAT_PDOS = 10.0
 MAX_LOOP = 10
 MAX_LOOP_EPS = 10
 SEARCH_CONVERGENCE = 1e-2
 SEARCH_CONVERGENCE_EPS = 5e-3
-SLOPE = 1. / 0.0765
+SLOPE = 1.0 / 0.0765
 
 plot.use_style("pub")
 
 
 class DualIterElecEps(_DualIterElecEps):
-    def __init__(self, atoms: Atoms = None, work_dir: str = None, data_fmt: str = "pkl") -> None:
+    def __init__(
+        self, atoms: Atoms = None, work_dir: str = None, data_fmt: str = "pkl"
+    ) -> None:
         super().__init__(atoms, work_dir, data_fmt)
         self.calculator = CP2KDPDispatcher(work_dir=".")
-    
+
     def _dft_calculate(self, work_dir, ignore_finished_tag=False, backward_files=None):
         if ignore_finished_tag or not os.path.exists(
-            os.path.join(work_dir, "finished_tag")):
+            os.path.join(work_dir, "finished_tag")
+        ):
             task_setup = self.task_setup.copy()
             if backward_files is not None:
                 task_setup["backward_files"] = backward_files
-            self.calculator.run([self.work_subdir],
-                                machine_setup=self.machine_setup,
-                                resources_setup=self.resources_setup,
-                                task_setup=task_setup,
-                                )
+            self.calculator.run(
+                [self.work_subdir],
+                machine_setup=self.machine_setup,
+                resources_setup=self.resources_setup,
+                task_setup=task_setup,
+            )
             with open(os.path.join(work_dir, "finished_tag"), "w") as f:
                 pass
-    
-    def workflow(self,
-                 configs: str = "param.json",
-                 ignore_finished_tag: bool = False):
+
+    def workflow(self, configs: str = "param.json", ignore_finished_tag: bool = False):
         default_command = "mpiexec.hydra cp2k.popt"
         Eps.workflow(self, configs, default_command)
 
@@ -70,19 +65,18 @@ class DualIterElecEps(_DualIterElecEps):
         convergence = self.wf_configs.get("convergence", SEARCH_CONVERGENCE)
         max_loop = self.wf_configs.get("max_loop", MAX_LOOP)
         max_loop_eps = self.wf_configs.get("max_loop_eps", MAX_LOOP_EPS)
-        convergence_eps = self.wf_configs.get("convergence_eps",
-                                              SEARCH_CONVERGENCE_EPS)
+        convergence_eps = self.wf_configs.get("convergence_eps", SEARCH_CONVERGENCE_EPS)
 
         backward_files = [
-            "output", "cp2k-RESTART.wfn", "cp2k-v_hartree-1_0.cube",
+            "output",
+            "cp2k-RESTART.wfn",
+            "cp2k-v_hartree-1_0.cube",
         ]
         # pbc: preset
-        logging.info(
-            "{:=^50}".format(" Start: set up files for PBC calculation "))
+        logging.info("{:=^50}".format(" Start: set up files for PBC calculation "))
         tmp_params = self.wf_configs.get("pbc_preset", {})
         self.pbc_preset(calculate=True, **tmp_params)
-        logging.info(
-            "{:=^50}".format(" End: set up files for PBC calculation "))
+        logging.info("{:=^50}".format(" End: set up files for PBC calculation "))
         # pbc: DFT calculation
         self._dft_calculate(self.work_subdir, ignore_finished_tag, backward_files)
         # pbc: calculate ref water MO
@@ -93,64 +87,70 @@ class DualIterElecEps(_DualIterElecEps):
         data_dict = {}
         for suffix in ["lo", "hi"]:
             self.suffix = suffix
-            self.v_guess = 0.
+            self.v_guess = 0.0
             data_dict[suffix] = {}
             self.search_history = np.array([])
 
             # ref: preset
             backward_files = [
-                "output", "cp2k-RESTART.wfn", "cp2k-v_hartree-1_0.cube",
+                "output",
+                "cp2k-RESTART.wfn",
+                "cp2k-v_hartree-1_0.cube",
             ]
-            logging.info("{:=^50}".format(
-                " Start: set up files for dipole correction "))
+            logging.info(
+                "{:=^50}".format(" Start: set up files for dipole correction ")
+            )
             tmp_params = self.wf_configs.get("ref_preset", {})
             self.ref_preset(calculate=True, **tmp_params)
-            logging.info(
-                "{:=^50}".format(" End: set up files for dipole correction "))
+            logging.info("{:=^50}".format(" End: set up files for dipole correction "))
             # ref: DFT calculation
             self._dft_calculate(self.work_subdir, ignore_finished_tag, backward_files)
             # ref: calculate dipole moment
-            logging.info("{:=^50}".format(" Start: analyse ref_%s data " %
-                                          suffix))
+            logging.info("{:=^50}".format(" Start: analyse ref_%s data " % suffix))
             tmp_params = self.wf_configs.get("ref_calculate", {})
             self.ref_calculate(**tmp_params)
             data_dict[suffix]["v_zero"] = self.v_zero
-            logging.info("{:=^50}".format(" End: analyse ref_%s data " %
-                                          suffix))
+            logging.info("{:=^50}".format(" End: analyse ref_%s data " % suffix))
 
             backward_files = [
-                "output", "cp2k-RESTART.wfn", "cp2k-v_hartree-1_0.cube",
-                "cp2k-TOTAL_DENSITY-1_0.cube", "cp2k-ELECTRON_DENSITY-1_0.cube"
+                "output",
+                "cp2k-RESTART.wfn",
+                "cp2k-v_hartree-1_0.cube",
+                "cp2k-TOTAL_DENSITY-1_0.cube",
+                "cp2k-ELECTRON_DENSITY-1_0.cube",
             ]
             search_flag = False
             for n_loop in range(max_loop):
                 # search
-                logging.info("{:=^50}".format(" Start: search_%s.%06d " %
-                                              (suffix, n_loop)))
+                logging.info(
+                    "{:=^50}".format(" Start: search_%s.%06d " % (suffix, n_loop))
+                )
                 tmp_params = self.wf_configs.get("search_preset", {})
                 self.search_preset(n_iter=n_loop, calculate=True, **tmp_params)
                 # search: DFT calculation
-                self._dft_calculate(self.work_subdir, ignore_finished_tag, backward_files)
+                self._dft_calculate(
+                    self.work_subdir, ignore_finished_tag, backward_files
+                )
                 self.search_calculate()
-                logging.info("{:=^50}".format(" End: search_%s.%06d " %
-                                              (suffix, n_loop)))
+                logging.info(
+                    "{:=^50}".format(" End: search_%s.%06d " % (suffix, n_loop))
+                )
                 np.save(
-                    os.path.join(self.work_dir,
-                                 "search_history_%s.npy" % self.suffix),
-                    self.search_history)
+                    os.path.join(self.work_dir, "search_history_%s.npy" % self.suffix),
+                    self.search_history,
+                )
                 if np.abs(self.convergence) <= convergence:
                     search_flag = True
-                    logging.info("Finish searching in %d step(s)." %
-                                 (n_loop + 1))
+                    logging.info("Finish searching in %d step(s)." % (n_loop + 1))
                     break
             if search_flag:
                 self.v_guess = self.search_history[-1, 0]
             else:
                 self.v_guess = self.search_history[
-                    np.argmin(np.abs(self.search_history[:, 1])), 0]
+                    np.argmin(np.abs(self.search_history[:, 1])), 0
+                ]
                 logging.warn("Hartree potential does not converge.")
-            
-            
+
             logging.info("{:=^50}".format(" Start: eps calculation "))
             # eps_cal: preset
             preset_params = self.wf_configs.get("preset", {})
@@ -160,55 +160,54 @@ class DualIterElecEps(_DualIterElecEps):
             # eps_cal: DFT calculation
             for ii, task in enumerate(self.v_tasks):
                 self.work_subdir = os.path.join(self.work_dir, task)
-                logging.info("{:=^50}".format(" Start: task_%s.%06d " %
-                                              (suffix, ii)))
-                self._dft_calculate(self.work_subdir, ignore_finished_tag, backward_files)
-                logging.info("{:=^50}".format(" End: task_%s.%06d " %
-                                              (suffix, ii)))
+                logging.info("{:=^50}".format(" Start: task_%s.%06d " % (suffix, ii)))
+                self._dft_calculate(
+                    self.work_subdir, ignore_finished_tag, backward_files
+                )
+                logging.info("{:=^50}".format(" End: task_%s.%06d " % (suffix, ii)))
             self.calculate(**calculate_params)
 
             search_flag = False
             for n_loop in range(max_loop_eps):
-                if np.abs(self.convergence
-                          ) <= convergence_eps:
+                if np.abs(self.convergence) <= convergence_eps:
                     search_flag = True
-                    logging.info("Finish searching in %d step(s)." %
-                                 (n_loop + 1))
+                    logging.info("Finish searching in %d step(s)." % (n_loop + 1))
                     break
-                logging.info("{:=^50}".format(" Start: task_%s.%06d " %
-                                              (suffix, n_loop)))
-                self.search_eps_preset(n_iter=n_loop,
-                                       calculate=True,
-                                       **preset_params)
-                self._dft_calculate(self.work_subdir, ignore_finished_tag, backward_files)
+                logging.info(
+                    "{:=^50}".format(" Start: task_%s.%06d " % (suffix, n_loop))
+                )
+                self.search_eps_preset(n_iter=n_loop, calculate=True, **preset_params)
+                self._dft_calculate(
+                    self.work_subdir, ignore_finished_tag, backward_files
+                )
                 self.calculate(**calculate_params)
-                logging.info("{:=^50}".format(" End: task_%s.%06d " %
-                                              (suffix, n_loop)))
+                logging.info("{:=^50}".format(" End: task_%s.%06d " % (suffix, n_loop)))
             if not search_flag:
                 logging.warn("Inverse eps does not converge.")
                 with open(
-                        os.path.join(self.work_dir,
-                                     "warning_tag_%s" % self.suffix),
-                        'w') as f:
+                    os.path.join(self.work_dir, "warning_tag_%s" % self.suffix), "w"
+                ) as f:
                     pass
 
             data_dict[suffix]["v_cor"] = self.search_history[-1][0]
             data_dict[suffix]["z_ave"] = self.info["z_ave"]
             data_dict[suffix]["v_seq"] = [
-                self.v_seq[-1] - 2 * self.step, self.v_seq[-1] - self.step,
-                self.v_seq[-1]
+                self.v_seq[-1] - 2 * self.step,
+                self.v_seq[-1] - self.step,
+                self.v_seq[-1],
             ]
             data_dict[suffix]["efield"] = (
-                np.array(data_dict[suffix]["v_seq"]) /
-                self.atoms.cell[2][2]).tolist()
+                np.array(data_dict[suffix]["v_seq"]) / self.atoms.cell[2][2]
+            ).tolist()
             logging.info("{:=^50}".format(" End: eps calculation "))
 
         data_dict["pbc"] = {
             "z_lo": self.pbc_info["z_lo"],
-            "z_hi": self.pbc_info["z_hi"]
+            "z_hi": self.pbc_info["z_hi"],
         }
         save_dict(data_dict, os.path.join(self.work_dir, "task_info.json"))
         self.make_plots()
+
 
 # class ElecEps(Eps):
 #     def __init__(
@@ -219,7 +218,7 @@ class DualIterElecEps(_DualIterElecEps):
 #     ) -> None:
 #         super().__init__(work_dir, data_fmt)
 #         self.calculator = CP2KDPDispatcher(work_dir=work_dir)
-        
+
 #         if atoms is None:
 #             atoms = io.read(os.path.join(work_dir, "pbc/coord.xyz"))
 #         self.atoms = atoms
@@ -229,10 +228,10 @@ class DualIterElecEps(_DualIterElecEps):
 #         self._setup("pbc")
 
 #         self.v_ref = 0.
-    
+
 #     def set_v_zero(self, v_zero: float):
 #         self.v_zero = v_zero
-        
+
 #     def pbc_preset(self, fp_params={}, dname="pbc", calculate=False, **kwargs):
 #         kwargs.update({"dip_cor": False, "hartree": True})
 
@@ -245,7 +244,7 @@ class DualIterElecEps(_DualIterElecEps):
 #         cp2k_inp.write(output_dir=dname, fp_params=fp_params, save_dict=calculate)
 
 #         self.work_subdir = dname
-    
+
 #     def pbc_calculate(self):
 #         # n_wat = self.pbc_info["n_wat"]
 #         # z_wat = self.pbc_atoms.get_positions()[self.pbc_info["O_mask"], 2]
@@ -264,12 +263,12 @@ class DualIterElecEps(_DualIterElecEps):
 #         pbc_hartree = cube.get_ave_cube()
 #         cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output"))
 #         self.pbc_hartree = [pbc_hartree[0], pbc_hartree[1] - cp2k_out.fermi]
-    
+
 #     def ref_preset(self, fp_params={}, calculate=False, **kwargs):
 #         self.work_subdir = os.path.join(self.work_dir, "ref_%s" % self.suffix)
 #         self.atoms = self._make_config(self.l_qm_wat)
 #         self._setup("ref_%s" % self.suffix)
-        
+
 #         update_d = {
 #             "dip_cor": True,
 #             "hartree": True,
@@ -314,7 +313,7 @@ class DualIterElecEps(_DualIterElecEps):
 
 #         #     np.save(os.path.join(self.work_subdir, "data.npy"),
 #         #             [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
-        
+
 #         # self.v_seq = [self._guess()]
 
 #     def search_preset(self, n_iter, fp_params={}, calculate=False, **kwargs):
@@ -361,7 +360,7 @@ class DualIterElecEps(_DualIterElecEps):
 #                     [z_wat[sort_ids], cbm[sort_ids], vbm[sort_ids]])
 
 #         self.v_seq = [self._guess()]
-                
+
 #     def preset(self,
 #                pos_dielec,
 #                fp_params={},
@@ -470,7 +469,7 @@ class DualIterElecEps(_DualIterElecEps):
 #     def calculate(self, pos_vac, save_fname="eps_data", **kwargs):
 #         """
 #         If v does not exist or overwrite is True, then read the data
-#         - sigma 
+#         - sigma
 #             - [x] v
 #             - [x] hartree
 #             - [x] rho
@@ -1110,8 +1109,8 @@ class DualIterElecEps(_DualIterElecEps):
 #             self.v_guess = self.convergence * self.guess_slope
 #         else:
 #             opt = Optimizer(guess_method)
-#             self.v_guess = opt.run(x=self.search_history[:, 0], 
-#                                    y=self.search_history[:, 1], 
+#             self.v_guess = opt.run(x=self.search_history[:, 0],
+#                                    y=self.search_history[:, 1],
 #                                    **guess_setup)
 
 
@@ -1538,10 +1537,10 @@ class DualIterElecEps(_DualIterElecEps):
 #             self.v_guess = self.convergence * self.guess_slope
 #         else:
 #             opt = Optimizer(guess_method)
-#             self.v_guess = opt.run(x=self.search_history[:, 0], 
-#                                    y=self.search_history[:, 1], 
+#             self.v_guess = opt.run(x=self.search_history[:, 0],
+#                                    y=self.search_history[:, 1],
 #                                    **guess_setup)
-            
+
 #         return self.v_guess
 
 
@@ -1667,4 +1666,3 @@ class DualIterElecEps(_DualIterElecEps):
 #             }
 #         }
 #         return update_d
-

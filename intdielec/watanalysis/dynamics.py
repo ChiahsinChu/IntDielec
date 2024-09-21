@@ -1,8 +1,13 @@
-import numpy as np
-from MDAnalysis.analysis.waterdynamics import (MeanSquareDisplacement,
-                                               SurvivalProbability,
-                                               WaterOrientationalRelaxation)
+# SPDX-License-Identifier: LGPL-3.0-or-later
 import logging
+
+import numpy as np
+from MDAnalysis.analysis.waterdynamics import (
+    MeanSquareDisplacement,
+    SurvivalProbability,
+    WaterOrientationalRelaxation,
+)
+
 from ..utils.mda import make_selection
 
 
@@ -34,8 +39,7 @@ class MSD(MeanSquareDisplacement):
             # here it is the difference with
             # waterdynamics.WaterOrientationalRelaxation
             val_perp += np.square(OVector[self.axis])
-            val_para += (np.dot(OVector, OVector) -
-                         np.square(OVector[self.axis]))
+            val_para += np.dot(OVector, OVector) - np.square(OVector[self.axis])
             # valO += np.dot(OVector, OVector)
             n += 1
 
@@ -58,8 +62,7 @@ class MSD(MeanSquareDisplacement):
         # valOList_para = []
 
         for j in range(totalFrames // dt - 1):
-            a_perp, a_para = self._getOneDeltaPoint(universe, repInd, j,
-                                                    sumsdt, dt)
+            a_perp, a_para = self._getOneDeltaPoint(universe, repInd, j, sumsdt, dt)
             sumDeltaO_perp += a_perp
             sumDeltaO_para += a_para
             # valOList_perp.append(a_perp)
@@ -77,22 +80,22 @@ class MSD(MeanSquareDisplacement):
         # All the selection to an array, this way is faster than selecting
         # later.
         if self.nproc == 1:
-            selection_out = self._selection_serial(self.universe,
-                                                   self.selection)
+            selection_out = self._selection_serial(self.universe, self.selection)
         else:
             # parallel not yet implemented
             # selection = selection_parallel(universe, selection_str, nproc)
-            selection_out = self._selection_serial(self.universe,
-                                                   self.selection)
+            selection_out = self._selection_serial(self.universe, self.selection)
         self.timeseries_perp = []
         self.timeseries_para = []
         for dt in list(range(1, self.dtmax + 1)):
             output_perp, output_para = self._getMeanOnePoint(
-                self.universe, selection_out, dt, self.tf)
+                self.universe, selection_out, dt, self.tf
+            )
             self.timeseries_perp.append(output_perp)
             self.timeseries_para.append(output_para)
         self.timeseries = np.array(self.timeseries_para) + np.array(
-            self.timeseries_perp)
+            self.timeseries_perp
+        )
 
 
 class SP(SurvivalProbability):

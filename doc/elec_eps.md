@@ -147,9 +147,9 @@ from intdielec.workflow.elec_eps import ElecEps
 task = ElecEps(atoms, work_dir="eps_cal")
 task.ref_preset()
 # submit job and wait for calculation finish...
-task.ref_calculate(vac_region=[45, 10.])
+task.ref_calculate(vac_region=[45, 10.0])
 task.set_v_seq(np.arange(-3.5, 3.6, 0.5))
-task.preset(pos_dielec=[5., 55.])
+task.preset(pos_dielec=[5.0, 55.0])
 # submit and wait for calculation finish...
 task.calculate(pos_vac=8.0)
 task.make_plots()

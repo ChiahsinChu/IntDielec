@@ -1,19 +1,17 @@
-from scipy import stats
+# SPDX-License-Identifier: LGPL-3.0-or-later
 from ase.geometry.cell import cellpar_to_cell
-
 from MDAnalysis.analysis.base import AnalysisBase
-from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import \
-    HydrogenBondAnalysis
+from MDAnalysis.analysis.hydrogenbonds.hbond_analysis import HydrogenBondAnalysis
 from MDAnalysis.core.groups import AtomGroup
 from MDAnalysis.exceptions import NoDataError
 from MDAnalysis.lib.distances import capped_distance, minimize_vectors
+from scipy import stats
+from toolbox.utils import *
+from toolbox.utils.unit import *
+from toolbox.utils.utils import calc_water_density
 
-from .base import ReWeightingOP
-
-from ..exts.toolbox.toolbox.utils import *
-from ..exts.toolbox.toolbox.utils.unit import *
-from ..exts.toolbox.toolbox.utils.utils import calc_water_density
 from ..utils.mda import make_selection, make_selection_two
+from .base import ReWeightingOP
 
 
 class WatCoverage(AnalysisBase):
@@ -38,15 +36,16 @@ class WatCoverage(AnalysisBase):
 
 
 class WatDensity(AnalysisBase):
-    def __init__(self,
-                 universe,
-                 bin_edges,
-                 surf_ids,
-                 sel_water="name O",
-                 axis: int = 2,
-                 verbose=False,
-                 **kwargs):
-
+    def __init__(
+        self,
+        universe,
+        bin_edges,
+        surf_ids,
+        sel_water="name O",
+        axis: int = 2,
+        verbose=False,
+        **kwargs,
+    ):
         super().__init__(universe.trajectory, verbose, **kwargs)
         self.universe = universe
         self.water = universe.select_atoms(sel_water)
@@ -66,13 +65,15 @@ class WatDensity(AnalysisBase):
         z_ave = [np.mean(z[self.surf_ids[0]]), np.mean(z[self.surf_ids[1]])]
         z_lo = np.min(z_ave)
         z_hi = np.max(z_ave)
-        
+
         raw_z = self.water.positions[:, self.axis]
 
         bin_edges = np.linspace(
-            0., self._ts.dimensions[self.axis],
-            int(self._ts.dimensions[self.axis] / self.bin_width) + 1)
-        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
+            0.0,
+            self._ts.dimensions[self.axis],
+            int(self._ts.dimensions[self.axis] / self.bin_width) + 1,
+        )
+        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.0
         n_wat, bin_edges = np.histogram(raw_z, bins=bin_edges)
         bin_volumes = np.diff(bin_edges) * self.cross_area
         rho = calc_water_density(n_wat, bin_volumes)
@@ -81,12 +82,12 @@ class WatDensity(AnalysisBase):
         self.result += np.flip(np.interp(np.sort(z_hi - self.bins), bins, rho))
 
     def _conclude(self):
-        self.result /= (self.n_frames * 2)
+        self.result /= self.n_frames * 2
 
     def save(self, fname="water_density.txt"):
-        np.savetxt(fname,
-                   np.transpose([self.bins, self.result]),
-                   header="x[A] rho[g/cm^3]")
+        np.savetxt(
+            fname, np.transpose([self.bins, self.result]), header="x[A] rho[g/cm^3]"
+        )
 
     @property
     def cross_area(self):
@@ -97,56 +98,57 @@ class WatDensity(AnalysisBase):
 
 
 class ReWeightingWatDensity(WatDensity, ReWeightingOP):
-    def __init__(self, 
-                 universe, 
-                 bin_edges, 
-                 surf_ids, 
-                 sel_water="name O", 
-                 axis: int = 2, 
-                 verbose=False, 
-                 **kwargs):
-        super().__init__(universe, bin_edges, surf_ids, 
-                         sel_water, axis, verbose, **kwargs)
-        
+    def __init__(
+        self,
+        universe,
+        bin_edges,
+        surf_ids,
+        sel_water="name O",
+        axis: int = 2,
+        verbose=False,
+        **kwargs,
+    ):
+        super().__init__(
+            universe, bin_edges, surf_ids, sel_water, axis, verbose, **kwargs
+        )
+
     def _prepare(self):
         super()._prepare()
         self.weights = self.calc_weights()
-    
+
     def _single_frame(self):
         # get refs
         z = self._ts.positions[:, self.axis]
         z_ave = [np.mean(z[self.surf_ids[0]]), np.mean(z[self.surf_ids[1]])]
         z_lo = np.min(z_ave)
         z_hi = np.max(z_ave)
-        
+
         raw_z = self.water.positions[:, self.axis]
 
         bin_edges = np.linspace(
-            0., self._ts.dimensions[self.axis],
-            int(self._ts.dimensions[self.axis] / self.bin_width) + 1)
-        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.
+            0.0,
+            self._ts.dimensions[self.axis],
+            int(self._ts.dimensions[self.axis] / self.bin_width) + 1,
+        )
+        bins = (bin_edges[1:] + bin_edges[:-1]) / 2.0
         n_wat, bin_edges = np.histogram(raw_z, bins=bin_edges)
         bin_volumes = np.diff(bin_edges) * self.cross_area
         rho = calc_water_density(n_wat, bin_volumes)
 
         ts_result = np.interp(self.bins + z_lo, bins, rho)
         ts_result += np.flip(np.interp(np.sort(z_hi - self.bins), bins, rho))
-        ts_result /= 2.
+        ts_result /= 2.0
         weight = self.weights[self._frame_index]
-        self.result += (ts_result * weight)
-        
+        self.result += ts_result * weight
+
     def _conclude(self):
         self.result /= np.sum(self.weights)
 
 
 class AngularDistribution(AnalysisBase):
-    def __init__(self,
-                 universe,
-                 nbins=50,
-                 axis: int = 2,
-                 updating=True,
-                 verbose=False,
-                 **kwargs):
+    def __init__(
+        self, universe, nbins=50, axis: int = 2, updating=True, verbose=False, **kwargs
+    ):
         trajectory = universe.trajectory
         super().__init__(trajectory, verbose=verbose)
 
@@ -182,26 +184,23 @@ class AngularDistribution(AnalysisBase):
         thetaHH = np.arccos(self.ts_cosHH) / np.pi * 180
         thetaD = np.arccos(self.ts_cosD) / np.pi * 180
 
-        cos_hist_interval = np.linspace(-1., 1., self.nbins)
-        theta_hist_interval = np.linspace(0., 180., self.nbins)
+        cos_hist_interval = np.linspace(-1.0, 1.0, self.nbins)
+        theta_hist_interval = np.linspace(0.0, 180.0, self.nbins)
 
-        hist_cosOH = np.histogram(self.ts_cosOH,
-                                  cos_hist_interval,
-                                  density=True)
-        hist_cosHH = np.histogram(self.ts_cosHH,
-                                  cos_hist_interval,
-                                  density=True)
+        hist_cosOH = np.histogram(self.ts_cosOH, cos_hist_interval, density=True)
+        hist_cosHH = np.histogram(self.ts_cosHH, cos_hist_interval, density=True)
         hist_cosD = np.histogram(self.ts_cosD, cos_hist_interval, density=True)
         hist_OH = np.histogram(thetaOH, theta_hist_interval, density=True)
         hist_HH = np.histogram(thetaHH, theta_hist_interval, density=True)
         hist_D = np.histogram(thetaD, theta_hist_interval, density=True)
 
-        for label in ['cosOH', 'cosHH', 'cosD', 'OH', 'HH', 'D']:
-            output = locals()['hist_%s' % label]
+        for label in ["cosOH", "cosHH", "cosD", "OH", "HH", "D"]:
+            output = locals()["hist_%s" % label]
             self.results[label] = np.transpose(
                 np.concatenate(
-                    ([output[1][:-1] + (output[1][1] - output[1][0]) / 2],
-                     [output[0]])))
+                    ([output[1][:-1] + (output[1][1] - output[1][0]) / 2], [output[0]])
+                )
+            )
 
     def _getCosTheta(self, ag, axis):
         ts_positions = ag.positions
@@ -209,14 +208,11 @@ class AngularDistribution(AnalysisBase):
         ts_p_H1 = ts_positions[1::3]
         ts_p_H2 = ts_positions[2::3]
 
-        vec_OH_0 = minimize_vectors(vectors=ts_p_H1 - ts_p_O,
-                                    box=self._ts.dimensions)
-        vec_OH_1 = minimize_vectors(vectors=ts_p_H2 - ts_p_O,
-                                    box=self._ts.dimensions)
+        vec_OH_0 = minimize_vectors(vectors=ts_p_H1 - ts_p_O, box=self._ts.dimensions)
+        vec_OH_1 = minimize_vectors(vectors=ts_p_H2 - ts_p_O, box=self._ts.dimensions)
         cosOH = vec_OH_0[:, axis] / np.linalg.norm(vec_OH_0, axis=-1)
         # self.ts_cosOH.extend(cosOH.tolist())
-        cosOH = np.append(
-            cosOH, vec_OH_1[:, axis] / np.linalg.norm(vec_OH_1, axis=-1))
+        cosOH = np.append(cosOH, vec_OH_1[:, axis] / np.linalg.norm(vec_OH_1, axis=-1))
         # self.ts_cosOH.extend(cosOH.tolist())
 
         vec_HH = ts_p_H1 - ts_p_H2
@@ -243,23 +239,33 @@ class AngularDistribution(AnalysisBase):
 
 
 class HBA(HydrogenBondAnalysis):
-    def __init__(self,
-                 universe,
-                 donors_sel=None,
-                 hydrogens_sel=None,
-                 acceptors_sel=None,
-                 between=None,
-                 d_h_cutoff=1.2,
-                 d_a_cutoff=3,
-                 d_h_a_angle_cutoff=150,
-                 update_acceptors=False,
-                 update_donors=False):
+    def __init__(
+        self,
+        universe,
+        donors_sel=None,
+        hydrogens_sel=None,
+        acceptors_sel=None,
+        between=None,
+        d_h_cutoff=1.2,
+        d_a_cutoff=3,
+        d_h_a_angle_cutoff=150,
+        update_acceptors=False,
+        update_donors=False,
+    ):
         self.update_acceptors = update_acceptors
         self.update_donors = update_donors
-        update_selection = (update_donors | update_acceptors)
-        super().__init__(universe, donors_sel, hydrogens_sel, acceptors_sel,
-                         between, d_h_cutoff, d_a_cutoff, d_h_a_angle_cutoff,
-                         update_selection)
+        update_selection = update_donors | update_acceptors
+        super().__init__(
+            universe,
+            donors_sel,
+            hydrogens_sel,
+            acceptors_sel,
+            between,
+            d_h_cutoff,
+            d_a_cutoff,
+            d_h_a_angle_cutoff,
+            update_selection,
+        )
 
     def _prepare(self):
         self.results.hbonds = [[], [], [], [], [], []]
@@ -271,8 +277,9 @@ class HBA(HydrogenBondAnalysis):
             self.hydrogens_sel = self.guess_hydrogens()
 
         # Select atom groups
-        self._acceptors = self.u.select_atoms(self.acceptors_sel,
-                                              updating=self.update_acceptors)
+        self._acceptors = self.u.select_atoms(
+            self.acceptors_sel, updating=self.update_acceptors
+        )
         self._donors, self._hydrogens = self._get_dh_pairs()
 
     def _get_dh_pairs(self):
@@ -290,29 +297,35 @@ class HBA(HydrogenBondAnalysis):
             # We're using u._topology.bonds rather than u.bonds as it is a million times faster to access.
             # This is because u.bonds also calculates properties of each bond (e.g bond length).
             # See https://github.com/MDAnalysis/mdanalysis/issues/2396#issuecomment-596251787
-            if not (hasattr(self.u._topology, 'bonds')
-                    and len(self.u._topology.bonds.values) != 0):
+            if not (
+                hasattr(self.u._topology, "bonds")
+                and len(self.u._topology.bonds.values) != 0
+            ):
                 raise NoDataError(
-                    'Cannot assign donor-hydrogen pairs via topology as no bond information is present. '
-                    'Please either: load a topology file with bond information; use the guess_bonds() '
-                    'topology guesser; or set HydrogenBondAnalysis.donors_sel so that a distance cutoff '
-                    'can be used.')
+                    "Cannot assign donor-hydrogen pairs via topology as no bond information is present. "
+                    "Please either: load a topology file with bond information; use the guess_bonds() "
+                    "topology guesser; or set HydrogenBondAnalysis.donors_sel so that a distance cutoff "
+                    "can be used."
+                )
 
             hydrogens = self.u.select_atoms(self.hydrogens_sel)
-            donors = sum(h.bonded_atoms[0] for h in hydrogens) if hydrogens \
+            donors = (
+                sum(h.bonded_atoms[0] for h in hydrogens)
+                if hydrogens
                 else AtomGroup([], self.u)
+            )
 
         # Otherwise, use d_h_cutoff as a cutoff distance
         else:
             hydrogens = self.u.select_atoms(self.hydrogens_sel)
-            donors = self.u.select_atoms(self.donors_sel,
-                                         updating=self.update_donors)
+            donors = self.u.select_atoms(self.donors_sel, updating=self.update_donors)
             donors_indices, hydrogen_indices = capped_distance(
                 donors.positions,
                 hydrogens.positions,
                 max_cutoff=self.d_h_cutoff,
                 box=self.u.dimensions,
-                return_distances=False).T
+                return_distances=False,
+            ).T
 
             donors = donors[donors_indices]
             hydrogens = hydrogens[hydrogen_indices]
@@ -329,16 +342,12 @@ class Density1DAnalysis(AnalysisBase):
     water_sel: List or Array
         [a, b, c, alpha, beta, gamma]
     dim: int (2)
-        
+
     delta: float (0.1)
         tbc
     """
-    def __init__(self,
-                 universe,
-                 water_sel='name O',
-                 dim=2,
-                 delta=0.1,
-                 mass=18.015):
+
+    def __init__(self, universe, water_sel="name O", dim=2, delta=0.1, mass=18.015):
         super().__init__(universe.trajectory)
         self._cell = universe.dimensions
         self._dim = dim
@@ -349,9 +358,9 @@ class Density1DAnalysis(AnalysisBase):
 
         # check cell
         if self._cell is None:
-            raise AttributeError('Cell parameters should be set.')
+            raise AttributeError("Cell parameters should be set.")
 
-        #parallel value initial
+        # parallel value initial
         self.para = None
         self._para_region = None
 
@@ -359,11 +368,11 @@ class Density1DAnalysis(AnalysisBase):
         # cross area along the selected dimension
         dims = self._cell[:3]
         dims = np.delete(dims, self._dim)
-        self.cross_area = dims[0] * dims[1] * np.sin(
-            self._cell[self._dim + 3] / 180 * np.pi)
+        self.cross_area = (
+            dims[0] * dims[1] * np.sin(self._cell[self._dim + 3] / 180 * np.pi)
+        )
         # placeholder
-        self.all_coords = np.zeros((self.n_frames, self._nwat),
-                                   dtype=np.float32)
+        self.all_coords = np.zeros((self.n_frames, self._nwat), dtype=np.float32)
 
     def _single_frame(self):
         ts_coord = self._ts.positions[self._O_ids].T[self._dim]
@@ -373,19 +382,24 @@ class Density1DAnalysis(AnalysisBase):
         bins = np.arange(0, self._cell[self._dim], self._delta)
         grids, density = self._get_density(self.all_coords, bins)
         self.results = {}
-        self.results['grids'] = grids
-        self.results['density'] = density
+        self.results["grids"] = grids
+        self.results["density"] = density
 
     def _get_density(self, coords, bins):
         density, grids = np.histogram(coords, bins=bins)
         grids = grids[:-1] + self._delta / 2
-        density = (density / constants.Avogadro * self._mass) / (
-            self.cross_area * self._delta *
-            (constants.angstrom / constants.centi)**3) / self.n_frames
+        density = (
+            (density / constants.Avogadro * self._mass)
+            / (
+                self.cross_area
+                * self._delta
+                * (constants.angstrom / constants.centi) ** 3
+            )
+            / self.n_frames
+        )
         return grids, density
 
     def _parallel_init(self, *args, **kwargs):
-
         start = self._para_region.start
         stop = self._para_region.stop
         step = self._para_region.step
@@ -394,7 +408,7 @@ class Density1DAnalysis(AnalysisBase):
 
     def run(self, start=None, stop=None, step=None, verbose=None):
         if verbose == True:
-            print(" ", end='')
+            print(" ", end="")
         super().run(start, stop, step, verbose)
 
         if self.para:
@@ -407,14 +421,17 @@ class Density1DAnalysis(AnalysisBase):
 
     def to_file(self, output_file):
         output = np.concatenate(
-            ([self.results['grids']], [self.results['density']]), axis=0)
+            ([self.results["grids"]], [self.results["density"]]), axis=0
+        )
         output = np.transpose(output)
         if os.path.splitext(output_file)[-1][1:] == "npy":
             np.save(output_file, output)
         else:
             np.savetxt(output_file, output)
 
-    def _para_block_result(self, ):
+    def _para_block_result(
+        self,
+    ):
         return self.results
 
     def _parallel_conclude(self, rawdata):
@@ -428,10 +445,10 @@ class Density1DAnalysis(AnalysisBase):
         self.results = {}
         density = []
         for single_data in rawdata:
-            density.append(single_data['density'])
+            density.append(single_data["density"])
         density = np.mean(density, axis=0)
-        self.results['grids'] = single_data['grids']
-        self.results['density']
+        self.results["grids"] = single_data["grids"]
+        self.results["density"]
         return "FINISH PARA CONCLUDE"
 
 
@@ -439,31 +456,27 @@ class InterfaceWatDensity(Density1DAnalysis):
     """
     TBC
     """
-    def __init__(self,
-                 universe,
-                 water_sel='name O',
-                 dim=2,
-                 delta=0.1,
-                 **kwargs):
+
+    def __init__(self, universe, water_sel="name O", dim=2, delta=0.1, **kwargs):
         super().__init__(universe, water_sel, dim, delta, mass=18.015)
 
-        self._surf_ids = kwargs.get('surf_ids', None)
+        self._surf_ids = kwargs.get("surf_ids", None)
         if self._surf_ids is None:
             # if no surf ids provided
-            slab_sel = kwargs.get('slab_sel', None)
-            self._surf_natoms = kwargs.get('surf_natoms', None)
+            slab_sel = kwargs.get("slab_sel", None)
+            self._surf_natoms = kwargs.get("surf_natoms", None)
             if slab_sel is not None and self._surf_natoms is not None:
                 self._slab_ids = universe.select_atoms(slab_sel).indices
             else:
                 raise AttributeError(
-                    'slab_sel and surf_natoms should be provided in the absence of surf_ids'
+                    "slab_sel and surf_natoms should be provided in the absence of surf_ids"
                 )
 
     def _prepare(self):
         super()._prepare()
         # placeholder for surface coords
         self.surf_coords = np.zeros((self.n_frames, 2), dtype=np.float32)
-        #print(self.surf_ids)
+        # print(self.surf_ids)
 
     def _single_frame(self):
         # save surface coords
@@ -485,9 +498,10 @@ class InterfaceWatDensity(Density1DAnalysis):
 
         grids, density = self._get_density(self.all_coords, bins)
         self.results = {}
-        self.results['grids'] = grids[:len(grids) // 2]
-        self.results['density'] = (density + density[np.arange(
-            len(density) - 1, -1, -1)])[:len(grids) // 2] / 2
+        self.results["grids"] = grids[: len(grids) // 2]
+        self.results["density"] = (
+            density + density[np.arange(len(density) - 1, -1, -1)]
+        )[: len(grids) // 2] / 2
 
     def _parallel_conclude(self, rawdata):
         method_attr = rawdata[-1]
@@ -499,16 +513,16 @@ class InterfaceWatDensity(Density1DAnalysis):
 
         n_grids = 0
         for single_data in rawdata:
-            if n_grids == 0 or len(single_data['grids']) < n_grids:
-                n_grids = len(single_data['grids'])
+            if n_grids == 0 or len(single_data["grids"]) < n_grids:
+                n_grids = len(single_data["grids"])
 
         _density = []
         _grids = []
         for single_data in rawdata:
-            _density.append(single_data['density'][:n_grids])
-            _grids.append(single_data['grids'][:n_grids])
-        self.results['grids'] = np.mean(_grids, axis=0)
-        self.results['density'] = np.mean(_density, axis=0)
+            _density.append(single_data["density"][:n_grids])
+            _grids.append(single_data["grids"][:n_grids])
+        self.results["grids"] = np.mean(_grids, axis=0)
+        self.results["density"] = np.mean(_density, axis=0)
 
         return "FINISH PARA CONCLUDE"
 
@@ -519,6 +533,7 @@ class InterfaceWatDensity(Density1DAnalysis):
         """
         if self._surf_ids is None:
             from ase import Atoms
+
             slab = Atoms("H" + str(len(self._slab_ids)))
             slab.set_cell(self._cell)
             slab.set_pbc(True)
@@ -535,12 +550,11 @@ class InterfaceWatDensity(Density1DAnalysis):
 
             # sort from small coord to large coord
             data = data[data[:, 1].argsort()]
-            upper_slab_ids = data[:self._surf_natoms][:, 0]
+            upper_slab_ids = data[: self._surf_natoms][:, 0]
             upper_slab_ids.sort()
-            lower_slab_ids = data[-self._surf_natoms:][:, 0]
+            lower_slab_ids = data[-self._surf_natoms :][:, 0]
             lower_slab_ids.sort()
-            self._surf_ids = np.array([lower_slab_ids, upper_slab_ids],
-                                      dtype=int)
+            self._surf_ids = np.array([lower_slab_ids, upper_slab_ids], dtype=int)
         return self._surf_ids
 
     def _get_surf_region(self, _coord_lo, _coord_hi):
@@ -553,14 +567,20 @@ class InterfaceWatDensity(Density1DAnalysis):
         # fold all _coord_lo about _coord_lo.min()
         tmp = _coord_lo.min()
         for coord in _coord_lo:
-            coord = coord + np.floor(
-                (tmp - coord) / self._cell[self._dim]) * self._cell[self._dim]
+            coord = (
+                coord
+                + np.floor((tmp - coord) / self._cell[self._dim])
+                * self._cell[self._dim]
+            )
         coord_lo = np.mean(_coord_lo)
         # fold all _coord_hi about _coord_hi.max()
         tmp = _coord_hi.max()
         for coord in _coord_hi:
-            coord = coord + np.floor(
-                (tmp - coord) / self._cell[self._dim]) * self._cell[self._dim]
+            coord = (
+                coord
+                + np.floor((tmp - coord) / self._cell[self._dim])
+                * self._cell[self._dim]
+            )
         coord_hi = np.mean(_coord_hi)
 
         if coord_hi < coord_lo:
@@ -583,31 +603,38 @@ class InterfaceWatOri(InterfaceWatDensity):
     """
     TBC
     """
-    def __init__(self,
-                 universe,
-                 O_sel='name O',
-                 H_sel='name H',
-                 dim=2,
-                 delta=0.1,
-                 OH_cutoff=1.3,
-                 update_pairs=False,
-                 **kwargs):
-        super().__init__(universe,
-                         O_sel,
-                         dim,
-                         delta,
-                         surf_ids=kwargs.get('surf_ids', None),
-                         slab_sel=kwargs.get('slab_sel', None),
-                         surf_natoms=kwargs.get('surf_natoms', None))
+
+    def __init__(
+        self,
+        universe,
+        O_sel="name O",
+        H_sel="name H",
+        dim=2,
+        delta=0.1,
+        OH_cutoff=1.3,
+        update_pairs=False,
+        **kwargs,
+    ):
+        super().__init__(
+            universe,
+            O_sel,
+            dim,
+            delta,
+            surf_ids=kwargs.get("surf_ids", None),
+            slab_sel=kwargs.get("slab_sel", None),
+            surf_natoms=kwargs.get("surf_natoms", None),
+        )
         self._H_ids = universe.select_atoms(H_sel).indices
         if len(self._H_ids) != self._nwat * 2:
-            raise AttributeError('Only pure water has been supported yet.')
+            raise AttributeError("Only pure water has been supported yet.")
         self._update_pairs = update_pairs
-        self.pairs = kwargs.get('pairs', None)
+        self.pairs = kwargs.get("pairs", None)
         self._OH_cutoff = OH_cutoff
         if self.pairs is None:
-            self._get_OH_pairs(self._trajectory[0].positions[self._O_ids],
-                               self._trajectory[0].positions[self._H_ids])
+            self._get_OH_pairs(
+                self._trajectory[0].positions[self._O_ids],
+                self._trajectory[0].positions[self._H_ids],
+            )
 
     def _prepare(self):
         super()._prepare()
@@ -628,10 +655,12 @@ class InterfaceWatOri(InterfaceWatDensity):
         all_oris = np.reshape(self.all_oris, -1)
         bins = np.arange(0, (self._surf_space + self._delta), self._delta)
         water_cos, bin_edges, binnumber = stats.binned_statistic(
-            x=all_coords, values=all_oris, bins=bins)
-        water_cos = (water_cos - water_cos[np.arange(
-            len(water_cos) - 1, -1, -1)])[:len(water_cos) // 2] / 2
-        self.results['ori_dipole'] = water_cos * self.results['density']
+            x=all_coords, values=all_oris, bins=bins
+        )
+        water_cos = (water_cos - water_cos[np.arange(len(water_cos) - 1, -1, -1)])[
+            : len(water_cos) // 2
+        ] / 2
+        self.results["ori_dipole"] = water_cos * self.results["density"]
 
     def _parallel_conclude(self, rawdata):
         method_attr = rawdata[-1]
@@ -643,19 +672,19 @@ class InterfaceWatOri(InterfaceWatDensity):
 
         n_grids = 0
         for single_data in rawdata:
-            if n_grids == 0 or len(single_data['grids']) < n_grids:
-                n_grids = len(single_data['grids'])
+            if n_grids == 0 or len(single_data["grids"]) < n_grids:
+                n_grids = len(single_data["grids"])
 
         _density = []
         _grids = []
         _ori_dipole = []
         for single_data in rawdata:
-            _density.append(single_data['density'][:n_grids])
-            _grids.append(single_data['grids'][:n_grids])
-            _ori_dipole.append(single_data['ori_dipole'][:n_grids])
-        self.results['grids'] = np.mean(_grids, axis=0)
-        self.results['density'] = np.mean(_density, axis=0)
-        self.results['ori_dipole'] = np.mean(_ori_dipole, axis=0)
+            _density.append(single_data["density"][:n_grids])
+            _grids.append(single_data["grids"][:n_grids])
+            _ori_dipole.append(single_data["ori_dipole"][:n_grids])
+        self.results["grids"] = np.mean(_grids, axis=0)
+        self.results["density"] = np.mean(_density, axis=0)
+        self.results["ori_dipole"] = np.mean(_ori_dipole, axis=0)
 
         return "FINISH PARA CONCLUDE"
 
@@ -666,22 +695,26 @@ class InterfaceWatOri(InterfaceWatDensity):
         # get all OH bond vectors
         water_oris = np.zeros((self._nwat))
         OH_vecs = np.zeros((len(self.pairs[0]), 3))
-        minimize_vectors(O_coord[self.pairs[0]],
-                         H_coord[self.pairs[1]],
-                         box=self._cell,
-                         result=OH_vecs)
+        minimize_vectors(
+            O_coord[self.pairs[0]],
+            H_coord[self.pairs[1]],
+            box=self._cell,
+            result=OH_vecs,
+        )
         # get the number of H assigned to each O
         ids, counts = np.unique(self.pairs[0], return_counts=True)
         # calculate the cosine of dipole
         for ii, id, count in zip(np.arange(self._nwat), ids, counts):
-            tmp_vec = np.sum(OH_vecs[id:(id + count)], axis=0)
+            tmp_vec = np.sum(OH_vecs[id : (id + count)], axis=0)
             water_oris[ii] = tmp_vec[self._dim] / np.linalg.norm(tmp_vec)
         return water_oris
 
     def _get_OH_pairs(self, O_coords, H_coords):
-        O_ids, H_ids = capped_distance(O_coords,
-                                       H_coords,
-                                       max_cutoff=self._OH_cutoff,
-                                       box=self._cell,
-                                       return_distances=False).T
+        O_ids, H_ids = capped_distance(
+            O_coords,
+            H_coords,
+            max_cutoff=self._OH_cutoff,
+            box=self._cell,
+            return_distances=False,
+        ).T
         self.pairs = [O_ids, H_ids]

@@ -1,13 +1,13 @@
 {
-    "load_module": [
-        "intel/17.5.239",
-        "mpi/intel/2017.5.239",
-        "gcc/5.5.0",
-        "cp2k/7.1"
-    ],
-    "command": "mpiexec.hydra cp2k_shell.popt",
-    "ref_preset": {},
-    "ref_calculate": {},
-    "preset": {},
-    "calculate": {}
+  "load_module": [
+    "intel/17.5.239",
+    "mpi/intel/2017.5.239",
+    "gcc/5.5.0",
+    "cp2k/7.1"
+  ],
+  "command": "mpiexec.hydra cp2k_shell.popt",
+  "ref_preset": {},
+  "ref_calculate": {},
+  "preset": {},
+  "calculate": {}
 }

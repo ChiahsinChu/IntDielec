@@ -115,7 +115,7 @@
  [a.u.] -> [Hz]                                             6.57968392072181E+15
  [a.u.] -> [1/cm] (wave numbers)                            2.19474631370540E+05
  [a.u./Bohr**2] -> [1/cm]                                   5.14048714338585E+03
- 
+
 
  CELL_TOP| Volume [angstrom^3]:                                      7074.872545
  CELL_TOP| Vector a [angstrom    11.246     0.000     0.000   |a| =    11.246000
@@ -181,7 +181,7 @@
  FUNCTIONAL| ROUTINE=NEW
  FUNCTIONAL| PBE:
  FUNCTIONAL| J.P.Perdew, K.Burke, M.Ernzerhof, Phys. Rev. Letter, vol. 77, n 18,
- FUNCTIONAL|  pp. 3865-3868, (1996){spin unpolarized}                           
+ FUNCTIONAL|  pp. 3865-3868, (1996){spin unpolarized}
  vdW POTENTIAL|                                                   Pair Potential
  vdW POTENTIAL|          DFT-D3 (Version 3.1)
  vdW POTENTIAL|          Potential Form: S. Grimme et al, JCP 132: 154104 (2010)
@@ -1012,7 +1012,7 @@
   POISSON| Dirichlet region    2
   POISSON|     type : axis-aligned planar
   POISSON|     applied potential :  -0.4393E-01  [Eh/e]
-  POISSON| ... Done. 
+  POISSON| ... Done.
   ------------------------------------------------------------------------------
 
   POISSON|   iter        pres error      nabs error        E_hartree    delta E

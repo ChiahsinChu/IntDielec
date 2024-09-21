@@ -1,6 +1,6 @@
-conf.lmp (written by ASE) 
+conf.lmp (written by ASE)
 
-387 	 atoms 
+387 	 atoms
 3  atom types
 194 bonds
 1 bond types
@@ -12,7 +12,7 @@ conf.lmp (written by ASE)
 0.0      35.939999999999998  zlo zhi
 
 
-Atoms 
+Atoms
 
 1 1 1 -0.8476 8.183361 7.445678 8.426225
 2 1 2 0.4238 8.568633 6.523472 8.305676

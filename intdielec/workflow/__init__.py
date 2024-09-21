@@ -1,7 +1,8 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 import logging
 import os
 
-from ..exts.toolbox.toolbox.utils.utils import load_dict, save_dict, safe_makedirs
+from toolbox.utils.utils import load_dict, safe_makedirs, save_dict
 
 
 class Eps:
@@ -25,44 +26,38 @@ class Eps:
         if len(load_module) > 0:
             command = "module load "
             for m in load_module:
-                command += (m + " ")
+                command += m + " "
             command += "&& "
         _command = self.wf_configs.get("command", default_command)
         command += _command
         # command += " && touch finished_tag"
         self.command = command
-        
-        default_machine_setup = {
-            "remote_root": "/public/home/jxzhu/tmp_calc"
-        }
+
+        default_machine_setup = {"remote_root": "/public/home/jxzhu/tmp_calc"}
         user_machine_setup = self.wf_configs.get("machine", {})
         default_machine_setup.update(user_machine_setup)
         self.machine_setup = default_machine_setup
-        
+
         default_resources_setup = {
             "queue_name": "small_s",
             "number_node": 1,
             "cpu_per_node": 64,
             "group_size": 1,
-            "module_list": [
-                "gcc/9.3",
-                "intel/2020.2",
-                "cp2k/2022.1-intel-2020"
-            ],
-            "envs": {
-                "OMP_NUM_THREADS": 1
-            }
+            "module_list": ["gcc/9.3", "intel/2020.2", "cp2k/2022.1-intel-2020"],
+            "envs": {"OMP_NUM_THREADS": 1},
         }
         user_resources_setup = self.wf_configs.get("resources", {})
         default_resources_setup.update(user_resources_setup)
         self.resources_setup = default_resources_setup
-        
+
         default_task_setup = {
             "command": "mpirun cp2k.psmp -i input.inp",
             "backward_files": [
-                "output", "cp2k-RESTART.wfn",
-                "cp2k-TOTAL_DENSITY-1_0.cube", "cp2k-v_hartree-1_0.cube",
-            ]
+                "output",
+                "cp2k-RESTART.wfn",
+                "cp2k-TOTAL_DENSITY-1_0.cube",
+                "cp2k-v_hartree-1_0.cube",
+            ],
         }
         user_task_setup = self.wf_configs.get("task", {})
         default_task_setup.update(user_task_setup)

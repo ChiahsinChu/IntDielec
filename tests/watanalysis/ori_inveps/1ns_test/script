@@ -10,4 +10,3 @@ module load miniconda/3
 source activate gnn
 
 python run.py
-

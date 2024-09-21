@@ -1,8 +1,8 @@
-from ase import io
+# SPDX-License-Identifier: LGPL-3.0-or-later
 import numpy as np
+from ase import io
 
 from intdielec.workflow.elec_eps import ElecEps
-
 
 work_dir = "."
 atoms = io.read("../data/half_coord.xyz")

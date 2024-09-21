@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 import MDAnalysis as mda
 import numpy as np
 
@@ -9,16 +10,20 @@ topo = "interface.psf"
 u = mda.Universe(topo, traj, topology_format="PSF", format="XTC")
 refs = [u.select_atoms("index 291:306"), u.select_atoms("index 371:386")]
 
-task = SelectedDipoleACF(u.select_atoms("name O or name H"),
-                         dts=np.arange(0, 2000, 10),
-                         refs=refs,
-                         cutoff=2.7)
+task = SelectedDipoleACF(
+    u.select_atoms("name O or name H"),
+    dts=np.arange(0, 2000, 10),
+    refs=refs,
+    cutoff=2.7,
+)
 task.run()
 task.save("water_a_acf.txt")
 
-task = SelectedDipoleACF(u.select_atoms("name O or name H"),
-                         dts=np.arange(0, 2000, 10),
-                         refs=refs,
-                         cutoff=4.5)
+task = SelectedDipoleACF(
+    u.select_atoms("name O or name H"),
+    dts=np.arange(0, 2000, 10),
+    refs=refs,
+    cutoff=4.5,
+)
 task.run()
 task.save("water_ab_acf.txt")

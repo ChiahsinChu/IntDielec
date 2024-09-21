@@ -14,4 +14,4 @@ source activate gnn
 module load mkl/latest mpi/latest gcc/9.3.0
 module load cp2k/9.1
 
-python run.py 
+python run.py

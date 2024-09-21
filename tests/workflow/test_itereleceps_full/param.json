@@ -1,18 +1,18 @@
 {
-    "load_module": [],
-    "command": "mpiexec.hydra cp2k.popt input.inp > output.out",
-    "pbc_preset": {
-        "eps_scf": 1e-6
-    },
-    "ref_preset": {
-        "eps_scf": 1e-4
-    },
-    "ref_calculate": {},
-    "search_preset": {
-        "eps_scf": 1e-4
-    },
-    "preset": {
-        "eps_scf": 1e-6
-    },
-    "calculate": {}
+  "load_module": [],
+  "command": "mpiexec.hydra cp2k.popt input.inp > output.out",
+  "pbc_preset": {
+    "eps_scf": 1e-6
+  },
+  "ref_preset": {
+    "eps_scf": 1e-4
+  },
+  "ref_calculate": {},
+  "search_preset": {
+    "eps_scf": 1e-4
+  },
+  "preset": {
+    "eps_scf": 1e-6
+  },
+  "calculate": {}
 }

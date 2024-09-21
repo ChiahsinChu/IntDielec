@@ -1,15 +1,16 @@
+# SPDX-License-Identifier: LGPL-3.0-or-later
 """
 Ref:
 - https://docs.mdanalysis.org/2.3.0/documentation_pages/analysis/waterdynamics.html
 """
+
 from collections import deque
 
 from MDAnalysis.analysis.base import AnalysisBase
 from MDAnalysis.core import AtomGroup
-
-from ..exts.toolbox.toolbox.utils import *
-from ..exts.toolbox.toolbox.utils.math import handle_zero_division
-from ..exts.toolbox.toolbox.utils.utils import save_dict
+from toolbox.utils import *
+from toolbox.utils.math import handle_zero_division
+from toolbox.utils.utils import save_dict
 
 
 class SelectedTimeSeries(AnalysisBase):
@@ -55,7 +56,7 @@ class SelectedTimeSeries(AnalysisBase):
             _score[rest_ids] = -dt
             # print("after:\n", _score)
             # get mask from score
-            output_mask = (_score >= 0)
+            output_mask = _score >= 0
             # update self.count and self.acf
             self._update_output(ii, output_mask)
 
@@ -82,14 +83,16 @@ class SelectedTimeSeries(AnalysisBase):
 
 
 class SelectedDipoleACF(SelectedTimeSeries):
-    def __init__(self,
-                 atomgroup: AtomGroup,
-                 dts=None,
-                 refs=None,
-                 cutoff=None,
-                 axis=2,
-                 verbose=True,
-                 **kwargs):
+    def __init__(
+        self,
+        atomgroup: AtomGroup,
+        dts=None,
+        refs=None,
+        cutoff=None,
+        axis=2,
+        verbose=True,
+        **kwargs,
+    ):
         super().__init__(atomgroup, dts, verbose, **kwargs)
         # update n_sample
         self.n_sample = int(len(self.ag) / 3)
@@ -100,7 +103,7 @@ class SelectedDipoleACF(SelectedTimeSeries):
 
     def _calc_ts_data(self):
         """
-        only for unwrapped, OHH 
+        only for unwrapped, OHH
         """
         ts_positions = self.ag.positions
         ts_p_O = ts_positions[::3]
@@ -118,7 +121,7 @@ class SelectedDipoleACF(SelectedTimeSeries):
             ts_mask = np.full(self.n_sample, False)
             for ref in refs:
                 # n_ref * n_sample
-                _mask = (np.abs(ts_positions - ref) <= self.cutoff)
+                _mask = np.abs(ts_positions - ref) <= self.cutoff
                 # n_sample
                 ts_mask += _mask
             return ts_mask
@@ -132,8 +135,7 @@ class SelectedDipoleACF(SelectedTimeSeries):
         try:
             for jj in np.nonzero(mask)[0]:
                 single_raw_data = self.raw_data[jj]
-                acf += self.lg2(
-                    np.dot(single_raw_data[-1], single_raw_data[-1 - dt]))
+                acf += self.lg2(np.dot(single_raw_data[-1], single_raw_data[-1 - dt]))
             self.count[ii] += np.count_nonzero(mask)
             self.acf[ii] += acf
         except:
@@ -148,14 +150,16 @@ class SelectedDipoleACF(SelectedTimeSeries):
 
 
 class SelectedMSD(SelectedTimeSeries):
-    def __init__(self,
-                 atomgroup: AtomGroup,
-                 dts=None,
-                 refs=None,
-                 cutoff=None,
-                 axis=2,
-                 verbose=True,
-                 **kwargs):
+    def __init__(
+        self,
+        atomgroup: AtomGroup,
+        dts=None,
+        refs=None,
+        cutoff=None,
+        axis=2,
+        verbose=True,
+        **kwargs,
+    ):
         super().__init__(atomgroup, dts, verbose, **kwargs)
 
         self.refs = refs
@@ -173,7 +177,7 @@ class SelectedMSD(SelectedTimeSeries):
             ts_mask = np.full(self.n_sample, False)
             for ref in refs:
                 # n_ref * n_sample
-                _mask = (np.abs(ts_positions - ref) <= self.cutoff)
+                _mask = np.abs(ts_positions - ref) <= self.cutoff
                 # n_sample
                 ts_mask += _mask
             return ts_mask
@@ -187,8 +191,7 @@ class SelectedMSD(SelectedTimeSeries):
         try:
             for jj in np.nonzero(mask)[0]:
                 single_raw_data = self.raw_data[jj]
-                acf += np.square(single_raw_data[-1] -
-                                 single_raw_data[-1 - dt])
+                acf += np.square(single_raw_data[-1] - single_raw_data[-1 - dt])
             self.count[ii] += np.count_nonzero(mask)
             self.acf[ii] += acf
         except:
@@ -199,14 +202,16 @@ class SelectedMSD(SelectedTimeSeries):
 
 
 class ExchangeFreq(SelectedTimeSeries):
-    def __init__(self,
-                 atomgroup: AtomGroup,
-                 dt=None,
-                 refs=None,
-                 cutoff=None,
-                 axis=2,
-                 verbose=True,
-                 **kwargs):
+    def __init__(
+        self,
+        atomgroup: AtomGroup,
+        dt=None,
+        refs=None,
+        cutoff=None,
+        axis=2,
+        verbose=True,
+        **kwargs,
+    ):
         super().__init__(atomgroup, np.reshape(dt, (1)), verbose, **kwargs)
         self.refs = refs
         self.cutoff = cutoff
@@ -219,7 +224,7 @@ class ExchangeFreq(SelectedTimeSeries):
             refs = self._calc_refs()
             for ref in refs:
                 # chemisorbed water
-                _mask = (np.abs(ts_positions - ref) <= self.cutoff)
+                _mask = np.abs(ts_positions - ref) <= self.cutoff
                 ts_data[np.nonzero(_mask)[0]] = -1
         return ts_data
 
