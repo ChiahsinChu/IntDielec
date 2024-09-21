@@ -1,31 +1,20 @@
 # IntDielec
 
-## To do list
-
-- [ ] write class for workflow plotting
-- [ ] NNP validation code used in this work
-
 ## Introduction
 
-This is python package for investigating dielectric constant distribution at metal/water interface. Some analysis classes are written on the basis of [MDAnalysis]() package (v2.3.0).
-Submodule [`toolbox`](https://github.com/ChiahsinChu/toolbox) is used.
+This is python package for investigating dielectric constant distribution at metal/water interface. Some analysis classes are written on the basis of [MDAnalysis](https://github.com/MDAnalysis/mdanalysis/tree/package-2.3.0) package (v2.3.0).
+Custom package [`toolbox`](https://github.com/ChiahsinChu/toolbox) is used.
 
 If you have any question/suggestion, please feel free to reach me via *jiaxinzhu@stu.xmu.edu.cn*.
 
 ## Installation
 
 ```bash
+git clone https://github.com/ChiahsinChu/toolbox.git
+cd toolbox && pip install .
+cd ..
 git clone --recursive https://github.com/ChiahsinChu/IntDielec.git .
-cd IntDielec
-pip install .
-```
-
-If you don't use `--recursive`, you will miss the submodule(s). You can, alternatively, download the submodule(s) in two steps:
-
-```bash
-git clone https://github.com/ChiahsinChu/IntDielec.git .
-cd IntDielec
-git submodule update --init --recursive
+cd IntDielec && pip install .
 ```
 
 ### write user setup in config file

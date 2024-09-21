@@ -155,4 +155,98 @@ task.calculate(pos_vac=8.0)
 task.make_plots()
 ```
 
-methods and keywords... (TBC)
+## Keywords in setup json files
+
+| keyword           | type  | method            | description                                                                     | example                                                                              |
+| ----------------- | ----- | ----------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `load_module`     | List  | all               | module to load                                                                  | `["intel/17.5.239", "mpi/intel/2017.5.239", "gcc/5.5.0", "cp2k/7.1"]`                |
+| `command`         | str   | all               | command to run cp2k                                                             | `mpiexec.hydra cp2k_shell.popt`                                                      |
+| `machine`         | Dict  | all               | machine setup for DPDispatcher                                                  | [here](https://docs.deepmodeling.com/projects/dpdispatcher/en/latest/machine.html)   |
+| `resources`       | Dict  | all               | resources setup for DPDispatcher                                                | [here](https://docs.deepmodeling.com/projects/dpdispatcher/en/latest/resources.html) |
+| `task`            | Dict  | all               | task setup for DPDispatcher                                                     | [here](https://docs.deepmodeling.com/projects/dpdispatcher/en/latest/task.html)      |
+| `ref_preset`      | Dict  | all               | DFT setup for reference calculation (dipole correction)                         | see [below](#dft-setup)                                                              |
+| `ref_calculate`   | Dict  | all               | post-processing setup for reference calculation (dipole correction)             | see [below](#post-processing-setup)                                                  |
+| `preset`          | Dict  | all               | DFT setup for calculation with Dirichlet boundary conditions                    | see [below](#dft-setup)                                                              |
+| `calculate`       | Dict  | all               | post-processing setup for calculation with Dirichlet boundary conditions        | see [below](#post-processing-setup)                                                  |
+| `l_qm_wat`        | float | `IterElecEps`     | length of water for QM calculation                                              | `15.0`                                                                               |
+| `l_wat_hartree`   | float | `IterElecEps`     | length of water layer for Hartree reference                                     | `10.0`                                                                               |
+| `l_vac`           | float | `IterElecEps`     | length of vacuum region                                                         | `20.0`                                                                               |
+| `pbc_preset`      | Dict  | `IterElecEps`     | DFT setup for PBC calculation calculation                                       | see [below](#dft-setup)                                                              |
+| `search_preset`   | Dict  | `IterElecEps`     | DFT setup for searching calculation                                             | see [below](#dft-setup)                                                              |
+| `convergence`     | float | `IterElecEps`     | convergence threshold for Hartree potential                                     | `1e-2`                                                                               |
+| `max_loop`        | int   | `IterElecEps`     | maximum loop number for iterative calculation                                   | `20`                                                                                 |
+| `guess_method`    | str   | `IterElecEps`     | guess method for searching                                                      | `ols_cut`                                                                            |
+| `guess_setup`     | Dict  | `IterElecEps`     | guess setup for searching                                                       | see [below](#guess-setup)                                                            |
+| `l_mm_wat`        | float | `QMMMIterElecEps` | length of water for MM calculation calculation                                  | `10.0`                                                                               |
+| `max_loop_eps`    | int   | `DualIterElecEps` | maximum loop number for iterative calculation of electronic dielectric constant | `20`                                                                                 |
+| `convergence_eps` | float | `DualIterElecEps` | convergence threshold for electronic dielectric constant                        | `5e-3`                                                                               |
+
+### DFT setup
+
+| keyword  | type | method | description                    | example |
+| -------- | ---- | ------ | ------------------------------ | ------- |
+| `dname`  | str  | all    | name of working directory      | `ref`   |
+| `fparam` | Dict | all    | `fparam` for `Cp2kInput.write` |         |
+
+- and other kwargs for `Cp2kInput`
+
+### post-processing setup
+
+| keyword      | type        | method    | description                            | example      |
+| ------------ | ----------- | --------- | -------------------------------------- | ------------ |
+| `vac_region` | List[float] | `ElecEps` | two points to calculate potential drop | `[45, 10.0]` |
+| `pos_vac`    | float       | `ElecEps` | vaccum position for E-field referenc   | `10.0 `      |
+| `save_fname` | str         | `ElecEps` | file name for output data              | `eps_data`   |
+
+### guess setup
+
+If `guess_method` is `ols_cut` (ordinary least squares) or `wls_cut` (weighted least squares), `nstep` is required to specify the number of maximal steps for the guess.
+
+## Output
+
+```bash
+work_dir
+├── eps_data_hi.pkl # data for upper surface
+├── eps_data_lo.pkl # data for lower surface
+├── figures
+│   ├── eps_data_hi.png
+│   └── eps_data_lo.png
+├── pbc # directory for PBC calculation
+├── ref_hi # directory for reference calculation (upper surface)
+├── ref_lo # directory for reference calculation (lower surface)
+├── search_hi.000000 # directory for searching matching Hartree potential
+├── search_hi.000001
+├── ...
+├── search_lo.000000
+├── search_lo.000001
+├── ...
+├── task_lo.000000 # directory for searching converged dielectric profile
+├── task_lo.000001
+├── ...
+├── task_hi.000000
+├── task_hi.000001
+└── ...
+```
+
+Data in `eps_data_*.pkl` can be read as python dictionary `d`:
+
+```python
+print(d.keys())
+# 'v', 'efield', 'v_grid', 'hartree', 'efield_vac', 'rho', 'v_prime', 'rho_pol', 'delta_efield_vac', 'delta_efield', 'v_prime_grid', 'delta_pol', 'inveps', 'lin_test'
+```
+
+- `v`: potential drop set in DBC calculation
+- `efield`: electric profile
+- `v_grid`: grid
+- `hartree`: Hartree potential
+- `efield_vac`: electric profile in vacuum
+- `rho`: charge density profile
+
+- `v_prime`: difference of potential drop
+- `rho_pol`: polarisation charge density profile
+- `delta_efield_vac`: difference of electric profile in vacuum
+- `delta_efield`: difference of electric profile
+- `v_prime_grid`: grid for difference quantity
+- `delta_pol`: difference of polarisation profile
+- `inveps`: inverse dielectric constant
+- `lin_test`: standard deviation of `inveps` for different calculations

@@ -83,3 +83,19 @@ task = IDC(
 task.run()
 task.save()
 ```
+
+## Output
+
+`inveps.pkl` includes the following attributes:
+
+- `temperature`
+- `bins`: grid points for the dielectric constant profile
+- `inveps`: inverse dielectric constant profile
+- `volume`: volume for eps calculation
+- `rho`: charge density profile
+- `z_hi`: average z-coordinate of the upper surface
+- `z_lo`: average z-coordinate of the lower surface
+- `M`: total dipole
+- `M2`: M^2
+- `m`: polarisation profile
+- `mM`

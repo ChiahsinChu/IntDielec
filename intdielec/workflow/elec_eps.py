@@ -26,7 +26,7 @@ L_VAC = 15.0
 L_INT = 5.0
 L_QM_WAT = 15.0
 L_MM_WAT = 10.0
-L_WAT_PDOS = 10.0
+L_WAT_HARTREE = 10.0
 MAX_LOOP = 10
 MAX_LOOP_EPS = 10
 SEARCH_CONVERGENCE = 1e-2
@@ -907,7 +907,7 @@ class IterElecEps(ElecEps):
         Eps.workflow(self, configs, default_command)
 
         self.l_qm_wat = self.wf_configs.get("l_qm_wat", L_QM_WAT)
-        self.l_wat_pdos = self.wf_configs.get("l_wat_pdos", L_WAT_PDOS)
+        self.l_wat_hartree = self.wf_configs.get("l_wat_hartree", L_WAT_HARTREE)
         self.l_vac = self.wf_configs.get("l_vac", L_VAC)
         self.l_mm_wat = self.wf_configs.get("l_mm_wat", L_MM_WAT)
         # self.n_surf = self.wf_configs.get("n_surf", N_SURF)
@@ -1106,7 +1106,7 @@ class IterElecEps(ElecEps):
         except:
             cp2k_out = Cp2kOutput(os.path.join(self.work_subdir, "output.out"))
 
-        grids = np.arange(0, self.l_wat_pdos, 0.1)
+        grids = np.arange(0, self.l_wat_hartree, 0.1)
 
         fp = _test_hartree[1] - cp2k_out.fermi
         xp = _test_hartree[0] - self.info["z_ave"]
@@ -1313,7 +1313,7 @@ class DualIterElecEps(IterElecEps):
         self.new_inveps = self.results[0.0]["inveps"][-1]
         grid = self.results[0.0]["v_prime_grid"]
         mask = (grid > self.info["z_ave"]) & (
-            grid < self.info["z_ave"] + self.l_wat_pdos + 3
+            grid < self.info["z_ave"] + self.l_wat_hartree + 3
         )
         self.convergence = np.abs((self.new_inveps - self.old_inveps)[mask]).mean()
 
@@ -1337,7 +1337,7 @@ class DualIterElecEps(IterElecEps):
         Eps.workflow(self, configs, default_command)
 
         self.l_qm_wat = self.wf_configs.get("l_qm_wat", L_QM_WAT)
-        self.l_wat_pdos = self.wf_configs.get("l_wat_pdos", L_WAT_PDOS)
+        self.l_wat_hartree = self.wf_configs.get("l_wat_hartree", L_WAT_HARTREE)
         self.l_vac = self.wf_configs.get("l_vac", L_VAC)
         self.l_mm_wat = self.wf_configs.get("l_mm_wat", L_MM_WAT)
         convergence = self.wf_configs.get("convergence", SEARCH_CONVERGENCE)
