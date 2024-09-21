@@ -396,11 +396,11 @@ class DeepWannierInverseDielectricConstant(InverseDielectricConstant):
         for ii, _atype in enumerate(self.type_map):
             self.atype[symbols == _atype] = ii
 
-        charges = np.zeros_like(symbols)
+        charges = np.zeros(len(self.atoms))
         charges[symbols == "O"] = 6.0
         charges[symbols == "H"] = 1.0
         self.charges = np.concatenate(
-            [charges, np.full_like((np.count_nonzero(symbols == "O")), -8.0)]
+            [charges, np.full((np.count_nonzero(symbols == "O")), -8.0)]
         )
 
         self.symbols = symbols
