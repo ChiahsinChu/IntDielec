@@ -13,7 +13,7 @@ If you have any question/suggestion, please feel free to reach me via *jiaxinzhu
 git clone https://github.com/ChiahsinChu/toolbox.git
 cd toolbox && pip install .
 cd ..
-git clone --recursive https://github.com/ChiahsinChu/IntDielec.git .
+git clone https://github.com/ChiahsinChu/IntDielec.git .
 cd IntDielec && pip install .
 ```
 
